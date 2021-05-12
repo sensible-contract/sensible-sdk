@@ -3,7 +3,7 @@ const webpack = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 module.exports = {
   mode: "production",
-  entry: "./src/index.js",
+  entry: "./src/index.browser.js",
   plugins: [
     new webpack.ProvidePlugin({
       Buffer: ["buffer", "Buffer"],
