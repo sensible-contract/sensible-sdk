@@ -1,0 +1,32 @@
+{
+  "name": "sensible-sdk",
+  "version": "0.1.0",
+  "description": "Sensible-SDK",
+  "main": "",
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "scripts": {
+    "watch": "node watcher.js",
+    "gen-desc": "node watcher.js --gen-desc",
+    "build": "webpack"
+  },
+  "keywords": [
+    "sCrypt",
+    "testing",
+    "Smart Contract",
+    "bitcoin",
+    "bitcoin-sv",
+    "sensible"
+  ],
+  "author": "sensiblecontract.org",
+  "license": "MIT",
+  "dependencies": {
+    "glob": "^7.1.6",
+    "html-webpack-plugin": "^5.3.1",
+    "lodash": "=4.17.11",
+    "request": "^2.88.2",
+    "scryptlib": "^0.3.10",
+    "watch": "^1.0.2"
+  }
+}

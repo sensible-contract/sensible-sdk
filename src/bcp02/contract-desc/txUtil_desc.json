@@ -1,0 +1,18 @@
+{
+    "version": 3,
+    "compilerVersion": "0.4.3+commit.fc7414b",
+    "contract": "TxUtil",
+    "md5": "0007775d5af8afd35e3d93dd0524c43b",
+    "structs": [],
+    "alias": [],
+    "abi": [
+        {
+            "type": "constructor",
+            "params": []
+        }
+    ],
+    "file": "",
+    "asm": "",
+    "sources": [],
+    "sourceMap": []
+}

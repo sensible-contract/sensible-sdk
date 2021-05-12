@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Example02:bcp02-ft</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="../dist/sensible.browser.min.js"></script>
+    <script>
+      async function sleep(time) {
+        return new Promise((resolve, reject) => {
+          setTimeout(() => {
+            resolve();
+          }, time * 1000);
+        });
+      }
+
+      async function main() {
+        const network = "mainnet";
+        const feeWif = "Kye4F7273jimXpoUrd4x4LUpMRHaGU4JdrStX3bLiWomZ9ztzUAq";
+
+        const CoffeeShop = {
+          wif: "L1Ljq1wKir7oJsTzHRq437JdDkmY9v8exFwm2jzytq7EdzunS71Q",
+          address:
+            network == "mainnet"
+              ? "1FVyetCQrPdjNaG962bqYA5EL6q1JxNET3"
+              : "mv1vwwHPfR4z9gjkobaDN5HZC6RiGva7QJ",
+        };
+
+        const Alice = {
+          wif: "L1trJgTjf8s4gL5yYPWRiwDAXTJMwuC9QMRR98fSH8MF3xrjrQJA",
+          address:
+            network == "mainnet"
+              ? "1KdUnX6RwzoL62iXD5iEs5osQjsGXrm3qf"
+              : "mz9S5aBQm2Eas9C8vegch12CGjTySBb9Qh",
+        };
+        const Bob = {
+          wif: "L1kr4PHhjyDHB3UdG8MBdaxDf4HzmUjygwF8rSTNmZW1q4F8uD3H",
+          address:
+            network == "mainnet"
+              ? "1KmGCZcPBo7A4Q39sBb49X9stkk1gLwKbm"
+              : "mzHDVchMzpYQqWWmakZRySNCkkLiZv73zQ",
+        };
+
+        const ft = new sensible.SensibleFT({
+          network: network,
+          purse: feeWif,
+        });
+
+        let { txid, genesis, codehash } = await ft.genesis({
+          genesisWif: CoffeeShop.wif,
+          tokenName: "COFFEE COIN",
+          tokenSymbol: "CC",
+          decimalNum: 3,
+        });
+        console.log(`genesis success!
+txid: ${txid}
+genesis: ${genesis}
+codehash: ${codehash}`);
+
+        //wait for a moment
+        await sleep(3);
+        {
+          let { txid } = await ft.issue({
+            genesis: genesis,
+            codehash: codehash,
+            genesisWif: CoffeeShop.wif,
+            receiverAddress: CoffeeShop.address,
+            tokenAmount: "1000000000000",
+            allowIncreaseIssues: false,
+          });
+
+          console.log(`issue success: ${txid}`);
+        }
+
+        // {
+        //   let balance = await ft.getBalance({
+        //     codehash,
+        //     genesis,
+        //     address: CoffeeShop.address,
+        //   });
+        //   console.log(`CoffeeShop's Coffee Coin:${balance}`);
+        // }
+
+        await sleep(3);
+        {
+          _res = await ft.transfer({
+            senderWif: CoffeeShop.wif,
+            receivers: [
+              {
+                address: Alice.address,
+                amount: "5000000",
+              },
+              {
+                address: Bob.address,
+                amount: "5000000",
+              },
+            ],
+            codehash: codehash,
+            genesis: genesis,
+          });
+          console.log(`transfer success: ${txid}`);
+        }
+
+        await sleep(3);
+        {
+          _res = await ft.transfer({
+            senderWif: Alice.wif,
+            receivers: [
+              {
+                address: Bob.address,
+                amount: "1000",
+              },
+            ],
+            codehash: codehash,
+            genesis: genesis,
+          });
+          console.log(`transfer success: ${txid}`);
+        }
+
+        {
+          let balance = await ft.getBalance({
+            codehash,
+            genesis,
+            address: Alice.address,
+          });
+          console.log(`Alice's Coffee Coin:${balance} should be 4999000`);
+        }
+      }
+
+      main().catch((e) => console.error(e));
+    </script>
+  </head>
+  <body></body>
+</html>
