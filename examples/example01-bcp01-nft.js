@@ -7,8 +7,8 @@ async function sleep(time) {
   });
 }
 async function main() {
-  const network = "testnet";
-  const feeWif = "Kye4F7273jimXpoUrd4x4LUpMRHaGU4JdrStX3bLiWomZ9ztzUAq";
+  const network = "mainnet";
+  const feeWif = "L4xJ6bLRZ3QXEXZbSbYqQ3nWrMcNdnMPYykyRKjngvEvE3TzmyVp";
 
   const CoffeeShop = {
     wif: "L1Ljq1wKir7oJsTzHRq437JdDkmY9v8exFwm2jzytq7EdzunS71Q",

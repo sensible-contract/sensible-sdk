@@ -83,7 +83,7 @@ codehash: ${codehash}`);
 
         await sleep(3);
         {
-          _res = await ft.transfer({
+          let { txid } = await ft.transfer({
             senderWif: CoffeeShop.wif,
             receivers: [
               {
@@ -103,7 +103,7 @@ codehash: ${codehash}`);
 
         await sleep(3);
         {
-          _res = await ft.transfer({
+          let { txid } = await ft.transfer({
             senderWif: Alice.wif,
             receivers: [
               {
