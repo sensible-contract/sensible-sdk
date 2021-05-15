@@ -9,7 +9,7 @@ async function sleep(time) {
 async function main() {
   const network = "mainnet";
   const feeWif = "L4xJ6bLRZ3QXEXZbSbYqQ3nWrMcNdnMPYykyRKjngvEvE3TzmyVp";
-
+  const feeb = 0.5;
   const CoffeeShop = {
     wif: "L1Ljq1wKir7oJsTzHRq437JdDkmY9v8exFwm2jzytq7EdzunS71Q",
     address:
@@ -36,6 +36,7 @@ async function main() {
   const ft = new SensibleFT({
     network: network,
     purse: feeWif,
+    feeb: feeb,
   });
 
   let { txid, genesis, codehash } = await ft.genesis({
@@ -48,7 +49,6 @@ async function main() {
 txid: ${txid}
 genesis: ${genesis}
 codehash: ${codehash}`);
-
   //wait for a moment
   await sleep(3);
   {
@@ -64,15 +64,15 @@ codehash: ${codehash}`);
     console.log(`issue success: ${txid}`);
   }
 
-  // {
-  //   let balance = await ft.getBalance({
-  //     codehash,
-  //     genesis,
-  //     address: CoffeeShop.address,
-  //   });
-  //   console.log(`CoffeeShop's Coffee Coin:${balance}`);
-  // }
-
+  await sleep(3);
+  {
+    let balance = await ft.getBalance({
+      codehash,
+      genesis,
+      address: CoffeeShop.address,
+    });
+    console.log(`CoffeeShop's Coffee Coin:${balance}`);
+  }
   await sleep(3);
   {
     let { txid } = await ft.transfer({
@@ -108,7 +108,7 @@ codehash: ${codehash}`);
     });
     console.log(`transfer success: ${txid}`);
   }
-
+  await sleep(3);
   {
     let balance = await ft.getBalance({
       codehash,

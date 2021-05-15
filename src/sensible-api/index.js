@@ -92,7 +92,7 @@ class SensibleApi {
       throw { title: "request sensible api failed", url, msg };
     }
 
-    return data.balance;
+    return data.balance + data.pending_balance;
   }
 
   /**

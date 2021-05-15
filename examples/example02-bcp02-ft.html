@@ -72,14 +72,15 @@ codehash: ${codehash}`);
           console.log(`issue success: ${txid}`);
         }
 
-        // {
-        //   let balance = await ft.getBalance({
-        //     codehash,
-        //     genesis,
-        //     address: CoffeeShop.address,
-        //   });
-        //   console.log(`CoffeeShop's Coffee Coin:${balance}`);
-        // }
+        await sleep(3);
+        {
+          let balance = await ft.getBalance({
+            codehash,
+            genesis,
+            address: CoffeeShop.address,
+          });
+          console.log(`CoffeeShop's Coffee Coin:${balance}`);
+        }
 
         await sleep(3);
         {
@@ -116,7 +117,7 @@ codehash: ${codehash}`);
           });
           console.log(`transfer success: ${txid}`);
         }
-
+        await sleep(3);
         {
           let balance = await ft.getBalance({
             codehash,
