@@ -85,28 +85,6 @@ let { txid } = await ft.transfer({
 });
 ```
 
-### Transfer
-
-Transfer from CoffeShop to Alice and Bob
-
-```js
-let { txid } = await ft.transfer({
-  senderWif: CoffeeShop.wif,
-  receivers: [
-    {
-      address: Alice.address,
-      amount: "5000000",
-    },
-    {
-      address: Bob.address,
-      amount: "5000000",
-    },
-  ],
-  codehash: codehash,
-  genesis: genesis,
-});
-```
-
 ### Query Balance
 
 Query token's balance
