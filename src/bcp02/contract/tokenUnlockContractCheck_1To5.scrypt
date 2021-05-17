@@ -1,0 +1,152 @@
+import "util.scrypt";
+import "tokenProto.scrypt";
+import "rabinUtil.scrypt";
+
+// opreturn + inputTokenIndexArray + nSenders(4 bytes) + receiverTokenAmountArray + receiverArray + nReceivers(4 bytes) + tokenCodeHash + tokenID
+contract TokenUnlockContractCheck {
+  int[3] rabinPubKeyArray;
+
+  static const int MAX_INPUT = 1;
+  static const int MAX_OUTPUT = 5;
+    
+  public function unlock(
+    SigHashPreimage txPreimage,
+    bytes tokenScript,
+    bytes prevouts,
+    bytes rabinMsgArray,
+    bytes rabinPaddingArray,
+    bytes rabinSigArray,
+    int[2] rabinPubKeyIndexArray,
+    bytes inputTokenAddressArray,
+    bytes inputTokenAmountArray,
+    int nOutputs,
+    bytes tokenOutputIndexArray,
+    bytes tokenOutputSatoshiArray,
+    bytes otherOutputArray
+  ) {
+
+    require(Tx.checkPreimage(txPreimage));
+
+    require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
+
+    bytes scriptCode = Util.scriptCode(txPreimage);
+    int scriptLen = len(scriptCode);
+    bytes tokenID = scriptCode[scriptLen - TokenProto.TOKEN_ID_LEN: ];
+
+    int tokenScriptLen = len(tokenScript);
+    int pos = TokenProto.TOKEN_ID_LEN + 20;
+    bytes tokenCodeHash = scriptCode[scriptLen - pos: scriptLen - TokenProto.TOKEN_ID_LEN];
+    require(tokenCodeHash == TokenProto.getContractCodeHash(tokenScript, tokenScriptLen));
+    require(tokenID == TokenProto.getTokenID(tokenScript, tokenScriptLen));
+
+    int nReceivers = Util.fromLEUnsigned(scriptCode[scriptLen - pos - 4: scriptLen - pos]);
+    pos += 4;
+
+    bytes receiverArray = scriptCode[scriptLen - pos - nReceivers * TokenProto.TOKEN_ADDRESS_LEN: scriptLen - pos];
+    pos += nReceivers * TokenProto.TOKEN_ADDRESS_LEN;
+
+    bytes receiverTokenAmountArray = scriptCode[scriptLen - pos - nReceivers * TokenProto.TOKEN_AMOUNT_LEN: scriptLen - pos];
+    pos += nReceivers * TokenProto.TOKEN_AMOUNT_LEN; 
+    int nSenders = Util.fromLEUnsigned(scriptCode[scriptLen - pos - 4: scriptLen - pos]);
+    pos += 4;
+    bytes inputTokenIndexArray = scriptCode[scriptLen - pos - 4 * nSenders: scriptLen - pos];
+
+    int i = 0;
+    bool isBurn = true;
+    int sumInputToken = 0;
+    int paddingPos = 0;
+    require(rabinPubKeyIndexArray[0] != rabinPubKeyIndexArray[1]);
+    require(nSenders <= MAX_INPUT);
+    // max support loop num input token
+    loop(MAX_INPUT) {
+      if (i < nSenders) {
+        // verify rabin signature
+        bytes rabinMsg = rabinMsgArray[i * RabinUtil.U4_RABIN_MSG_LEN: (i + 1) * RabinUtil.U4_RABIN_MSG_LEN];
+        int verifyCount = 0;
+        int j = 0;
+        loop(2) {
+          int pubIndex = rabinPubKeyIndexArray[j];
+          int rabinPubKey = this.rabinPubKeyArray[pubIndex];
+          int arrayIndex = i * 2 + j;
+          int rabinSig = Util.fromLEUnsigned(rabinSigArray[arrayIndex * RabinUtil.RABIN_SIG_LEN: (arrayIndex + 1) * RabinUtil.RABIN_SIG_LEN]);
+          int paddingLen = Util.fromLEUnsigned(rabinPaddingArray[paddingPos: paddingPos + RabinUtil.PADDING_SIZE_LEN]);
+          bytes padding = b'';
+          if (paddingLen > 0) {
+            padding = rabinPaddingArray[paddingPos + RabinUtil.PADDING_SIZE_LEN: paddingPos + RabinUtil.PADDING_SIZE_LEN + paddingLen];
+          }
+          paddingPos += RabinUtil.PADDING_SIZE_LEN + paddingLen;
+          int h = RabinUtil.rabinHash(rabinMsg + padding);
+          if ((rabinSig * rabinSig) % rabinPubKey == h % rabinPubKey) {
+            verifyCount += 1;
+          }
+          j += 1;
+        }
+        require(verifyCount == 2);
+
+        PayloadU4Data u4 = RabinUtil.loadPayloadU4(rabinMsg);
+        int inputIndex = Util.fromLEUnsigned(inputTokenIndexArray[i * 4: (i + 1) * 4]);
+        require(u4.outpoint == prevouts[inputIndex * 36: (inputIndex + 1) * 36]);
+
+        bytes address = inputTokenAddressArray[i * 20: (i + 1) * 20];
+        if (address != b'0000000000000000000000000000000000000000') {
+          isBurn = false;
+        }
+        int amount = Util.fromLEUnsigned(inputTokenAmountArray[i * 8: (i + 1) * 8]);
+        bytes lockingScript = TokenProto.getNewTokenScript(tokenScript, tokenScriptLen, address, amount);
+
+        require(hash160(lockingScript) == u4.scriptHash);
+
+        sumInputToken = sumInputToken + amount;
+      }
+      i = i + 1;
+    }
+    
+    // check the outputs
+    bytes outputs = b'';
+    // max support loop num receiver, you can change this num, but will cause the contrac size increase. you can customize your output
+    i = 0;
+    int sumOutputToken = 0;
+    int tokenIndex = 0;
+    int otherOutputIndex = 0;
+    int tokenOutIndex = nOutputs + 1;
+    if (nReceivers > 0) {
+      tokenOutIndex = Util.fromLEUnsigned(tokenOutputIndexArray[0: 4]);
+    }
+    require(nOutputs <= MAX_OUTPUT);
+    loop(MAX_OUTPUT) {
+      if (i < nOutputs) {
+        if (i == tokenOutIndex) {
+          bytes address = receiverArray[tokenIndex * TokenProto.TOKEN_ADDRESS_LEN: (tokenIndex + 1) * TokenProto.TOKEN_ADDRESS_LEN];
+          int tokenAmount = Util.fromLEUnsigned(receiverTokenAmountArray[tokenIndex * TokenProto.TOKEN_AMOUNT_LEN: (tokenIndex + 1) * TokenProto.TOKEN_AMOUNT_LEN]);
+          sumOutputToken += tokenAmount;
+          bytes outputScript = TokenProto.getNewTokenScript(tokenScript, tokenScriptLen, address, tokenAmount);
+          int outputSatoshi = Util.fromLEUnsigned(tokenOutputSatoshiArray[tokenIndex * 8: (tokenIndex + 1) * 8]);
+          bytes output = Util.buildOutput(outputScript, outputSatoshi);
+          outputs += output;
+          tokenIndex += 1;
+          if (tokenIndex < nReceivers) {
+            tokenOutIndex = Util.fromLEUnsigned(tokenOutputIndexArray[tokenIndex * 4: (tokenIndex + 1) * 4]);
+          }
+        } else {
+          int outputLen = Util.fromLEUnsigned(otherOutputArray[otherOutputIndex: otherOutputIndex + 4]);
+          bytes output = otherOutputArray[otherOutputIndex + 4: otherOutputIndex + 4 + outputLen];
+          outputs += output;
+          otherOutputIndex += 4 + outputLen;
+          // check if other output is the same token output
+          bytes scriptCode = TxUtil.getScriptCodeFromOutput(output);
+          if (len(scriptCode) == tokenScriptLen) {
+            require(TokenProto.getTokenID(scriptCode, tokenScriptLen) != tokenID);
+          }
+        }
+      }
+      i = i + 1;
+    }
+    if (isBurn) {
+      require(sumInputToken >= sumOutputToken);
+    } else {
+      require(sumInputToken == sumOutputToken);
+    }
+    bytes hashOutputs = hash256(outputs);
+    require(hashOutputs == Util.hashOutputs(txPreimage));
+  }
+}

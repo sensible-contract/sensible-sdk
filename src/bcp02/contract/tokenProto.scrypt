@@ -1,0 +1,111 @@
+import "util.scrypt";
+import "txUtil.scrypt";
+
+library TokenProto {
+
+  static int OP_TRANSFER = 1;
+  static int OP_UNLOCK_FROM_CONTRACT = 2;
+
+  // flag is sensible
+  static bytes PROTO_FLAG = b'73656e7369626c65';
+  static int PROTO_TYPE = 1;
+  // <type specific data> + <proto header>
+  // <proto header> = <type(4 bytes)> + <'sensible'(8 bytes)>
+  //<token type specific data> = <token_name (20 bytes)> + <token_symbol (10 bytes)> + <is_genesis(1 byte)> + <decimailNum(1 byte)> + <address(20 bytes)> + <token amount(8 bytes)> + <tokenid(20 bytes)>
+  static int TOKEN_ID_LEN = 36;
+  static int TOKEN_AMOUNT_LEN = 8;
+  static int TOKEN_ADDRESS_LEN = 20;
+  static int DECIMAL_NUM_LEN = 1;
+  static int GENESIS_FLAG_LEN = 1;
+  static int TOKEN_SYMBOL_LEN = 10;
+  static int TOKEN_NAME_LEN = 20;
+  static int PROTO_TYPE_LEN = 4;
+  static int PROTO_FLAG_LEN = 8;
+
+  static int TYPE_OFFSET = TokenProto.PROTO_TYPE_LEN + TokenProto.PROTO_FLAG_LEN;
+  static int TOKEN_ID_OFFSET = TokenProto.TOKEN_ID_LEN + TokenProto.TYPE_OFFSET;
+  static int TOKEN_AMOUNT_OFFSET = TokenProto.TOKEN_ID_OFFSET + TokenProto.TOKEN_AMOUNT_LEN;
+  static int TOKEN_ADDRESS_OFFSET = TokenProto.TOKEN_AMOUNT_OFFSET + TokenProto.TOKEN_ADDRESS_LEN;
+  static int DECIMAL_NUM_OFFSET = TokenProto.TOKEN_ADDRESS_OFFSET + TokenProto.DECIMAL_NUM_LEN;
+  static int GENESIS_FLAG_OFFSET = TokenProto.DECIMAL_NUM_OFFSET + TokenProto.GENESIS_FLAG_LEN;
+  static int TOKEN_SYMBOL_OFFSET = TokenProto.GENESIS_FLAG_OFFSET + TokenProto.TOKEN_SYMBOL_LEN;
+  static int TOKEN_NAME_OFFSET = TokenProto.TOKEN_SYMBOL_OFFSET + TokenProto.TOKEN_NAME_LEN;
+  static int DATA_LEN = TokenProto.TOKEN_NAME_OFFSET;
+
+  static function getProtoData(bytes script, int slen): bytes {
+    return script[slen - TokenProto.DATA_LEN: slen];
+  }
+
+  static function getProtoFlag(bytes script, int slen): bytes {
+    return script[slen - TokenProto.PROTO_FLAG_LEN: slen];
+  }
+
+  static function getProtoType(bytes script, int slen): int {
+    return Util.fromLEUnsigned(script[slen - TokenProto.TYPE_OFFSET: slen - TokenProto.TYPE_OFFSET + TokenProto.PROTO_TYPE_LEN]);
+  }
+
+  static function getDecimalNum(bytes script, int slen): int {
+    return Util.fromLEUnsigned(script[slen - TokenProto.DECIMAL_NUM_OFFSET: slen - TokenProto.DECIMAL_NUM_OFFSET + TokenProto.DECIMAL_NUM_LEN]);
+  }
+
+  static function getTokenAddress(bytes script, int slen): bytes {
+    return script[slen - TokenProto.TOKEN_ADDRESS_OFFSET: slen - TokenProto.TOKEN_ADDRESS_OFFSET + TokenProto.TOKEN_ADDRESS_LEN];
+  }
+
+  static function getTokenAmount(bytes script, int slen): int {
+    return Util.fromLEUnsigned(script[slen - TokenProto.TOKEN_AMOUNT_OFFSET: slen - TokenProto.TOKEN_AMOUNT_OFFSET + TokenProto.TOKEN_AMOUNT_LEN]);
+  }
+
+  static function getNewTokenScript(bytes script, int slen, bytes address, int tokenValue): bytes {
+    return script[0: slen - TokenProto.TOKEN_ADDRESS_OFFSET] + address +  Util.toLEUnsigned(tokenValue, 8) + script[slen - TokenProto.TOKEN_ID_OFFSET: slen];
+  }
+
+  static function getTokenID(bytes script, int slen): bytes {
+    return script[slen - TokenProto.TOKEN_ID_OFFSET: slen - TokenProto.TOKEN_ID_OFFSET + TokenProto.TOKEN_ID_LEN];
+  }
+
+  static function getGenesisFlag(bytes script, int slen): int {
+    return Util.fromLEUnsigned(script[slen - TokenProto.GENESIS_FLAG_OFFSET: slen - TokenProto.GENESIS_FLAG_OFFSET + TokenProto.GENESIS_FLAG_LEN]);
+  }
+
+  static function getTokenSymbol(bytes script, int slen): bytes {
+    return script[slen - TokenProto.TOKEN_SYMBOL_OFFSET: slen - TokenProto.TOKEN_SYMBOL_OFFSET + TokenProto.TOKEN_SYMBOL_LEN];
+  }
+
+  static function getTokenName(bytes script, int slen): bytes {
+    return script[slen - TokenProto.TOKEN_NAME_OFFSET: slen - TokenProto.TOKEN_NAME_OFFSET + TokenProto.TOKEN_NAME_LEN];
+  }
+
+  static function checkDataLen(bytes script, int slen): bool {
+    return unpack(script[slen - TokenProto.DATA_LEN - 1: slen - TokenProto.DATA_LEN] + b'00') == TokenProto.DATA_LEN;
+  }
+
+  static function checkOpReturn(bytes script, int slen): bool {
+    return unpack(script[slen - TokenProto.DATA_LEN - 3: slen - TokenProto.DATA_LEN - 2] + b'00') == 0x6a;
+  }
+
+  static function getContractCode(bytes script, int slen): bytes {
+    // opreturn + 0x76 + len + data
+    return script[0: slen - TokenProto.DATA_LEN - 3];
+  }
+
+  static function getContractCodeHash(bytes script, int slen): bytes {
+    return hash160(TokenProto.getContractCode(script, slen));
+  }
+
+  static function genTokenContractFromRawCode(
+    bytes tokenCode,
+    bytes codeHash,
+    bytes tokenName,
+    bytes decimalNum,
+    bytes tokenAddress, 
+    int tokenAmount,
+    bytes tokenID
+    ): bytes {
+    return tokenCode + codeHash + tokenName + b'00' + decimalNum + tokenAddress + Util.toLEUnsigned(tokenAmount, 8) + tokenID + Util.toLEUnsigned(TokenProto.PROTO_TYPE, 4) + TokenProto.PROTO_FLAG;
+  }
+
+  static function getNewGenesisScript(bytes script, int slen, bytes tokenID): bytes {
+    return script[: slen - TokenProto.TOKEN_ID_OFFSET] + tokenID + script[slen - TokenProto.TYPE_OFFSET: ];
+  }
+}

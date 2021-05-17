@@ -1,0 +1,144 @@
+import "tokenProto.scrypt";
+import "util.scrypt";
+import "txUtil.scrypt";
+
+struct PayloadU4Data {
+  bytes outpoint;
+  int satoshis;
+  bytes scriptHash;
+}
+
+struct PayloadU4SpendByData {
+  bytes outpoint;
+  int satoshis;
+  bytes scriptHash;
+  Sha256 byTxId;
+}
+
+library RabinUtil {
+
+  // u4 rabin msg common format:
+  // <txid(32 bytes)> + <outputIndex(4 bytes)> + <outputSatoshi(8 bytes)> + <contractHash(20 bytes)>
+  // rabin sig length
+  static int U4_RABIN_MSG_LEN = 64;
+  // 128 bytes, 1024 bits
+  static int RABIN_SIG_LEN = 128;
+  static int PADDING_SIZE_LEN = 2;
+
+  static function rabinHash(bytes x): int {
+    // expand into 512 bit hash
+    bytes hx = sha256(x);
+    int idx = len(hx) / 2;
+    return unpack(sha256(hx[:idx]) + sha256(hx[idx:]) + b'00');
+  }
+
+  static function verifyMsgThree(int[3] rabinPubKeyArray, bytes rabinMsg, bytes[2] paddingArray, int[2] sigArray, int[2] rabinPubKeyIndexArray): int {
+    int verifyCount = 0;
+    int i = 0;
+    int paddingPos = 0;
+
+    require(rabinPubKeyIndexArray[0] != rabinPubKeyIndexArray[1]);
+    loop(2) {
+      int pubIndex = rabinPubKeyIndexArray[i];
+      int rabinPubKey = rabinPubKeyArray[pubIndex];
+      bytes padding = paddingArray[i];
+      int h = RabinUtil.rabinHash(rabinMsg + padding);
+      int sig = sigArray[i];
+      if ((sig * sig) % rabinPubKey == h % rabinPubKey) {
+          verifyCount = verifyCount + 1;
+      }
+      i = i + 1;
+    }
+    return verifyCount;
+  }
+
+  static function loadPayloadU4(bytes msg) : PayloadU4Data {
+    PayloadU4Data self = {
+      b'',
+      0,
+      b''
+    };
+    self.outpoint = msg[ : 36];
+    self.satoshis = unpack(msg[36 : 44] + b'00');
+    self.scriptHash = msg[44 : ];
+
+    return self;
+  }
+
+  static function loadPayloadU4SpendBy(bytes msg) : PayloadU4SpendByData {
+    PayloadU4SpendByData self = {
+      b'',
+      0,
+      b'',
+      Sha256(b'')
+    };
+
+    self.outpoint = msg[ : 36];
+    self.satoshis = unpack(msg[36 : 44] + b'00');
+    self.scriptHash = msg[44 : 64];
+    self.byTxId = Sha256(msg[64 : ]);
+
+    return self;
+  }
+
+  static function verifySelfMsg(int[3] rabinPubKeyArray, bytes rabinMsg, bytes[2] paddingArray, int[2] sigArray, int[2] rabinPubKeyIndexArray, bytes thisOutpoint, bytes tokenID, bytes script, bytes genesisHash, bytes tokenAddress, int tokenAmount): bool {
+    int verifyCount = RabinUtil.verifyMsgThree(rabinPubKeyArray, rabinMsg, paddingArray, sigArray, rabinPubKeyIndexArray);
+    require(verifyCount == 2);
+
+    PayloadU4SpendByData pl = RabinUtil.loadPayloadU4SpendBy(rabinMsg);
+
+    require(pl.byTxId == thisOutpoint[ : 32]);
+
+    bool matchGenesis = false;
+
+    if (pl.outpoint == tokenID) {
+      matchGenesis = true;
+    } else {
+      if (pl.scriptHash == genesisHash) {
+        matchGenesis = true;
+      } else {
+        bytes newScript = TokenProto.getNewTokenScript(script, len(script), tokenAddress, tokenAmount);
+        if (hash160(newScript) == pl.scriptHash) {
+          matchGenesis = true;
+        }
+      }
+    }
+
+    return matchGenesis;
+  }
+
+  static function verifyOtherInput(
+    int[3] rabinPubKeyArray, 
+    bytes rabinMsg,
+    bytes[2] rabinPaddingArray, 
+    int[2] rabinSigArray,
+    int[2] rabinPubKeyIndexArray,
+    bytes prevouts,
+    int inputIndex,
+    bytes inputScript,
+    PayloadU4Data u4
+    ): bool {
+    int i = 0;
+    int verifyCount = 0;
+    require(rabinPubKeyIndexArray[0] != rabinPubKeyIndexArray[1]);
+    loop(2) {
+      int pubIndex = rabinPubKeyIndexArray[i];
+      int rabinPubKey = rabinPubKeyArray[pubIndex];
+      int rabinSig = rabinSigArray[i];
+      bytes padding = rabinPaddingArray[i];
+      int h = RabinUtil.rabinHash(rabinMsg + padding);
+      if ((rabinSig * rabinSig) % rabinPubKey == h % rabinPubKey) {
+        verifyCount += 1;
+      }
+      i += 1;
+    }
+    require(verifyCount == 2);
+
+    // verify output point
+    bytes outpoint = prevouts[inputIndex * TxUtil.OUTPOINT_LEN: (inputIndex + 1) * TxUtil.OUTPOINT_LEN];
+    require(u4.outpoint == outpoint);
+
+    require(u4.scriptHash == hash160(inputScript));
+    return true;
+  }
+}
