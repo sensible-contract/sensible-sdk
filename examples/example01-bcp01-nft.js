@@ -87,5 +87,11 @@ async function main() {
     });
     console.log(`Alice transfer a coffee card to Bob success: ${txid}`);
   }
+
+  await sleep(3);
+  {
+    let _res = await nft.getSummary(Alice.address);
+    console.log(_res);
+  }
 }
 main().catch((e) => console.error(e));

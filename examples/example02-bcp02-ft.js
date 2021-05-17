@@ -119,5 +119,11 @@ codehash: ${codehash}`);
     });
     console.log(`Alice's Coffee Coin:${balance} should be 4999000`);
   }
+
+  await sleep(3);
+  {
+    let _res = await ft.getSummary(Alice.address);
+    console.log(_res);
+  }
 }
 main().catch((e) => console.error("error:", e));
