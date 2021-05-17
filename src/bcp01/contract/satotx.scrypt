@@ -1,0 +1,85 @@
+import "util.scrypt";
+import "rabin.scrypt";
+
+/*
+* preTxOutpointPayload 包含了前一个Tx花费的某UTXO的相关内容，数据结构如下：
+*
+*     UTXOTxID+Index, value, scriptHash, SpendByTxID
+*
+* 其中:
+* TxID 32 Bytes
+* Index 4 Bytes
+* value 8 Bytes
+*/
+
+contract SatoTx {
+  //配合token使用的标签
+  static bytes disableUtxoInGenesisTx = b'5b73656e73696e672d636f6e74726163742d76312e302e305d';
+
+  /**
+  * 溯源
+  * 查看前一个Tx，是否是GenesisTx；
+  * 或者前一个Tx内，是否有被花费的UTXO的锁定脚本和当前运行的合约锁定脚本一致。
+  */
+  public function verifyGenesis(
+    SigHashPreimage txPreimage,
+    bytes codeWithGenesisPart, 
+    bytes genesisOutpoint, 
+    bytes genesisOutputIdx,
+    int preTxOutpointSig,
+    bytes preTxOutpointPayload,
+    bytes preTxOutpointPadding,
+    bytes preTxOutpointDataPart,
+    int rabinPubKey
+    ) {
+    //分析payload数据
+    int pl_length = len(preTxOutpointPayload);
+    bytes pl_outpoint = preTxOutpointPayload[ : 36];
+    int pl_value = unpack(preTxOutpointPayload[36 : 44]);
+    bytes pl_scriptHash = preTxOutpointPayload[44 : pl_length - 32];
+    bytes pl_byTxId = preTxOutpointPayload[pl_length - 32 : ];
+
+    /* 确保溯源消息超过最短长度 */
+    require(len(pl_scriptHash) > 0);
+
+    // 签名校验溯源消息
+    require(RabinSignature.verifySig(preTxOutpointSig, preTxOutpointPayload, preTxOutpointPadding, rabinPubKey));
+    
+    // 判断溯源信息中的spendByTxId, 必须是当前被花费的UTXO的TxId
+    bytes thisOutpoint = Util.outpoint(txPreimage);
+    require(pl_byTxId == thisOutpoint[ : 32]);
+
+    bool matchGenesis = false;
+
+    /* 检查前一个UTXO，判断是否满足溯源条件之一*/
+    if (pl_outpoint == genesisOutpoint) {
+      /* 如果前一个Tx花费的某UTXO的Outpoint是创世Outpoint */
+
+      require(thisOutpoint[32 : 36] == genesisOutputIdx);
+      /* 并且本Tx花费的UTXO的output index匹配 genesisOutputIdx ，则满足溯源。
+      *
+      * 这样可以限定GenesisTx内，只能创建一个可用合约UTXO。
+      * 避免了GenesisTx内一次创建多个相同的可用issue合约，但同时可能会导致在GenesisTx直接发行的Token无法使用。
+      *
+      * 为了更明确，当前token合约的transfer实现函数溯源检查时已经主动禁用了GenesisTx判断条件。
+      * 调用verifyGenesis的genesisOutpoint参数为'disableUtxoInGenesisTx'。
+      */
+      matchGenesis = true;
+    } else {
+      /* 如果前一个Tx花费的某UTXO的锁定脚本能匹配传入的codeWithGenesisPart，则满足溯源
+      *
+      * 传入的codeWithGenesisPart一定是从本Tx花费的UTXO的锁定脚本中来。
+      */
+      if (pl_scriptHash == hash160(codeWithGenesisPart + preTxOutpointDataPart)) {
+        matchGenesis = true;
+      }
+    }
+    // 溯源检查
+    require(matchGenesis == true);
+  }
+
+}
+
+
+
+

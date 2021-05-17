@@ -1,0 +1,104 @@
+import "util.scrypt";
+import "rabin.scrypt";
+import "satotx.scrypt";
+import "payload_nft.scrypt";
+
+/**
+ * A safty NFT protocol
+ *
+ * 该合约实现了一个UTXO模式的NFT协议，可发行任意多种采用该协议的NFT。
+ * 协议支持NFT发行、所有权转移、和某具体Token协议之间兑换、和bsv兑换等功能。
+ *
+ * 当前合约支持函数如下:
+ *    issue: 发行新的NFT
+ *    transfer: 将NFT所有权转移给他人
+ *
+ * 各个函数详细处理逻辑见各自文档。
+ * 暂约定合约的函数花费utxo和产生utxo时，用箭头符号(->)来区分Tx内的input和output，(->)上为input花费的UTXO数据，下为output产生的UTXO数据。
+ */
+
+contract NFT {
+  int rabinPubKey;
+
+  /**
+   * issue 函数允许发行人按tokenId从0递增发行nft，输出为一个ISSUE，一个TRANSFER
+   *
+   * issue:
+   *   codePart, GenesisPart, issuerPkh, totalSupply , tokenId, ISSUE
+   *    ->
+   *   codePart, GenesisPart, issuerPkh, totalSupply , tokenId+1, ISSUE
+   *   codePart, GenesisPart, ownerPkh, totalSupply , tokenId+1, TRANSFER
+   */
+  public function issue(
+    SigHashPreimage txPreimage,
+    int preTxOutpointSig,
+    bytes preTxOutpointPayload,
+    bytes preTxOutpointPadding,
+    bytes preTxOutpointDataPart,
+    bytes opreturnData,
+    Sig issuerSig, PubKey issuer,
+    bytes metaTxId,
+    Ripemd160 receiverPkh, int satoshiAmount1,
+    Ripemd160 changePkh, int satoshiAmount2) {
+
+    SigHashType sigHashType = SigHash.ANYONECANPAY | SigHash.ALL | SigHash.FORKID;
+    // this ensures the preimage is for the current tx
+    require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
+
+    // read previous locking script
+    bytes lockingScript = Util.scriptCode(txPreimage);
+    PayloadNFT pl = new PayloadNFT(lockingScript);
+
+    // 溯源
+    SatoTx st = new SatoTx();
+    require(st.verifyGenesis(
+        txPreimage,
+        pl.codeWithGenesisPart,
+        pl.genesisOutpoint,
+        pl.genesisOutputIdx,
+        preTxOutpointSig,
+        preTxOutpointPayload,
+        preTxOutpointPadding,
+        preTxOutpointDataPart,
+        this.rabinPubKey
+        ));
+
+    bytes output0 = b'';
+    // 如果需要解锁的是ISSUE脚本
+    if (pl.dataType == PayloadNFT.ISSUE) {
+      int satoshiIssue = Util.value(txPreimage);
+      require(pl.tokenId < pl.totalSupply);
+
+      pl.setTokenId(pl.tokenId+1);
+
+      if (pl.tokenId < pl.totalSupply) {
+        bytes outputScript0 = pl.dump();
+        output0 = Util.buildOutput(outputScript0, satoshiIssue);
+      }
+      pl.setMetaTxId(metaTxId);
+    }
+    //authorize
+    require(hash160(issuer) == pl.ownerPkh);
+    require(checkSig(issuerSig, issuer));
+
+    pl.setOwnerPkh(receiverPkh);
+    pl.setDataType(PayloadNFT.TRANSFER);
+
+    bytes outputScript1 = pl.dump();
+    bytes output1 = Util.buildOutput(outputScript1, satoshiAmount1);
+
+    bytes output_opreturn = b'';
+    if (len(opreturnData) > 0) {
+      output_opreturn = Util.buildOutput(opreturnData, 0);
+    }
+
+    bytes lockingScript2 = Util.buildPublicKeyHashScript(changePkh);
+    bytes output_p2pkh = Util.buildOutput(lockingScript2, satoshiAmount2);
+
+    Sha256 hashOutputs = hash256(output0 + output1 + output_opreturn + output_p2pkh);
+
+    require(hashOutputs == Util.hashOutputs(txPreimage));
+
+  }
+
+}
