@@ -31,8 +31,8 @@ class PayloadNFT {
     this.metaTxId =
       metaTxId || "000000000000000000000000000000000000000000000000000000";
     this.ownerPkh = ownerPkh || Buffer.alloc(20, 0);
-    this.totalSupply = totalSupply || 0n;
-    this.tokenId = tokenId || 0n;
+    this.totalSupply = totalSupply || BigInt(0);
+    this.tokenId = tokenId || BigInt(0);
   }
 
   read(script) {

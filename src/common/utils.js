@@ -71,22 +71,6 @@ function getRandomHex(len) {
   return output;
 }
 
-function sign(value) {
-  if (value > 0n) {
-    return 1n;
-  }
-  if (value < 0n) {
-    return -1n;
-  }
-  return 0n;
-}
-
-function bigIntAbsoluteValue(value) {
-  if (sign(value) === -1n) {
-    return -value;
-  } else return value;
-}
-
 function unlockP2PKHInput(privateKey, tx, inputIndex, sigtype) {
   const sig = new bsv.Transaction.Signature({
     publicKey: privateKey.publicKey,
@@ -149,7 +133,6 @@ module.exports = {
   decimalToHexString,
   hexStringToDecimal,
   hexStringToBigInt,
-  bigIntAbsoluteValue,
   getRandomInt,
   getRandomHex,
   unlockP2PKHInput,

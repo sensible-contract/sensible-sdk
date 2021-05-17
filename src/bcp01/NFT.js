@@ -135,7 +135,7 @@ class NFT {
     pl.read(issuerLockingScript.toBuffer());
     this.nft.setDataPart(this.nftGenesisPart + " " + pl.dump());
 
-    pl.tokenId = pl.tokenId + 1n;
+    pl.tokenId = pl.tokenId + BigInt(1);
 
     let reachTotalSupply = pl.tokenId == pl.totalSupply;
 

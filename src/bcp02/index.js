@@ -550,12 +550,12 @@ class SensibleFT {
     );
 
     let mergeUtxos = [];
-    let mergeTokenAmountSum = 0n;
+    let mergeTokenAmountSum = BigInt(0);
     if (isMerge) {
       mergeUtxos = ftUtxos.slice(0, 20);
       mergeTokenAmountSum = mergeUtxos.reduce(
         (pre, cur) => pre + BigInt(cur.tokenAmount),
-        0n
+        BigInt(0)
       );
       receivers = [
         {
@@ -573,11 +573,11 @@ class SensibleFT {
     //计算输出的总金额
     let outputTokenAmountSum = tokenOutputArray.reduce(
       (pre, cur) => pre + BigInt(cur.tokenAmount),
-      0n
+      BigInt(0)
     );
 
     //token的选择策略
-    let inputTokenAmountSum = 0n;
+    let inputTokenAmountSum = BigInt(0);
     let _ftUtxos = [];
     for (let i = 0; i < ftUtxos.length; i++) {
       let ftUtxo = ftUtxos[i];
@@ -602,7 +602,7 @@ class SensibleFT {
     }
     //找零
     let changeTokenAmount = inputTokenAmountSum - outputTokenAmountSum;
-    if (changeTokenAmount > 0n) {
+    if (changeTokenAmount > BigInt(0)) {
       tokenOutputArray.push({
         address: senderPrivateKey.toAddress(this.network),
         tokenAmount: changeTokenAmount,

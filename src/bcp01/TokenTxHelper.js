@@ -53,7 +53,7 @@ class TokenTxHelper {
     });
     let tx = await nft.makeTxGenesis({
       issuerPk,
-      tokenId: 0n,
+      tokenId: BigInt(0),
       totalSupply,
       opreturnData,
 

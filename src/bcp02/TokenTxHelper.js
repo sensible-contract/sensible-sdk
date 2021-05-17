@@ -208,11 +208,11 @@ class TokenTxHelper {
 
     let inputTokenAmountSum = ftUtxos.reduce(
       (pre, cur) => pre + cur.tokenAmount,
-      0n
+      BigInt(0)
     );
     let outputTokenAmountSum = tokenOutputArray.reduce(
       (pre, cur) => pre + cur.tokenAmount,
-      0n
+      BigInt(0)
     );
 
     let changeTokenAmount = inputTokenAmountSum - outputTokenAmountSum;
@@ -290,11 +290,11 @@ class TokenTxHelper {
 
     let inputTokenAmountSum = ftUtxos.reduce(
       (pre, cur) => pre + cur.tokenAmount,
-      0n
+      BigInt(0)
     );
     let outputTokenAmountSum = tokenOutputArray.reduce(
       (pre, cur) => pre + cur.tokenAmount,
-      0n
+      BigInt(0)
     );
 
     let changeTokenAmount = inputTokenAmountSum - outputTokenAmountSum;
