@@ -31,6 +31,15 @@ class SensibleApi {
    * @param {string} hex
    */
   async broadcast(txHex) {
+    // console.log("metasv!");
+    // let _res = await Net.httpPost(
+    //   "https://apiv2.metasv.com/merchant/broadcast",
+    //   {
+    //     hex: txHex,
+    //   }
+    // );
+    // return _res.txid;
+
     let url = `${this.serverBase}/pushtx`;
     let { code, data, msg } = await Net.httpPost(url, {
       txHex,
@@ -59,7 +68,7 @@ class SensibleApi {
   }
 
   /**
-   * 查询某人持有的某FT的UTXO
+   * 通过FT合约CodeHash+溯源genesis获取某地址的utxo列表
    */
   async getFungbleTokenUnspents(codehash, genesis, address) {
     let url = `${this.serverBase}/ft/utxo/${codehash}/${genesis}/${address}`;
@@ -119,7 +128,7 @@ class SensibleApi {
   }
 
   /**
-   * 查询某人持有的某FT的UTXO
+   * 通过NFT合约CodeHash+溯源genesis获取某地址的utxo列表
    */
   async getNonFungbleTokenUnspents(codehash, genesis, address) {
     let url = `${this.serverBase}/nft/utxo/${codehash}/${genesis}/${address}`;
@@ -183,6 +192,36 @@ class SensibleApi {
       tokenId: data.tokenId,
     };
     return ret;
+  }
+
+  /**
+   * 查询某人持有的FT Token列表。获得每个token的余额
+   */
+  async getFungbleTokenSummary(address) {
+    let url = `${this.serverBase}/ft/summary/${address}`;
+    let _res = await Net.httpGet(url, {});
+    const { code, data, msg } = _res;
+    if (code != 0) {
+      throw { title: "request sensible api failed", url, msg };
+    }
+
+    return data;
+  }
+
+  /**
+   * 查询某人持有的所有NFT Token列表。获得持有的nft数量计数
+   * @param {String} address
+   * @returns
+   */
+  async getNonFungbleTokenSummary(address) {
+    let url = `${this.serverBase}/nft/summary/${address}`;
+    let _res = await Net.httpGet(url, {});
+    const { code, data, msg } = _res;
+    if (code != 0) {
+      throw { title: "request sensible api failed", url, msg };
+    }
+
+    return data;
   }
 }
 

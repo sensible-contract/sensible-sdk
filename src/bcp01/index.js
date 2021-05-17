@@ -322,6 +322,7 @@ class SensibleNFT {
     tokenid,
     senderWif,
     receiverAddress,
+    opreturnData,
     utxos,
     changeAddress,
   }) {
@@ -392,7 +393,7 @@ class SensibleNFT {
 
       senderPrivateKey,
       receiverAddress,
-
+      opreturnData,
       utxos,
       changeAddress,
       utxoPrivateKeys,
@@ -412,6 +413,13 @@ class SensibleNFT {
     }
 
     return { txid: tx.id };
+  }
+
+  /*
+  查询某人持有的所有NFT Token列表。获得持有的nft数量计数
+  */
+  async getSummary(address) {
+    return await this.sensibleApi.getNonFungbleTokenSummary(address);
   }
 }
 

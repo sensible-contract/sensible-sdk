@@ -488,6 +488,7 @@ class SensibleFT {
    * @param {Array} param0.receivers
    * @param {Array=} param0.utxos
    * @param {String=} param0.changeAddress
+   * @param {String=} param0.opreturnData
    * @returns
    */
   async transfer({
@@ -498,6 +499,7 @@ class SensibleFT {
     utxos,
     changeAddress,
     isMerge,
+    opreturnData,
   }) {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
@@ -695,6 +697,7 @@ class SensibleFT {
       ftUtxos,
       routeCheckType,
       routeCheckTx,
+      opreturnData,
 
       utxos,
       changeAddress: toHex(changeAddress0),
@@ -746,6 +749,15 @@ class SensibleFT {
       genesis,
       address
     );
+  }
+
+  /**
+   * 查询某人持有的FT Token列表。获得每个token的余额
+   * @param {String} address
+   * @returns
+   */
+  async getSummary(address) {
+    return await this.sensibleApi.getFungbleTokenSummary(address);
   }
 }
 

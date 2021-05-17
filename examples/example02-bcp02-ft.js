@@ -89,6 +89,7 @@ codehash: ${codehash}`);
       ],
       codehash: codehash,
       genesis: genesis,
+      opreturnData: "Transfer From CoffeeShop to Alice and Bob",
     });
     console.log(`transfer success: ${txid}`);
   }
@@ -105,6 +106,7 @@ codehash: ${codehash}`);
       ],
       codehash: codehash,
       genesis: genesis,
+      opreturnData: "Transfer From Alice To Bob",
     });
     console.log(`transfer success: ${txid}`);
   }

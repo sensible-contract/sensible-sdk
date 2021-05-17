@@ -261,6 +261,7 @@ class TokenTxHelper {
     routeCheckType,
     routeCheckTx,
     signerSelecteds,
+    opreturnData,
 
     utxos,
     utxoPrivateKeys,
@@ -433,6 +434,7 @@ class TokenTxHelper {
       changeAddress,
       utxoPrivateKeys,
       feeb,
+      opreturnData,
     });
     return tx;
   }

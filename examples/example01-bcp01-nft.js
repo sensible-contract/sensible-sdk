@@ -54,6 +54,7 @@ async function main() {
         codehash,
         genesisWif: CoffeeShop.wif,
         receiverAddress: CoffeeShop.address,
+        opreturnData: "mint",
         metaTxId:
           "8424d5efb0c11f574d7f045959bdc233c17804312c9ca1e196cebdae2b2646ea", //dummy
       });
@@ -69,8 +70,22 @@ async function main() {
       codehash: codehash,
       genesis: genesis,
       tokenid: "1",
+      opreturnData: "Transfer from CoffeShop to Alice",
     });
     console.log(`CoffeeShop transfer a coffee card to Alice success: ${txid}`);
+  }
+
+  await sleep(3);
+  {
+    let { txid } = await nft.transfer({
+      senderWif: Alice.wif,
+      receiverAddress: Bob.address,
+      codehash: codehash,
+      genesis: genesis,
+      tokenid: "1",
+      opreturnData: "Transfer from Alice to Bob",
+    });
+    console.log(`Alice transfer a coffee card to Bob success: ${txid}`);
   }
 }
 main().catch((e) => console.error(e));

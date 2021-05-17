@@ -592,6 +592,7 @@ class FungibleToken {
     utxoPrivateKeys,
     changeAddress,
     feeb,
+    opreturnData,
   }) {
     const tx = new bsv.Transaction();
     let senderPk = senderPrivateKey.publicKey;
@@ -719,6 +720,18 @@ class FungibleToken {
       outputSatoshiArray = Buffer.concat([outputSatoshiArray, satoshiBuf]);
     }
 
+    let opreturnScriptHex = "";
+    if (opreturnData) {
+      let script = new bsv.Script.buildSafeDataOut(opreturnData);
+      opreturnScriptHex = script.toHex();
+      tx.addOutput(
+        new bsv.Transaction.Output({
+          script,
+          satoshis: 0,
+        })
+      );
+    }
+
     tx.change(changeAddress);
     //let the fee to be exact in the second round
     for (let c = 0; c < 2; c++) {
@@ -841,7 +854,8 @@ class FungibleToken {
         new Bytes(toHex(inputTokenAmountArray)),
         new Bytes(toHex(outputSatoshiArray)),
         changeSatoshis,
-        new Ripemd160(toHex(changeAddress.hashBuffer))
+        new Ripemd160(toHex(changeAddress.hashBuffer)),
+        new Bytes(opreturnScriptHex)
       );
       let txContext = {
         tx,
