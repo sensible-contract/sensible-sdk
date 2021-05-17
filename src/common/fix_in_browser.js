@@ -13,7 +13,7 @@ if (!Buffer.prototype.readBigUInt64LE) {
     return b1 + (b2 << BigInt(32));
   };
   Buffer.prototype.writeBigUInt64LE = function (num) {
-    let b2 = num >> 32n;
+    let b2 = num >> BigInt(32);
     let b1 = num - (b2 << BigInt(32));
     this.writeUInt32LE(parseInt(b1), 0);
     this.writeUInt32LE(parseInt(b2), 4);
