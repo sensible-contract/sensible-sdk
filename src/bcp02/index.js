@@ -398,12 +398,13 @@ class SensibleFT {
       network: this.network,
       signers: this.signers,
     });
+
+    let txHex = tx.serialize(true);
+    let needFee = (txHex.length / 2) * this.feeb;
+    if (balance < needFee) {
+      throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
+    }
     if (!this.mock) {
-      let txHex = tx.serialize(true);
-      let needFee = (txHex.length / 2) * this.feeb;
-      if (balance < needFee) {
-        throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
-      }
       await this.sensibleApi.broadcast(txHex);
     }
     return { txid: tx.id };
@@ -520,7 +521,7 @@ class SensibleFT {
       const utxoAddress = utxoPrivateKey.toAddress(this.network);
       utxos = await this.sensibleApi.getUnspents(utxoAddress.toString());
       utxos.forEach((utxo) => {
-        utxo.address = toHex(utxoAddress);
+        utxo.address = utxoAddress;
       });
       utxoPrivateKeys = utxos.map((v) => utxoPrivateKey);
     }
@@ -707,14 +708,14 @@ class SensibleFT {
       network: this.network,
       signers: this.signers,
     });
-    if (!this.mock) {
-      let routeCheckTxHex = routeCheckTx.serialize(true);
-      let txHex = tx.serialize(true);
-      let needFee = ((routeCheckTxHex.length + txHex.length) / 2) * this.feeb;
-      if (balance < needFee) {
-        throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
-      }
+    let routeCheckTxHex = routeCheckTx.serialize(true);
+    let txHex = tx.serialize(true);
+    let needFee = ((routeCheckTxHex.length + txHex.length) / 2) * this.feeb;
+    if (balance < needFee) {
+      throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
+    }
 
+    if (!this.mock) {
       await this.sensibleApi.broadcast(routeCheckTxHex);
       await this.sensibleApi.broadcast(txHex);
     }
@@ -758,6 +759,205 @@ class SensibleFT {
    */
   async getSummary(address) {
     return await this.sensibleApi.getFungbleTokenSummary(address);
+  }
+
+  async getGenesisEstimateFee() {
+    return 5000;
+  }
+
+  async getIssueEstimateFee({
+    genesis,
+    codehash,
+    genesisWif,
+    receiverAddress,
+    tokenAmount,
+    allowIncreaseIssues = true,
+  }) {
+    checkParamGenesis(genesis);
+    checkParamCodehash(codehash);
+    checkParamWif(genesisWif, "genesisWif");
+    checkParamAddress(receiverAddress, "receiverAddress");
+
+    const issuerPrivateKey = new bsv.PrivateKey.fromWIF(genesisWif);
+    let { genesisTxId, genesisOutputIndex } = TokenTxHelper.parseGenesis(
+      genesis
+    );
+
+    let spendByTxId;
+    let spendByOutputIndex;
+
+    let issueUtxos = await this.sensibleApi.getFungbleTokenUnspents(
+      codehash,
+      genesis,
+      this.zeroAddress
+    );
+    if (issueUtxos.length > 0) {
+      spendByTxId = issueUtxos[0].txId;
+      spendByOutputIndex = issueUtxos[0].outputIndex;
+    } else {
+      spendByTxId = genesisTxId;
+      spendByOutputIndex = genesisOutputIndex;
+    }
+    if (!spendByTxId) {
+      throw "No valid FungbleTokenUnspents to issue";
+    }
+
+    let spendByTxHex = await this.sensibleApi.getRawTxData(spendByTxId);
+
+    const preTx = new bsv.Transaction(spendByTxHex);
+    let preUtxoTxId = preTx.inputs[0].prevTxId.toString("hex"); //第一个输入必定能够作为前序输入
+    let preUtxoOutputIndex = preTx.inputs[0].outputIndex;
+    let preUtxoTxHex = await this.sensibleApi.getRawTxData(preUtxoTxId);
+
+    //检查余额是否充足
+    let inputSatoshis = Utils.getDustThreshold(SIZE_OF_GENESIS_TOKEN);
+    let outputSatoshis = SIZE_OF_P2PKH * this.feeb * 10;
+    outputSatoshis += (SIZE_OF_GENESIS_TOKEN + SIZE_OF_TOKEN + 277) * this.feeb;
+    outputSatoshis +=
+      SIZE_OF_TOKEN * this.feeb + Utils.getDustThreshold(SIZE_OF_TOKEN);
+    if (allowIncreaseIssues) {
+      outputSatoshis +=
+        SIZE_OF_GENESIS_TOKEN * this.feeb +
+        Utils.getDustThreshold(SIZE_OF_GENESIS_TOKEN);
+    }
+    let estimateSatoshis = outputSatoshis - inputSatoshis;
+    return estimateSatoshis;
+  }
+
+  /**
+   * 提前计算费用
+   * @param {Object} param0
+   * @param {String} param0.genesis
+   * @param {String} param0.codehash
+   * @param {String} param0.senderWif
+   * @param {Array} param0.receivers
+   * @param {String=} param0.opreturnData
+   * @returns
+   */
+  async getTransferEstimateFee({
+    codehash,
+    genesis,
+    senderWif,
+    receivers,
+    opreturnData,
+  }) {
+    checkParamGenesis(genesis);
+    checkParamCodehash(codehash);
+    checkParamWif(senderWif, "senderWif");
+    checkParamReceivers(receivers);
+
+    const senderPrivateKey = new bsv.PrivateKey.fromWIF(senderWif);
+    const senderPublicKey = bsv.PublicKey.fromPrivateKey(senderPrivateKey);
+    const senderAddress = senderPrivateKey.toAddress(this.network);
+
+    //获取token
+    let ftUtxos = await this.fetchFtUtxos(
+      codehash,
+      genesis,
+      senderAddress.toString()
+    );
+
+    //格式化接收者
+    let tokenOutputArray = receivers.map((v) => ({
+      address: bsv.Address.fromString(v.address, this.network),
+      tokenAmount: v.amount,
+    }));
+
+    //计算输出的总金额
+    let outputTokenAmountSum = tokenOutputArray.reduce(
+      (pre, cur) => pre + BigInt(cur.tokenAmount),
+      BigInt(0)
+    );
+
+    //token的选择策略
+    let inputTokenAmountSum = BigInt(0);
+    let _ftUtxos = [];
+    for (let i = 0; i < ftUtxos.length; i++) {
+      let ftUtxo = ftUtxos[i];
+      _ftUtxos.push(ftUtxo);
+      inputTokenAmountSum += BigInt(ftUtxo.tokenAmount);
+      if (i == 9 && inputTokenAmountSum >= outputTokenAmountSum) {
+        //尽量支持到10To10
+        break;
+      }
+      if (inputTokenAmountSum >= outputTokenAmountSum) {
+        break;
+      }
+    }
+
+    if (inputTokenAmountSum < outputTokenAmountSum) {
+      throw `insufficent token.Need ${outputTokenAmountSum} But only ${inputTokenAmountSum}`;
+    }
+    //找零
+    let changeTokenAmount = inputTokenAmountSum - outputTokenAmountSum;
+    if (changeTokenAmount > BigInt(0)) {
+      tokenOutputArray.push({
+        address: senderPrivateKey.toAddress(this.network),
+        tokenAmount: changeTokenAmount,
+      });
+    }
+
+    let routeCheckType;
+    let inputLength = ftUtxos.length;
+    let outputLength = tokenOutputArray.length;
+    let sizeOfRouteCheck = 0;
+    if (inputLength <= 3) {
+      if (outputLength <= 3) {
+        routeCheckType = ROUTE_CHECK_TYPE_3To3;
+        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_3To3;
+      } else if (outputLength <= 100) {
+        routeCheckType = ROUTE_CHECK_TYPE_3To100;
+        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_3To100;
+      } else {
+        throw `unsupport transfer from inputs(${inputLength}) to outputs(${outputLength})`;
+      }
+    } else if (inputLength <= 6) {
+      if (outputLength <= 6) {
+        routeCheckType = ROUTE_CHECK_TYPE_6To6;
+        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_6To6;
+      } else {
+        throw `unsupport transfer from inputs(${inputLength}) to outputs(${outputLength})`;
+      }
+    } else if (inputLength <= 10) {
+      if (outputLength <= 10) {
+        routeCheckType = ROUTE_CHECK_TYPE_10To10;
+        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_10To10;
+      } else {
+        throw `unsupport transfer from inputs(${inputLength}) to outputs(${outputLength})`;
+      }
+    } else if (inputLength <= 20) {
+      if (outputLength <= 3) {
+        routeCheckType = ROUTE_CHECK_TYPE_20To3;
+        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_20To3;
+      } else {
+        throw `unsupport transfer from inputs(${inputLength}) to outputs(${outputLength})`;
+      }
+    } else {
+      throw "Too many token-utxos, should merge them to continue.";
+    }
+
+    let opreturnScriptHex = "";
+    if (opreturnData) {
+      let script = new bsv.Script.buildSafeDataOut(opreturnData);
+      opreturnScriptHex = script.toHex();
+    }
+
+    let estimateSatoshis =
+      sizeOfRouteCheck * this.feeb +
+      Utils.getDustThreshold(sizeOfRouteCheck) +
+      BASE_UTXO_FEE +
+      (sizeOfRouteCheck +
+        SIZE_OF_TOKEN * inputLength +
+        SIZE_OF_TOKEN * inputLength * 2 +
+        SIZE_OF_TOKEN * outputLength +
+        opreturnScriptHex.length / 2) *
+        this.feeb +
+      Utils.getDustThreshold(SIZE_OF_TOKEN) * outputLength -
+      Utils.getDustThreshold(SIZE_OF_TOKEN) * inputLength -
+      Utils.getDustThreshold(sizeOfRouteCheck) +
+      BASE_UTXO_FEE;
+
+    return estimateSatoshis;
   }
 }
 

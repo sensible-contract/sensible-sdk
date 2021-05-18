@@ -421,6 +421,18 @@ class SensibleNFT {
   async getSummary(address) {
     return await this.sensibleApi.getNonFungbleTokenSummary(address);
   }
+
+  async getGenesisEstimateFee() {
+    return 5241;
+  }
+
+  async getIssueEstimateFee() {
+    return 10000;
+  }
+
+  async getTransferEstimateFee() {
+    return 25000;
+  }
 }
 
 module.exports = { SensibleNFT };
