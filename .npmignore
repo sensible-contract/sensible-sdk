@@ -1,0 +1,8 @@
+docs
+.DS_Store
+gulpfile.js 
+tsconfig.json
+.vscode
+tools
+test
+node_modules
