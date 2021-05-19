@@ -241,6 +241,7 @@ export class SensibleFT {
     genesisWif,
     utxos,
     changeAddress,
+    opreturnData,
   }: {
     tokenName: string;
     tokenSymbol: string;
@@ -248,6 +249,7 @@ export class SensibleFT {
     genesisWif: string;
     utxos: any;
     changeAddress: any;
+    opreturnData?: any;
   }) {
     //validate params
     checkParamTokenName(tokenName);
@@ -300,6 +302,7 @@ export class SensibleFT {
       feeb: this.feeb,
       genesisContract,
       utxoPrivateKeys,
+      opreturnData,
     });
 
     //calculate genesis/codehash
@@ -355,6 +358,7 @@ export class SensibleFT {
     allowIncreaseIssues = true,
     utxos,
     changeAddress,
+    opreturnData,
   }: {
     genesis: string;
     codehash: string;
@@ -364,6 +368,7 @@ export class SensibleFT {
     allowIncreaseIssues: boolean;
     utxos: any;
     changeAddress: any;
+    opreturnData: any;
   }) {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
@@ -487,6 +492,7 @@ export class SensibleFT {
       },
       signers: this.signers,
 
+      opreturnData,
       issuerPrivateKey,
       utxoPrivateKeys,
     });
@@ -992,11 +998,11 @@ export class SensibleFT {
    * @param {String} address
    * @returns
    */
-  async getSummary(address) {
+  async getSummary(address: string) {
     return await this.sensibleApi.getFungbleTokenSummary(address);
   }
 
-  async getGenesisEstimateFee() {
+  async getGenesisEstimateFee({ opreturnData }) {
     let p2pkhInputNum = 1;
     let p2pkhOutputNum = 1;
     p2pkhInputNum = 10; //支持10输入的费用
@@ -1008,6 +1014,7 @@ export class SensibleFT {
       p2pkhInputNum * (32 + 4 + 1 + 107 + 4) +
       1 +
       (8 + 3 + sizeOfTokenGenesis) +
+      (opreturnData ? 8 + 3 + opreturnData.toString().length / 2 : 0) +
       p2pkhOutputNum * (8 + 1 + 25) +
       4;
 

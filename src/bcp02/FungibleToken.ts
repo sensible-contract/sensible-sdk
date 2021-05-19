@@ -229,6 +229,7 @@ export class FungibleToken {
     feeb,
     genesisContract,
     utxoPrivateKeys,
+    opreturnData,
   }) {
     const tx = new bsv.Transaction().from(
       utxos.map((utxo) => ({
@@ -246,6 +247,18 @@ export class FungibleToken {
         ),
       })
     );
+
+    let opreturnScriptHex = "";
+    if (opreturnData) {
+      let script = new bsv.Script.buildSafeDataOut(opreturnData);
+      opreturnScriptHex = script.toHex();
+      tx.addOutput(
+        new bsv.Transaction.Output({
+          script,
+          satoshis: 0,
+        })
+      );
+    }
 
     tx.change(changeAddress);
     tx.fee(
@@ -320,6 +333,7 @@ export class FungibleToken {
     genesisTxOutputIndex,
     genesisLockingScript,
 
+    opreturnData,
     utxos,
     changeAddress,
     feeb,
@@ -401,6 +415,18 @@ export class FungibleToken {
         satoshis: tokenContractSatoshis,
       })
     );
+
+    let opreturnScriptHex = "";
+    if (opreturnData) {
+      let script = new bsv.Script.buildSafeDataOut(opreturnData);
+      opreturnScriptHex = script.toHex();
+      tx.addOutput(
+        new bsv.Transaction.Output({
+          script,
+          satoshis: 0,
+        })
+      );
+    }
     tx.change(changeAddress);
 
     const genesisInputIndex = 0;
@@ -473,7 +499,8 @@ export class FungibleToken {
         new Bytes(tokenContract.lockingScript.toHex()),
         tokenContractSatoshis,
         new Ripemd160(toHex(changeAddress.hashBuffer)),
-        changeSatoshis
+        changeSatoshis,
+        new Bytes(opreturnScriptHex)
       );
       let txContext = {
         tx,
