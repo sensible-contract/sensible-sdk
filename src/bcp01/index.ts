@@ -548,6 +548,17 @@ export class SensibleNFT {
     return await this.sensibleApi.getNonFungbleTokenSummary(address);
   }
 
+  /*
+  查询某人持有的某种NFT Token列表。
+  */
+  async getSummaryDetail(codehash: string, genesis: string, address: string) {
+    return await this.sensibleApi.getNonFungbleTokenUnspents(
+      codehash,
+      genesis,
+      address
+    );
+  }
+
   async getGenesisEstimateFee({ opreturnData }) {
     let p2pkhInputNum = 1;
     let p2pkhOutputNum = 1;
