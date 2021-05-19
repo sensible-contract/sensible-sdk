@@ -242,14 +242,16 @@ export class SensibleFT {
     utxos,
     changeAddress,
     opreturnData,
+    noBroadcast = false,
   }: {
     tokenName: string;
     tokenSymbol: string;
     decimalNum: number;
     genesisWif: string;
-    utxos: any;
-    changeAddress: any;
+    utxos?: any;
+    changeAddress?: any;
     opreturnData?: any;
+    noBroadcast?: boolean;
   }) {
     //validate params
     checkParamTokenName(tokenName);
@@ -330,10 +332,10 @@ export class SensibleFT {
       throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
     }
 
-    if (!this.mock) {
+    if (!noBroadcast && !this.mock) {
       await this.sensibleApi.broadcast(txHex);
     }
-    return { tx, txid: tx.id, genesis, codehash };
+    return { txHex, txid: tx.id, genesis, codehash };
   }
 
   /**
@@ -359,6 +361,7 @@ export class SensibleFT {
     utxos,
     changeAddress,
     opreturnData,
+    noBroadcast = false,
   }: {
     genesis: string;
     codehash: string;
@@ -366,9 +369,10 @@ export class SensibleFT {
     receiverAddress: any;
     tokenAmount: string | bigint;
     allowIncreaseIssues: boolean;
-    utxos: any;
-    changeAddress: any;
-    opreturnData: any;
+    utxos?: any;
+    changeAddress?: any;
+    opreturnData?: any;
+    noBroadcast?: boolean;
   }) {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
@@ -502,10 +506,10 @@ export class SensibleFT {
     if (balance < needFee) {
       throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
     }
-    if (!this.mock) {
+    if (!noBroadcast && !this.mock) {
       await this.sensibleApi.broadcast(txHex);
     }
-    return { tx, txid: tx.id };
+    return { txHex, txid: tx.id };
   }
 
   async fetchFtUtxos(codehash, genesis, address) {
@@ -603,6 +607,7 @@ export class SensibleFT {
     changeAddress,
     isMerge,
     opreturnData,
+    noBroadcast = false,
   }: {
     codehash: string;
     genesis: string;
@@ -612,6 +617,7 @@ export class SensibleFT {
     changeAddress: any;
     isMerge?: boolean;
     opreturnData?: any;
+    noBroadcast?: boolean;
   }) {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
@@ -944,12 +950,12 @@ export class SensibleFT {
       throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
     }
 
-    if (!this.mock) {
+    if (!noBroadcast && !this.mock) {
       await this.sensibleApi.broadcast(routeCheckTxHex);
       await this.sensibleApi.broadcast(txHex);
     }
 
-    return { tx, routeCheckTx, txid: tx.id };
+    return { routeCheckTxHex, txHex, routeCheckTx, txid: tx.id };
   }
 
   /**
@@ -968,12 +974,14 @@ export class SensibleFT {
     senderWif,
     utxos,
     changeAddress,
+    noBroadcast = false,
   }: {
     codehash: string;
     genesis: string;
     senderWif: string;
-    utxos: any;
-    changeAddress: any;
+    utxos?: any;
+    changeAddress?: any;
+    noBroadcast?: boolean;
   }) {
     return await this.transfer({
       codehash,
@@ -982,6 +990,7 @@ export class SensibleFT {
       utxos,
       changeAddress,
       isMerge: true,
+      noBroadcast,
     });
   }
 

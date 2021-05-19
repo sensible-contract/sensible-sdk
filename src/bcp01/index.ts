@@ -235,6 +235,7 @@ export class SensibleNFT {
     utxos,
     utxoPrivateKeys,
     changeAddress,
+    noBroadcast = false,
   }: {
     genesisWif: string;
     totalSupply: bigint;
@@ -242,6 +243,7 @@ export class SensibleNFT {
     utxos?: ParamUtxo[];
     utxoPrivateKeys: any[];
     changeAddress?: any;
+    noBroadcast?: boolean;
   }) {
     const issuerPrivateKey = bsv.PrivateKey.fromWIF(genesisWif);
 
@@ -274,10 +276,10 @@ export class SensibleNFT {
     if (balance < needFee) {
       throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
     }
-    if (!this.mock) {
+    if (!noBroadcast && !this.mock) {
       await this.sensibleApi.broadcast(txHex);
     }
-    return { tx, txid: tx.id, genesis, codehash };
+    return { txHex, txid: tx.id, genesis, codehash };
   }
 
   /**
@@ -302,6 +304,17 @@ export class SensibleNFT {
     opreturnData,
     utxos,
     changeAddress,
+    noBroadcast = false,
+  }: {
+    genesis: string;
+    codehash: string;
+    genesisWif: string;
+    receiverAddress: string;
+    metaTxId: string;
+    opreturnData?: any;
+    utxos?: any[];
+    changeAddress?: string;
+    noBroadcast?: boolean;
   }) {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
@@ -322,6 +335,7 @@ export class SensibleNFT {
       changeAddress: changeAddress
         ? new bsv.Address(changeAddress, this.network)
         : _res.utxos[0].address,
+      noBroadcast,
     });
   }
   /**
@@ -347,6 +361,7 @@ export class SensibleNFT {
     utxos,
     utxoPrivateKeys,
     changeAddress,
+    noBroadcast,
   }) {
     const issuerPrivateKey = bsv.PrivateKey.fromWIF(genesisWif);
     const issuerPublicKey = bsv.PublicKey.fromPrivateKey(issuerPrivateKey);
@@ -413,10 +428,10 @@ export class SensibleNFT {
     if (balance < needFee) {
       throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
     }
-    if (!this.mock) {
+    if (!noBroadcast && !this.mock) {
       await this.sensibleApi.broadcast(txHex);
     }
-    return { txid: tx.id, tokenid };
+    return { txHex, txid: tx.id, tokenid };
   }
 
   /**
@@ -440,6 +455,17 @@ export class SensibleNFT {
     opreturnData,
     utxos,
     changeAddress,
+    noBroadcast = false,
+  }: {
+    genesis: string;
+    codehash: string;
+    tokenid: string;
+    senderWif: string;
+    receiverAddress: string;
+    opreturnData?: any;
+    utxos?: any[];
+    changeAddress?: string;
+    noBroadcast?: boolean;
   }) {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
@@ -534,11 +560,11 @@ export class SensibleNFT {
     if (balance < needFee) {
       throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
     }
-    if (!this.mock) {
+    if (!noBroadcast && !this.mock) {
       await this.sensibleApi.broadcast(txHex);
     }
 
-    return { txid: tx.id };
+    return { txHex, txid: tx.id };
   }
 
   /*
