@@ -25,6 +25,7 @@ type SensibleQueryUtxo = {
   tokenId?: string;
   txid?: string;
   vout?: number;
+  metaTxId?: string;
 };
 export class SensibleApi {
   serverBase: string;
@@ -186,6 +187,7 @@ export class SensibleApi {
       lockingScript: v.scriptPk,
       tokenAddress: address,
       tokenId: v.tokenId,
+      metaTxId: v.metaTxId,
     }));
     return ret;
   }
@@ -213,6 +215,7 @@ export class SensibleApi {
       lockingScript: v.scriptPk,
       tokenAddress: v.address,
       tokenId: v.tokenId,
+      metaTxId: v.metaTxId,
     }))[0];
     return ret;
   }
