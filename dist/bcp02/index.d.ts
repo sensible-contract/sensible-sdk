@@ -48,13 +48,14 @@ export declare class SensibleFT {
      * @param {String=} param0.changeAddress
      * @returns
      */
-    genesis({ tokenName, tokenSymbol, decimalNum, genesisWif, utxos, changeAddress, }: {
+    genesis({ tokenName, tokenSymbol, decimalNum, genesisWif, utxos, changeAddress, opreturnData, }: {
         tokenName: string;
         tokenSymbol: string;
         decimalNum: number;
         genesisWif: string;
         utxos: any;
         changeAddress: any;
+        opreturnData?: any;
     }): Promise<{
         tx: any;
         txid: any;
@@ -74,7 +75,7 @@ export declare class SensibleFT {
      * @param {String=} param0.changeAddress
      * @returns
      */
-    issue({ genesis, codehash, genesisWif, receiverAddress, tokenAmount, allowIncreaseIssues, utxos, changeAddress, }: {
+    issue({ genesis, codehash, genesisWif, receiverAddress, tokenAmount, allowIncreaseIssues, utxos, changeAddress, opreturnData, }: {
         genesis: string;
         codehash: string;
         genesisWif: string;
@@ -83,6 +84,7 @@ export declare class SensibleFT {
         allowIncreaseIssues: boolean;
         utxos: any;
         changeAddress: any;
+        opreturnData: any;
     }): Promise<{
         tx: any;
         txid: any;
@@ -145,8 +147,10 @@ export declare class SensibleFT {
      * @param {String} address
      * @returns
      */
-    getSummary(address: any): Promise<any>;
-    getGenesisEstimateFee(): Promise<number>;
+    getSummary(address: string): Promise<any>;
+    getGenesisEstimateFee({ opreturnData }: {
+        opreturnData: any;
+    }): Promise<number>;
     getIssueEstimateFee({ opreturnData, allowIncreaseIssues }: {
         opreturnData: any;
         allowIncreaseIssues?: boolean;

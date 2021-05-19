@@ -52,6 +52,7 @@ export declare class SensibleApi {
         lockingScript: any;
         tokenAddress: any;
         tokenId: any;
+        metaTxId: any;
     }>;
     getOutputNonFungbleToken(txid: string, index: number): Promise<{
         txId: any;

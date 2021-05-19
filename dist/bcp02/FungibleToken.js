@@ -79,7 +79,7 @@ class FungibleToken {
      * @param {number} feeb feeb
      * @param {string} genesisScript genesis contract's locking scriptsatoshis
      */
-    createGenesisTx({ utxos, changeAddress, feeb, genesisContract, utxoPrivateKeys, }) {
+    createGenesisTx({ utxos, changeAddress, feeb, genesisContract, utxoPrivateKeys, opreturnData, }) {
         const tx = new scryptlib_1.bsv.Transaction().from(utxos.map((utxo) => ({
             txId: utxo.txId,
             outputIndex: utxo.outputIndex,
@@ -90,6 +90,15 @@ class FungibleToken {
             script: genesisContract.lockingScript,
             satoshis: Utils.getDustThreshold(genesisContract.lockingScript.toBuffer().length),
         }));
+        let opreturnScriptHex = "";
+        if (opreturnData) {
+            let script = new scryptlib_1.bsv.Script.buildSafeDataOut(opreturnData);
+            opreturnScriptHex = script.toHex();
+            tx.addOutput(new scryptlib_1.bsv.Transaction.Output({
+                script,
+                satoshis: 0,
+            }));
+        }
         tx.change(changeAddress);
         tx.fee(Math.ceil((tx.serialize(true).length / 2 + utxos.length * 107) * feeb));
         //unlock P2PKH
@@ -137,7 +146,7 @@ class FungibleToken {
         }
         return tokenContract;
     }
-    async createIssueTx({ genesisContract, genesisTxId, genesisTxOutputIndex, genesisLockingScript, utxos, changeAddress, feeb, tokenContract, allowIncreaseIssues, satotxData, signers, issuerPrivateKey, utxoPrivateKeys, }) {
+    async createIssueTx({ genesisContract, genesisTxId, genesisTxOutputIndex, genesisLockingScript, opreturnData, utxos, changeAddress, feeb, tokenContract, allowIncreaseIssues, satotxData, signers, issuerPrivateKey, utxoPrivateKeys, }) {
         const tx = new scryptlib_1.bsv.Transaction();
         tx.addInput(new scryptlib_1.bsv.Transaction.Input({
             output: new scryptlib_1.bsv.Transaction.Output({
@@ -177,6 +186,15 @@ class FungibleToken {
             script: tokenContract.lockingScript,
             satoshis: tokenContractSatoshis,
         }));
+        let opreturnScriptHex = "";
+        if (opreturnData) {
+            let script = new scryptlib_1.bsv.Script.buildSafeDataOut(opreturnData);
+            opreturnScriptHex = script.toHex();
+            tx.addOutput(new scryptlib_1.bsv.Transaction.Output({
+                script,
+                satoshis: 0,
+            }));
+        }
         tx.change(changeAddress);
         const genesisInputIndex = 0;
         const genesisInputSatoshis = tx.inputs[genesisInputIndex].output.satoshis;
@@ -218,7 +236,7 @@ class FungibleToken {
             let sig = scryptlib_1.signTx(tx, issuerPrivateKey, genesisInputLockingScript.toASM(), genesisInputSatoshis, genesisInputIndex, exports.sighashType);
             let changeSatoshis = tx.outputs[tx.outputs.length - 1].satoshis;
             let preimage = scryptlib_1.getPreimage(tx, genesisInputLockingScript.toASM(), genesisInputSatoshis, genesisInputIndex, exports.sighashType);
-            let contractObj = genesisContract.unlock(new scryptlib_1.SigHashPreimage(scryptlib_1.toHex(preimage)), new scryptlib_1.Sig(scryptlib_1.toHex(sig)), new scryptlib_1.Bytes(scryptlib_1.toHex(rabinMsg)), rabinPaddingArray, rabinSigArray, rabinPubKeyIndexArray, genesisContractSatoshis, new scryptlib_1.Bytes(tokenContract.lockingScript.toHex()), tokenContractSatoshis, new scryptlib_1.Ripemd160(scryptlib_1.toHex(changeAddress.hashBuffer)), changeSatoshis);
+            let contractObj = genesisContract.unlock(new scryptlib_1.SigHashPreimage(scryptlib_1.toHex(preimage)), new scryptlib_1.Sig(scryptlib_1.toHex(sig)), new scryptlib_1.Bytes(scryptlib_1.toHex(rabinMsg)), rabinPaddingArray, rabinSigArray, rabinPubKeyIndexArray, genesisContractSatoshis, new scryptlib_1.Bytes(tokenContract.lockingScript.toHex()), tokenContractSatoshis, new scryptlib_1.Ripemd160(scryptlib_1.toHex(changeAddress.hashBuffer)), changeSatoshis, new scryptlib_1.Bytes(opreturnScriptHex));
             let txContext = {
                 tx,
                 inputIndex: genesisInputIndex,

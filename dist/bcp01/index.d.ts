@@ -149,6 +149,7 @@ export declare class SensibleNFT {
         txid: any;
     }>;
     getSummary(address: any): Promise<any>;
+    getSummaryDetail(codehash: string, genesis: string, address: string): Promise<any>;
     getGenesisEstimateFee({ opreturnData }: {
         opreturnData: any;
     }): Promise<number>;

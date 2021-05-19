@@ -33,12 +33,13 @@ export declare class FungibleToken {
      * @param {number} feeb feeb
      * @param {string} genesisScript genesis contract's locking scriptsatoshis
      */
-    createGenesisTx({ utxos, changeAddress, feeb, genesisContract, utxoPrivateKeys, }: {
+    createGenesisTx({ utxos, changeAddress, feeb, genesisContract, utxoPrivateKeys, opreturnData, }: {
         utxos: any;
         changeAddress: any;
         feeb: any;
         genesisContract: any;
         utxoPrivateKeys: any;
+        opreturnData: any;
     }): any;
     /**
      * create token contract from genesis contract utxo
@@ -53,11 +54,12 @@ export declare class FungibleToken {
         receiverAddress: any;
         tokenAmount: bigint;
     }): any;
-    createIssueTx({ genesisContract, genesisTxId, genesisTxOutputIndex, genesisLockingScript, utxos, changeAddress, feeb, tokenContract, allowIncreaseIssues, satotxData, signers, issuerPrivateKey, utxoPrivateKeys, }: {
+    createIssueTx({ genesisContract, genesisTxId, genesisTxOutputIndex, genesisLockingScript, opreturnData, utxos, changeAddress, feeb, tokenContract, allowIncreaseIssues, satotxData, signers, issuerPrivateKey, utxoPrivateKeys, }: {
         genesisContract: any;
         genesisTxId: any;
         genesisTxOutputIndex: any;
         genesisLockingScript: any;
+        opreturnData: any;
         utxos: any;
         changeAddress: any;
         feeb: any;

@@ -189,7 +189,7 @@ class SensibleFT {
      * @param {String=} param0.changeAddress
      * @returns
      */
-    async genesis({ tokenName, tokenSymbol, decimalNum, genesisWif, utxos, changeAddress, }) {
+    async genesis({ tokenName, tokenSymbol, decimalNum, genesisWif, utxos, changeAddress, opreturnData, }) {
         //validate params
         checkParamTokenName(tokenName);
         checkParamTokenSymbol(tokenSymbol);
@@ -240,6 +240,7 @@ class SensibleFT {
             feeb: this.feeb,
             genesisContract,
             utxoPrivateKeys,
+            opreturnData,
         });
         //calculate genesis/codehash
         let genesis, codehash;
@@ -277,7 +278,7 @@ class SensibleFT {
      * @param {String=} param0.changeAddress
      * @returns
      */
-    async issue({ genesis, codehash, genesisWif, receiverAddress, tokenAmount, allowIncreaseIssues = true, utxos, changeAddress, }) {
+    async issue({ genesis, codehash, genesisWif, receiverAddress, tokenAmount, allowIncreaseIssues = true, utxos, changeAddress, opreturnData, }) {
         checkParamGenesis(genesis);
         checkParamCodehash(codehash);
         checkParamWif(genesisWif, "genesisWif");
@@ -381,6 +382,7 @@ class SensibleFT {
                 byTxHex: spendByTxHex,
             },
             signers: this.signers,
+            opreturnData,
             issuerPrivateKey,
             utxoPrivateKeys,
         });
@@ -793,7 +795,7 @@ class SensibleFT {
     async getSummary(address) {
         return await this.sensibleApi.getFungbleTokenSummary(address);
     }
-    async getGenesisEstimateFee() {
+    async getGenesisEstimateFee({ opreturnData }) {
         let p2pkhInputNum = 1;
         let p2pkhOutputNum = 1;
         p2pkhInputNum = 10; //支持10输入的费用
@@ -803,6 +805,7 @@ class SensibleFT {
             p2pkhInputNum * (32 + 4 + 1 + 107 + 4) +
             1 +
             (8 + 3 + sizeOfTokenGenesis) +
+            (opreturnData ? 8 + 3 + opreturnData.toString().length / 2 : 0) +
             p2pkhOutputNum * (8 + 1 + 25) +
             4;
         let dust = Utils.getDustThreshold(sizeOfTokenGenesis);

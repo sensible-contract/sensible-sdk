@@ -146,6 +146,7 @@ class SensibleApi {
             lockingScript: v.scriptPk,
             tokenAddress: address,
             tokenId: v.tokenId,
+            metaTxId: v.metaTxId,
         }));
         return ret;
     }
@@ -169,6 +170,7 @@ class SensibleApi {
             lockingScript: v.scriptPk,
             tokenAddress: v.address,
             tokenId: v.tokenId,
+            metaTxId: v.metaTxId,
         }))[0];
         return ret;
     }
