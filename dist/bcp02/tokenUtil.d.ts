@@ -1,0 +1,10 @@
+/// <reference types="node" />
+export declare const RABIN_SIG_LEN = 128;
+export declare let toBufferLE: (num: number, width: number) => Buffer;
+export declare let getUInt8Buf: (amount: number) => Buffer;
+export declare let getUInt16Buf: (amount: number) => Buffer;
+export declare let getUInt32Buf: (index: number) => Buffer;
+export declare let getUInt64Buf: (amount: number) => Buffer;
+export declare let getTxIdBuf: (txid: string) => Buffer;
+export declare let getScriptHashBuf: (scriptBuf: Buffer) => Buffer;
+export declare let writeVarint: (buf: Buffer) => Buffer;

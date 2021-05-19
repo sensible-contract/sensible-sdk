@@ -1,0 +1,18 @@
+{
+    "version": 3,
+    "compilerVersion": "0.4.3+commit.fc7414b",
+    "contract": "RabinSignature",
+    "md5": "1b0ecb250544f855f82a09da996e6e81",
+    "structs": [],
+    "alias": [],
+    "abi": [
+        {
+            "type": "constructor",
+            "params": []
+        }
+    ],
+    "file": "",
+    "asm": "",
+    "sources": [],
+    "sourceMap": []
+}
