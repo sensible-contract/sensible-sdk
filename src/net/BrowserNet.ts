@@ -1,7 +1,18 @@
-const { Utils } = require("./utils");
-
-class BrowserNet {
-  static _xmlRequest({ uri, method, timeout, body }, callback) {
+import * as Utils from "./utils";
+type ReqConfig = {
+  uri?: string;
+  method?: string;
+  timeout?: number;
+  body?: any;
+};
+type HttpConfig = {
+  contentType?: string;
+  timeout?: number;
+  authorization?: string;
+};
+export class BrowserNet {
+  static _xmlRequest(reqConfig: ReqConfig, callback: Function) {
+    const { uri, method, timeout, body } = reqConfig;
     let hasCallbacked = false;
     var xhr = new XMLHttpRequest(); //创建XMLHttpRequest对象
     xhr.open(method, uri, true); //设置和服务器交互的参数
@@ -38,7 +49,7 @@ class BrowserNet {
       xhr.send();
     }
   }
-  static httpGet(url, params, cb) {
+  static httpGet(url: string, params: any, cb?: Function) {
     let str = "";
     let cnt = 0;
     for (var id in params) {
@@ -46,13 +57,13 @@ class BrowserNet {
       str += id + "=" + params[id];
       cnt++;
     }
-    const reqData = {
+    const reqData: ReqConfig = {
       uri: url,
       method: "GET",
       timeout: 180000,
     };
-    const handlerCallback = (resolve, reject) => {
-      this._xmlRequest(reqData, (err, body) => {
+    const handlerCallback = (resolve: Function, reject: Function) => {
+      this._xmlRequest(reqData, (err: any, body: any) => {
         if (err) {
           reject(err);
           return;
@@ -68,8 +79,8 @@ class BrowserNet {
 
     if (typeof cb === "function") {
       handlerCallback(
-        (result) => Utils.invokeCallback(cb, null, result),
-        (err) => Utils.invokeCallback(cb, err)
+        (result: any) => Utils.invokeCallback(cb, null, result),
+        (err: any) => Utils.invokeCallback(cb, err)
       );
       return;
     }
@@ -79,7 +90,12 @@ class BrowserNet {
     });
   }
 
-  static httpPost(url, params, cb, config) {
+  static httpPost(
+    url: string,
+    params: any,
+    cb?: Function,
+    config?: HttpConfig
+  ) {
     let postData = "";
     let headers = {};
 
@@ -112,8 +128,8 @@ class BrowserNet {
       headers: headers,
       timeout: timeout,
     };
-    const handlerCallback = (resolve, reject) => {
-      this._xmlRequest(reqData, (err, body) => {
+    const handlerCallback = (resolve: Function, reject: Function) => {
+      this._xmlRequest(reqData, (err: any, body: any) => {
         if (err) {
           reject(err);
           return;
@@ -129,8 +145,8 @@ class BrowserNet {
 
     if (typeof cb === "function") {
       handlerCallback(
-        (result) => Utils.invokeCallback(cb, null, result),
-        (err) => Utils.invokeCallback(cb, err)
+        (result: any) => Utils.invokeCallback(cb, null, result),
+        (err: any) => Utils.invokeCallback(cb, err)
       );
       return;
     }
@@ -140,7 +156,3 @@ class BrowserNet {
     });
   }
 }
-
-module.exports = {
-  BrowserNet,
-};

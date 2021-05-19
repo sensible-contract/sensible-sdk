@@ -1,7 +1,11 @@
-const { Utils } = require("./utils");
-
-class ServerNet {
-  static httpGet(url, params, cb) {
+import * as Utils from "./utils";
+type HttpConfig = {
+  contentType?: string;
+  timeout?: number;
+  authorization?: string;
+};
+export class ServerNet {
+  static httpGet(url: string, params: any, cb?: Function) {
     let str = "";
     let cnt = 0;
     for (var id in params) {
@@ -14,8 +18,8 @@ class ServerNet {
       method: "GET",
       timeout: 180000,
     };
-    const handlerCallback = (resolve, reject) => {
-      require("request")(reqData, function (err, res, body) {
+    const handlerCallback = (resolve: Function, reject: Function) => {
+      require("request")(reqData, function (err: any, res: any, body: any) {
         if (!err) {
           if (res.statusCode >= 200 && res.statusCode < 300) {
             if (typeof body == "string") {
@@ -45,8 +49,8 @@ class ServerNet {
 
     if (typeof cb === "function") {
       handlerCallback(
-        (result) => Utils.invokeCallback(cb, null, result),
-        (err) => Utils.invokeCallback(cb, err)
+        (result: any) => Utils.invokeCallback(cb, null, result),
+        (err: any) => Utils.invokeCallback(cb, err)
       );
       return;
     }
@@ -56,7 +60,12 @@ class ServerNet {
     });
   }
 
-  static httpPost(url, params, cb, config) {
+  static httpPost(
+    url: string,
+    params: any,
+    cb?: Function,
+    config?: HttpConfig
+  ) {
     let postData = "";
     let headers = {};
 
@@ -120,8 +129,8 @@ class ServerNet {
 
     if (typeof cb === "function") {
       handlerCallback(
-        (result) => Utils.invokeCallback(cb, null, result),
-        (err) => Utils.invokeCallback(cb, err)
+        (result: any) => Utils.invokeCallback(cb, null, result),
+        (err: any) => Utils.invokeCallback(cb, err)
       );
       return;
     }
@@ -131,7 +140,3 @@ class ServerNet {
     });
   }
 }
-
-module.exports = {
-  ServerNet,
-};

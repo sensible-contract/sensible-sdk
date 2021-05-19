@@ -1,7 +1,34 @@
-const { Net } = require("../net");
-const { API_NET } = require("./common");
-class SensibleApi {
-  constructor(apiNet) {
+import { Net } from "../net";
+export enum API_NET {
+  MAIN = "mainnet",
+  TEST = "testnet",
+}
+
+type ResData = {
+  code: number;
+  data: any;
+  msg: string;
+};
+
+type SensibleQueryUtxo = {
+  address?: string;
+  codehash?: string;
+  genesis?: string;
+  height?: number;
+  idx?: number;
+  isNFT?: boolean;
+  satoshi?: number;
+  scriptPk?: string;
+  scriptType?: string;
+  tokenAmount?: number;
+  tokenDecimal?: number;
+  tokenId?: string;
+  txid?: string;
+  vout?: number;
+};
+export class SensibleApi {
+  serverBase: string;
+  constructor(apiNet: API_NET) {
     if (apiNet == API_NET.MAIN) {
       this.serverBase = "https://api.sensiblequery.com";
     } else {
@@ -12,14 +39,14 @@ class SensibleApi {
   /**
    * @param {string} address
    */
-  async getUnspents(address) {
+  async getUnspents(address: string) {
     let url = `${this.serverBase}/address/${address}/utxo`;
     let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res;
+    const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw { title: "request sensible api failed", url, msg };
     }
-    let ret = data.map((v) => ({
+    let ret = data.map((v: SensibleQueryUtxo) => ({
       txId: v.txid,
       satoshis: v.satoshi,
       outputIndex: v.vout,
@@ -30,9 +57,8 @@ class SensibleApi {
   /**
    * @param {string} hex
    */
-  async broadcast(txHex) {
-    // console.log("metasv!");
-    // let _res = await Net.httpPost(
+  async broadcast(txHex: string) {
+    // let _res:any = await Net.httpPost(
     //   "https://apiv2.metasv.com/merchant/broadcast",
     //   {
     //     hex: txHex,
@@ -41,9 +67,10 @@ class SensibleApi {
     // return _res.txid;
 
     let url = `${this.serverBase}/pushtx`;
-    let { code, data, msg } = await Net.httpPost(url, {
+    let _res = await Net.httpPost(url, {
       txHex,
     });
+    const { code, data, msg } = _res as ResData;
     if (code != 0) {
       console.log(txHex);
       throw { title: "request sensible api failed", url, msg };
@@ -57,7 +84,7 @@ class SensibleApi {
   async getRawTxData(txid) {
     let url = `${this.serverBase}/rawtx/${txid}`;
     let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res;
+    const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw { title: "request sensible api failed", url, msg };
     }
@@ -70,15 +97,19 @@ class SensibleApi {
   /**
    * 通过FT合约CodeHash+溯源genesis获取某地址的utxo列表
    */
-  async getFungbleTokenUnspents(codehash, genesis, address) {
+  async getFungbleTokenUnspents(
+    codehash: string,
+    genesis: string,
+    address: string
+  ) {
     let url = `${this.serverBase}/ft/utxo/${codehash}/${genesis}/${address}`;
     let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res;
+    const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw { title: "request sensible api failed", url, msg };
     }
     if (!data) return [];
-    let ret = data.map((v) => ({
+    let ret = data.map((v: SensibleQueryUtxo) => ({
       txId: v.txid,
       satoshis: v.satoshi,
       outputIndex: v.vout,
@@ -93,10 +124,14 @@ class SensibleApi {
   /**
    * 查询某人持有的某FT的余额
    */
-  async getFungbleTokenBalance(codehash, genesis, address) {
+  async getFungbleTokenBalance(
+    codehash: string,
+    genesis: string,
+    address: string
+  ) {
     let url = `${this.serverBase}/ft/balance/${codehash}/${genesis}/${address}`;
     let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res;
+    const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw { title: "request sensible api failed", url, msg };
     }
@@ -107,10 +142,10 @@ class SensibleApi {
   /**
    * 获取指定交易的FT输出信息
    */
-  async getOutputFungbleToken(txid, index) {
+  async getOutputFungbleToken(txid: string, index: number) {
     let url = `${this.serverBase}/tx/${txid}/out/${index}`;
     let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res;
+    const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw { title: "request sensible api failed", url, msg };
     }
@@ -130,16 +165,20 @@ class SensibleApi {
   /**
    * 通过NFT合约CodeHash+溯源genesis获取某地址的utxo列表
    */
-  async getNonFungbleTokenUnspents(codehash, genesis, address) {
+  async getNonFungbleTokenUnspents(
+    codehash: string,
+    genesis: string,
+    address: string
+  ) {
     let url = `${this.serverBase}/nft/utxo/${codehash}/${genesis}/${address}`;
     let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res;
+    const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw { title: "request sensible api failed", url, msg };
     }
 
     if (!data) return [];
-    let ret = data.map((v) => ({
+    let ret = data.map((v: SensibleQueryUtxo) => ({
       txId: v.txid,
       satoshis: v.satoshi,
       outputIndex: v.vout,
@@ -154,10 +193,14 @@ class SensibleApi {
   /**
    * 查询某人持有的某FT的UTXO
    */
-  async getNonFungbleTokenUnspentDetail(codehash, genesis, tokenid) {
+  async getNonFungbleTokenUnspentDetail(
+    codehash: string,
+    genesis: string,
+    tokenid: string
+  ) {
     let url = `${this.serverBase}/nft/utxo-detail/${codehash}/${genesis}/${tokenid}`;
     let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res;
+    const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw { title: "request sensible api failed", url, msg };
     }
@@ -174,10 +217,10 @@ class SensibleApi {
     return ret;
   }
 
-  async getOutputNonFungbleToken(txid, index) {
+  async getOutputNonFungbleToken(txid: string, index: number) {
     let url = `${this.serverBase}/tx/${txid}/out/${index}`;
     let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res;
+    const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw { title: "request sensible api failed", url, msg };
     }
@@ -197,10 +240,10 @@ class SensibleApi {
   /**
    * 查询某人持有的FT Token列表。获得每个token的余额
    */
-  async getFungbleTokenSummary(address) {
+  async getFungbleTokenSummary(address: string) {
     let url = `${this.serverBase}/ft/summary/${address}`;
     let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res;
+    const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw { title: "request sensible api failed", url, msg };
     }
@@ -213,10 +256,10 @@ class SensibleApi {
    * @param {String} address
    * @returns
    */
-  async getNonFungbleTokenSummary(address) {
+  async getNonFungbleTokenSummary(address: string) {
     let url = `${this.serverBase}/nft/summary/${address}`;
     let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res;
+    const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw { title: "request sensible api failed", url, msg };
     }

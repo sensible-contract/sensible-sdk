@@ -1,5 +1,5 @@
-// @ts-nocheck
-const {
+import path = require("path");
+import {
   bsv,
   buildContractClass,
   Bytes,
@@ -7,15 +7,13 @@ const {
   num2bin,
   PubKey,
   Ripemd160,
-  Sha256,
   Sig,
   SigHashPreimage,
   signTx,
   toHex,
-} = require("scryptlib");
-const path = require("path");
-const { PayloadNFT, ISSUE, TRANSFER } = require("./PayloadNFT");
-const Utils = require("../common/utils");
+} from "scryptlib";
+import * as Utils from "../common/utils";
+import { ISSUE, PayloadNFT, TRANSFER } from "./PayloadNFT";
 const DataLen4 = 4;
 const Signature = bsv.crypto.Signature;
 const sighashType =
@@ -24,17 +22,20 @@ const sighashType =
   Signature.SIGHASH_FORKID;
 var contractJsonPath = "../../contract-desc/bcp01/";
 const loadDesc = (filename) => require(path.join(contractJsonPath, filename));
-class NFT {
+const nftContractClass = buildContractClass(
+  require("./contract-desc/nft_desc.json")
+);
+export class NonFungibleToken {
+  nftContract: any;
+  nftCodePart: string;
+  nftGenesisPart: string;
   /**
-   * @param {Boolean} pubkey
-   * @constructor NFT合约 forge
+   * @param {bigint} rabinPubKey
+   * @constructor NFT合约
    */
-  constructor(rabinPubKey) {
-    const nftContractClass = buildContractClass(
-      require("./contract-desc/nft_desc.json")
-    );
-    this.nft = new nftContractClass(rabinPubKey);
-    this.nftCodePart = this.nft.codePart.toASM();
+  constructor(rabinPubKey: bigint) {
+    this.nftContract = new nftContractClass(rabinPubKey);
+    this.nftCodePart = this.nftContract.codePart.toASM();
   }
 
   setTxGenesisPart({ prevTxId, outputIndex, issueOutputIndex = 0 }) {
@@ -133,7 +134,7 @@ class NFT {
 
     let pl = new PayloadNFT();
     pl.read(issuerLockingScript.toBuffer());
-    this.nft.setDataPart(this.nftGenesisPart + " " + pl.dump());
+    this.nftContract.setDataPart(this.nftGenesisPart + " " + pl.dump());
 
     pl.tokenId = pl.tokenId + BigInt(1);
 
@@ -224,13 +225,15 @@ class NFT {
         sighashType
       );
 
-      if (this.nft.lockingScript.toHex() != curInputLockingScript.toHex()) {
-        console.log(this.nft.lockingScript.toASM());
+      if (
+        this.nftContract.lockingScript.toHex() != curInputLockingScript.toHex()
+      ) {
+        console.log(this.nftContract.lockingScript.toASM());
         console.log(curInputLockingScript.toASM());
         throw "error";
       }
 
-      let contractObj = this.nft.issue(
+      let contractObj = this.nftContract.issue(
         new SigHashPreimage(toHex(preimage)),
         BigInt("0x" + sigInfo.sigBE),
         new Bytes(sigInfo.payload),
@@ -304,7 +307,7 @@ class NFT {
     let pl = new PayloadNFT();
     pl.read(transferLockingScript.toBuffer());
 
-    this.nft.setDataPart(this.nftGenesisPart + " " + pl.dump());
+    this.nftContract.setDataPart(this.nftGenesisPart + " " + pl.dump());
 
     pl.ownerPkh = receiverAddress.hashBuffer;
     const newLockingScript0 = bsv.Script.fromASM(
@@ -358,7 +361,7 @@ class NFT {
       );
       const changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
 
-      this.nft.txContext = {
+      this.nftContract.txContext = {
         tx: tx,
         inputIndex: curInputIndex,
         inputSatoshis: curInputSatoshis,
@@ -381,7 +384,7 @@ class NFT {
         sighashType
       );
 
-      let contractObj = this.nft.issue(
+      let contractObj = this.nftContract.issue(
         new SigHashPreimage(toHex(preimage)),
         BigInt("0x" + sigInfo.sigBE),
         new Bytes(sigInfo.payload),
@@ -439,8 +442,3 @@ class NFT {
     return dataPart.len.toString(16) + dataPart.buf.toString("hex");
   }
 }
-
-module.exports = {
-  NFT,
-  sighashType,
-};

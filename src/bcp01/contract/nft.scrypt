@@ -35,7 +35,7 @@ contract NFT {
     bytes preTxOutpointPayload,
     bytes preTxOutpointPadding,
     bytes preTxOutpointDataPart,
-    bytes opreturnData,
+    bytes opreturnScript,
     Sig issuerSig, PubKey issuer,
     bytes metaTxId,
     Ripemd160 receiverPkh, int satoshiAmount1,
@@ -63,7 +63,7 @@ contract NFT {
         this.rabinPubKey
         ));
 
-    bytes output0 = b'';
+    bytes outputs = b'';
     // 如果需要解锁的是ISSUE脚本
     if (pl.dataType == PayloadNFT.ISSUE) {
       int satoshiIssue = Util.value(txPreimage);
@@ -73,7 +73,8 @@ contract NFT {
 
       if (pl.tokenId < pl.totalSupply) {
         bytes outputScript0 = pl.dump();
-        output0 = Util.buildOutput(outputScript0, satoshiIssue);
+        bytes output0 = Util.buildOutput(outputScript0, satoshiIssue);
+        outputs = outputs + output0;
       }
       pl.setMetaTxId(metaTxId);
     }
@@ -83,22 +84,24 @@ contract NFT {
 
     pl.setOwnerPkh(receiverPkh);
     pl.setDataType(PayloadNFT.TRANSFER);
-
+    
     bytes outputScript1 = pl.dump();
     bytes output1 = Util.buildOutput(outputScript1, satoshiAmount1);
+    outputs = outputs + output1;
 
-    bytes output_opreturn = b'';
-    if (len(opreturnData) > 0) {
-      output_opreturn = Util.buildOutput(opreturnData, 0);
+    if (len(opreturnScript) > 0) {
+      require(opreturnScript[0:2]==b'006a');
+      bytes output2 =  Util.buildOutput(opreturnScript, 0);
+      outputs = outputs + output2;
     }
 
-    bytes lockingScript2 = Util.buildPublicKeyHashScript(changePkh);
-    bytes output_p2pkh = Util.buildOutput(lockingScript2, satoshiAmount2);
-
-    Sha256 hashOutputs = hash256(output0 + output1 + output_opreturn + output_p2pkh);
-
+    if(satoshiAmount2>0){
+      bytes lockingScript2 = Util.buildPublicKeyHashScript(changePkh);
+      bytes output3 = Util.buildOutput(lockingScript2, satoshiAmount2);
+      outputs = outputs + output3;
+    }
+   
+    Sha256 hashOutputs = hash256(outputs);
     require(hashOutputs == Util.hashOutputs(txPreimage));
-
   }
-
 }

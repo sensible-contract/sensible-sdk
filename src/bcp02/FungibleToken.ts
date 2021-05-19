@@ -1,24 +1,20 @@
-// @ts-nocheck
-const {
+import {
   bsv,
   buildContractClass,
   Bytes,
   getPreimage,
-  num2bin,
   PubKey,
   Ripemd160,
-  Sha256,
   Sig,
   SigHashPreimage,
   signTx,
   toHex,
-} = require("scryptlib");
-const path = require("path");
-const TokenProto = require("./tokenProto");
-const TokenUtil = require("./tokenUtil");
-const Utils = require("../common/utils");
+} from "scryptlib";
+import * as Utils from "../common/utils";
+import * as TokenProto from "./tokenProto";
+import * as TokenUtil from "./tokenUtil";
 const Signature = bsv.crypto.Signature;
-const sighashType = Signature.SIGHASH_ALL | Signature.SIGHASH_FORKID;
+export const sighashType = Signature.SIGHASH_ALL | Signature.SIGHASH_FORKID;
 const genesisFlag = 1;
 const nonGenesisFlag = 0;
 const tokenType = 1;
@@ -70,14 +66,22 @@ const UnlockContractCheckContractClass_3To100 = buildContractClass(
   require("./contract-desc/tokenUnlockContractCheck_3To100_desc.json")
 );
 
-const ROUTE_CHECK_TYPE_3To3 = "3To3";
-const ROUTE_CHECK_TYPE_6To6 = "6To6";
-const ROUTE_CHECK_TYPE_10To10 = "10To10";
-const ROUTE_CHECK_TYPE_3To100 = "3To100";
-const ROUTE_CHECK_TYPE_20To3 = "20To3";
-
-class FungibleToken {
-  constructor(rabinPubKey1, rabinPubKey2, rabinPubKey3) {
+export enum RouteCheckType {
+  from3To3 = "3To3",
+  from6To6 = "6To6",
+  from10To10 = "10To10",
+  from3To100 = "3To100",
+  from20To3 = "20To3",
+}
+export class FungibleToken {
+  rabinPubKeyArray: bigint[];
+  routeCheckCodeHashArray: Bytes[];
+  unlockContractCodeHashArray: Bytes[];
+  constructor(
+    rabinPubKey1: bigint,
+    rabinPubKey2: bigint,
+    rabinPubKey3: bigint
+  ) {
     this.rabinPubKeyArray = [rabinPubKey1, rabinPubKey2, rabinPubKey3];
 
     this.routeCheckCodeHashArray = [
@@ -187,7 +191,11 @@ class FungibleToken {
    */
   createGenesisContract(
     issuerPubKey,
-    { tokenName, tokenSymbol, decimalNum } = {}
+    {
+      tokenName,
+      tokenSymbol,
+      decimalNum,
+    }: { tokenName?: string; tokenSymbol?: string; decimalNum?: number } = {}
   ) {
     const genesisContract = new GenesisContractClass(
       new PubKey(toHex(issuerPubKey)),
@@ -264,10 +272,13 @@ class FungibleToken {
    * @returns
    */
   createTokenContract(
-    genesisTxId,
-    genesisTxOutputIndex,
-    genesisLockingScript,
-    { receiverAddress, tokenAmount } = {}
+    genesisTxId: string,
+    genesisTxOutputIndex: number,
+    genesisLockingScript: any,
+    {
+      receiverAddress,
+      tokenAmount,
+    }: { receiverAddress: any; tokenAmount: bigint }
   ) {
     const scriptBuffer = genesisLockingScript.toBuffer();
     const dataPartObj = TokenProto.parseDataPart(scriptBuffer);
@@ -485,7 +496,7 @@ class FungibleToken {
   }
 
   createRouteCheckContract(
-    routeCheckType,
+    routeCheckType: RouteCheckType,
     tokenInputArray,
     tokenOutputArray,
     tokenID,
@@ -503,23 +514,23 @@ class FungibleToken {
       ]);
     }
     let routeCheckContract;
-    if (routeCheckType == ROUTE_CHECK_TYPE_3To3) {
+    if (routeCheckType == RouteCheckType.from3To3) {
       routeCheckContract = new RouteCheckContractClass_3To3(
         this.rabinPubKeyArray
       );
-    } else if (routeCheckType == ROUTE_CHECK_TYPE_6To6) {
+    } else if (routeCheckType == RouteCheckType.from6To6) {
       routeCheckContract = new RouteCheckContractClass_6To6(
         this.rabinPubKeyArray
       );
-    } else if (routeCheckType == ROUTE_CHECK_TYPE_10To10) {
+    } else if (routeCheckType == RouteCheckType.from10To10) {
       routeCheckContract = new RouteCheckContractClass_10To10(
         this.rabinPubKeyArray
       );
-    } else if (routeCheckType == ROUTE_CHECK_TYPE_3To100) {
+    } else if (routeCheckType == RouteCheckType.from3To100) {
       routeCheckContract = new RouteCheckContractClass_3To100(
         this.rabinPubKeyArray
       );
-    } else if (routeCheckType == ROUTE_CHECK_TYPE_20To3) {
+    } else if (routeCheckType == RouteCheckType.from20To3) {
       routeCheckContract = new RouteCheckContractClass_20To3(
         this.rabinPubKeyArray
       );
@@ -878,13 +889,3 @@ class FungibleToken {
     return tx;
   }
 }
-
-module.exports = {
-  FungibleToken,
-  sighashType,
-  ROUTE_CHECK_TYPE_3To3,
-  ROUTE_CHECK_TYPE_6To6,
-  ROUTE_CHECK_TYPE_10To10,
-  ROUTE_CHECK_TYPE_3To100,
-  ROUTE_CHECK_TYPE_20To3,
-};
