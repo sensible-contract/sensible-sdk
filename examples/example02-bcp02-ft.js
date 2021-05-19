@@ -1,4 +1,4 @@
-const { SensibleFT } = require("../src/index");
+const { SensibleFT } = require("../dist/index");
 async function sleep(time) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {

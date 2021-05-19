@@ -12,12 +12,17 @@ const sourcemaps = require("gulp-sourcemaps");
 const buffer = require("vinyl-buffer");
 const clean = require("gulp-clean"); //清理文件或文件夹
 const standalonify = require("standalonify");
+var merge = require("merge2");
 gulp.task("clean", function () {
   return gulp.src("dist/*", { read: false }).pipe(clean());
 });
 
 gulp.task("tsc", function () {
-  return tsProject.src().pipe(tsProject()).js.pipe(gulp.dest("dist"));
+  var tsResult = tsProject.src().pipe(tsProject());
+  return merge([
+    tsResult.dts.pipe(gulp.dest("dist")),
+    tsResult.js.pipe(gulp.dest("dist")),
+  ]);
 });
 gulp.task("copy_js", function () {
   return gulp
