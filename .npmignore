@@ -5,4 +5,5 @@ tsconfig.json
 .vscode
 tools
 test
+src
 node_modules
