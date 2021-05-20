@@ -46,12 +46,13 @@ export function getTokenAmount(script: Buffer): bigint {
   return script.readBigUInt64LE(script.length - TOKEN_AMOUNT_OFFSET);
 }
 
-export function getTokenID(script: Buffer): TokenID {
+export function getTokenID(script0: Buffer): TokenID {
+  let script = Buffer.from(script0);
   let tokenIDBuf = script.slice(
     script.length - TOKEN_ID_OFFSET,
     script.length - TOKEN_ID_OFFSET + TOKEN_ID_LEN
   );
-  let txid = tokenIDBuf.slice(0, 32).reverse().toString("hex");
+  let txid = tokenIDBuf.slice(0, 32).reverse().toString("hex"); //reverse会改变原对象
   let index = tokenIDBuf.readUIntLE(32, 4);
   let tokenID = { txid, index };
   return tokenID;
