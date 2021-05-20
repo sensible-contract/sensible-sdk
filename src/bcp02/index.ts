@@ -72,24 +72,6 @@ function checkParamNetwork(network) {
   }
 }
 
-function checkParamApiTarget(apiTarget) {
-  if (!["metasv", "whatsonchain"].includes(apiTarget)) {
-    throw `ApiTargetFormatError:only support 'metasv' and 'whatsonchain'`;
-  }
-}
-
-function checkParamWif(wif, name) {
-  if (typeof wif != "string" || wif.length != 52) {
-    throw `WifFormatError:${name} should be a string with 52 length `;
-  }
-}
-
-function checkParamAddress(address, name) {
-  if (typeof address != "string" || address.length != 34) {
-    throw `AddressFormatError:${name} should be a string with 34 length `;
-  }
-}
-
 function checkParamGenesis(genesis) {
   if (typeof genesis != "string" || genesis.length != 72) {
     throw `GenesisFormatError:genesis should be a string with 72 length `;
@@ -261,8 +243,6 @@ export class SensibleFT {
     checkParamTokenName(tokenName);
     checkParamTokenSymbol(tokenSymbol);
     checkParamDecimalNum(decimalNum);
-    checkParamWif(genesisWif, "genesisWif");
-    if (changeAddress) checkParamAddress(changeAddress, "changeAddress");
 
     //decide utxos
     let utxoPrivateKeys = [];
@@ -380,9 +360,6 @@ export class SensibleFT {
   }) {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
-    checkParamWif(genesisWif, "genesisWif");
-    checkParamAddress(receiverAddress, "receiverAddress");
-    if (changeAddress) checkParamAddress(changeAddress, "changeAddress");
     let utxoPrivateKeys = [];
     if (utxos) {
       checkParamUtxoFormat(utxos[0]);
@@ -625,9 +602,7 @@ export class SensibleFT {
   }) {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
-    checkParamWif(senderWif, "senderWif");
     checkParamReceivers(receivers);
-    if (changeAddress) checkParamAddress(changeAddress, "changeAddress");
 
     let utxoPrivateKeys = [];
     if (utxos) {
@@ -1084,7 +1059,6 @@ export class SensibleFT {
   }) {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
-    checkParamWif(senderWif, "senderWif");
     checkParamReceivers(receivers);
 
     const senderPrivateKey = bsv.PrivateKey.fromWIF(senderWif);

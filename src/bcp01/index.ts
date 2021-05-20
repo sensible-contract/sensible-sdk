@@ -69,24 +69,6 @@ function checkParamNetwork(network) {
   }
 }
 
-function checkParamApiTarget(apiTarget) {
-  if (!["metasv", "whatsonchain"].includes(apiTarget)) {
-    throw `ApiTargetFormatError:only support 'metasv' and 'whatsonchain'`;
-  }
-}
-
-function checkParamWif(wif, name) {
-  if (typeof wif != "string" || wif.length != 52) {
-    throw `WifFormatError:${name} should be a string with 52 length `;
-  }
-}
-
-function checkParamAddress(address, name) {
-  if (typeof address != "string" || address.length != 34) {
-    throw `AddressFormatError:${name} should be a string with 34 length `;
-  }
-}
-
 function checkParamGenesis(genesis) {
   if (typeof genesis != "string" || genesis.length != 80) {
     throw `GenesisFormatError:genesis should be a string with 80 length `;
@@ -217,8 +199,6 @@ export class SensibleNFT {
     utxos?: ParamUtxo[];
     changeAddress?: any;
   }) {
-    checkParamWif(genesisWif, "genesisWif");
-    if (changeAddress) checkParamAddress(changeAddress, "changeAddress");
     let _res = await this.pretreatUtxos(utxos);
     return await this._genesis({
       genesisWif,
@@ -322,9 +302,6 @@ export class SensibleNFT {
   }) {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
-    checkParamWif(genesisWif, "genesisWif");
-    checkParamAddress(receiverAddress, "receiverAddress");
-    if (changeAddress) checkParamAddress(changeAddress, "changeAddress");
 
     let _res = await this.pretreatUtxos(utxos);
     return await this._issue({
@@ -474,9 +451,6 @@ export class SensibleNFT {
   }) {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
-    checkParamWif(senderWif, "senderWif");
-    checkParamAddress(receiverAddress, "receiverAddress");
-    if (changeAddress) checkParamAddress(changeAddress, "changeAddress");
     let utxoPrivateKeys = [];
     if (utxos) {
       checkParamUtxoFormat(utxos[0]);
