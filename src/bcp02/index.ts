@@ -413,8 +413,14 @@ export class SensibleFT {
     let spendByTxId;
     let spendByOutputIndex;
 
+    let genesisContract = this.ft.createGenesisContract(
+      issuerPrivateKey.toPublicKey()
+    );
+    let genesisContractCodehash = Utils.getCodeHash(
+      genesisContract.lockingScript
+    );
     let issueUtxos = await this.sensibleApi.getFungbleTokenUnspents(
-      codehash,
+      genesisContractCodehash,
       genesis,
       this.zeroAddress
     );
@@ -455,14 +461,10 @@ export class SensibleFT {
       }
     }
 
-    const genesisLockingScript = preTx.outputs[spendByOutputIndex].script;
-    let dataPartObj = TokenProto.parseDataPart(genesisLockingScript.toBuffer());
-    let genesisContract = this.ft.createGenesisContract(
-      issuerPrivateKey.toPublicKey()
-    );
+    const spendByLockingScript = preTx.outputs[spendByOutputIndex].script;
+    let dataPartObj = TokenProto.parseDataPart(spendByLockingScript.toBuffer());
     const dataPart = TokenProto.newDataPart(dataPartObj);
     genesisContract.setDataPart(dataPart.toString("hex"));
-
     //create token contract
     let tokenContract = this.ft.createTokenContract(
       genesisTxId,
@@ -478,9 +480,9 @@ export class SensibleFT {
     let tx = await this.ft.createIssueTx({
       genesisContract,
 
-      genesisTxId,
-      genesisTxOutputIndex: genesisOutputIndex,
-      genesisLockingScript,
+      spendByTxId,
+      spendByOutputIndex,
+      spendByLockingScript,
 
       utxos,
       changeAddress,
@@ -512,12 +514,10 @@ export class SensibleFT {
     return { txHex, txid: tx.id };
   }
 
-  async fetchFtUtxos(codehash, genesis, address) {
-    let ftUtxos = await this.sensibleApi.getFungbleTokenUnspents(
-      codehash,
-      genesis,
-      address
-    );
+  async supplyFtUtxosInfo(ftUtxos) {
+    ftUtxos.forEach((v) => {
+      v.tokenAmount = BigInt(v.tokenAmount);
+    });
 
     let cachedHexs = {};
     //获取当前花费的tx raw
@@ -570,7 +570,7 @@ export class SensibleFT {
       if (
         dataPartObj.tokenAddress == "0000000000000000000000000000000000000000"
       ) {
-        v.preTokenAddress = address; //genesis 情况下为了让preTokenAddress成为合法地址，但最后并不会使用 dummy
+        v.preTokenAddress = this.zeroAddress; //genesis 情况下为了让preTokenAddress成为合法地址，但最后并不会使用 dummy
       } else {
         v.preTokenAddress = bsv.Address.fromPublicKeyHash(
           Buffer.from(dataPartObj.tokenAddress, "hex"),
@@ -579,7 +579,6 @@ export class SensibleFT {
       }
     });
     ftUtxos.forEach((v) => {
-      v.tokenAmount = BigInt(v.tokenAmount);
       v.preTokenAmount = BigInt(v.preTokenAmount);
     });
 
@@ -661,11 +660,12 @@ export class SensibleFT {
     const senderAddress = senderPrivateKey.toAddress(this.network);
 
     //获取token
-    let ftUtxos = await this.fetchFtUtxos(
+    let ftUtxos = await this.sensibleApi.getFungbleTokenUnspents(
       codehash,
       genesis,
       senderAddress.toString()
     );
+    ftUtxos.forEach((v) => (v.tokenAmount = BigInt(v.tokenAmount)));
 
     let mergeUtxos = [];
     let mergeTokenAmountSum = BigInt(0);
@@ -678,7 +678,7 @@ export class SensibleFT {
       receivers = [
         {
           address: senderAddress.toString(),
-          tokenAmount: mergeTokenAmountSum,
+          amount: mergeTokenAmountSum,
         },
       ];
     }
@@ -715,6 +715,7 @@ export class SensibleFT {
       inputTokenAmountSum = mergeTokenAmountSum;
     }
     ftUtxos = _ftUtxos;
+    await this.supplyFtUtxosInfo(ftUtxos);
 
     if (inputTokenAmountSum < outputTokenAmountSum) {
       throw `insufficent token.Need ${outputTokenAmountSum} But only ${inputTokenAmountSum}`;
@@ -991,6 +992,7 @@ export class SensibleFT {
       changeAddress,
       isMerge: true,
       noBroadcast,
+      receivers: [],
     });
   }
 
@@ -1084,11 +1086,12 @@ export class SensibleFT {
     const senderAddress = senderPrivateKey.toAddress(this.network);
 
     //获取token
-    let ftUtxos = await this.fetchFtUtxos(
+    let ftUtxos = await this.sensibleApi.getFungbleTokenUnspents(
       codehash,
       genesis,
       senderAddress.toString()
     );
+    ftUtxos.forEach((v) => (v.tokenAmount = BigInt(v.tokenAmount)));
 
     //格式化接收者
     let tokenOutputArray = receivers.map((v) => ({

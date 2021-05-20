@@ -329,9 +329,9 @@ export class FungibleToken {
 
   async createIssueTx({
     genesisContract,
-    genesisTxId,
-    genesisTxOutputIndex,
-    genesisLockingScript,
+    spendByTxId,
+    spendByOutputIndex,
+    spendByLockingScript,
 
     opreturnData,
     utxos,
@@ -350,13 +350,13 @@ export class FungibleToken {
     tx.addInput(
       new bsv.Transaction.Input({
         output: new bsv.Transaction.Output({
-          script: genesisLockingScript,
+          script: spendByLockingScript,
           satoshis: Utils.getDustThreshold(
-            genesisLockingScript.toBuffer().length
+            spendByLockingScript.toBuffer().length
           ),
         }),
-        prevTxId: genesisTxId,
-        outputIndex: genesisTxOutputIndex,
+        prevTxId: spendByTxId,
+        outputIndex: spendByOutputIndex,
         script: bsv.Script.empty(),
       })
     );
@@ -390,7 +390,7 @@ export class FungibleToken {
       genesisDataPartObj.tokenID = tokenDataPartObj.tokenID;
       let newGenesislockingScript = bsv.Script.fromBuffer(
         TokenProto.updateScript(
-          genesisLockingScript.toBuffer(),
+          spendByLockingScript.toBuffer(),
           genesisDataPartObj
         )
       );
