@@ -121,6 +121,7 @@ export class NonFungibleToken {
     utxoPrivateKeys,
     changeAddress,
     feeb,
+    debug,
   }) {
     let issuerPk = issuerPrivateKey.publicKey;
     let tx = new bsv.Transaction().from(
@@ -257,9 +258,11 @@ export class NonFungibleToken {
         inputIndex: curInputIndex,
         inputSatoshis: curInputSatoshis,
       };
-      let ret = contractObj.verify(txContext);
-      if (ret.success == false) {
-        throw ret;
+      if (debug) {
+        let ret = contractObj.verify(txContext);
+        if (ret.success == false) {
+          throw ret;
+        }
       }
 
       tx.inputs[curInputIndex].setScript(contractObj.toScript());
@@ -293,6 +296,7 @@ export class NonFungibleToken {
     changeAddress,
     feeb,
     signers,
+    debug,
   }) {
     let tx = new bsv.Transaction().from(
       utxos.map((utxo) => ({
@@ -409,8 +413,11 @@ export class NonFungibleToken {
         inputIndex: curInputIndex,
         inputSatoshis: curInputSatoshis,
       };
-      let ret = contractObj.verify(txContext);
-      if (ret.success == false) throw ret;
+      if (debug) {
+        let ret = contractObj.verify(txContext);
+        if (ret.success == false) throw ret;
+      }
+
       tx.inputs[curInputIndex].setScript(contractObj.toScript());
     }
 

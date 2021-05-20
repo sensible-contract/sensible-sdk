@@ -132,6 +132,7 @@ export class SensibleNFT {
   purse: string;
   sensibleApi: SensibleApi;
   nft: NonFungibleToken;
+  debug: boolean;
   /**
    *
    * @param {Object} param0
@@ -147,12 +148,14 @@ export class SensibleNFT {
     network = API_NET.MAIN,
     mock = false,
     purse,
+    debug = false,
   }: {
     signers: SignerConfig[];
     feeb: number;
     network: API_NET;
     mock: boolean;
     purse: string;
+    debug: boolean;
   }) {
     checkParamSigners(signers);
     checkParamNetwork(network);
@@ -166,6 +169,7 @@ export class SensibleNFT {
     this.sensibleApi = new SensibleApi(network);
     this.purse = purse;
     this.nft = new NonFungibleToken(BigInt("0x" + signers[0].satotxPubKey));
+    this.debug = debug;
   }
 
   async pretreatUtxos(utxos: ParamUtxo[]) {
@@ -420,6 +424,7 @@ export class SensibleNFT {
       changeAddress,
       utxoPrivateKeys,
       feeb: this.feeb,
+      debug: this.debug,
     });
 
     let txHex = tx.serialize(true);
@@ -553,6 +558,7 @@ export class SensibleNFT {
       changeAddress,
       feeb: this.feeb,
       signers: this.signers,
+      debug: this.debug,
     });
 
     let txHex = tx.serialize(true);

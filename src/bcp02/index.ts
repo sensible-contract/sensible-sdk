@@ -175,6 +175,7 @@ export class SensibleFT {
   sensibleApi: SensibleApi;
   zeroAddress: string;
   ft: FungibleToken;
+  debug: boolean;
   /**
    *
    * @param {Object} param0
@@ -191,12 +192,14 @@ export class SensibleFT {
     // apiTarget = "whatsonchain",
     mock = false,
     purse,
+    debug = false,
   }: {
     signers: SignerConfig[];
     feeb: number;
     network: API_NET;
     mock: boolean;
     purse: string;
+    debug: boolean;
   }) {
     checkParamSigners(signers);
     checkParamNetwork(network);
@@ -209,6 +212,7 @@ export class SensibleFT {
     this.mock = mock;
     this.sensibleApi = new SensibleApi(network);
     this.purse = purse;
+    this.debug = debug;
 
     if (network == "mainnet") {
       this.zeroAddress = "1111111111111111111114oLvT2";
@@ -501,6 +505,7 @@ export class SensibleFT {
       opreturnData,
       issuerPrivateKey,
       utxoPrivateKeys,
+      debug: this.debug,
     });
 
     let txHex = tx.serialize(true);
@@ -942,6 +947,7 @@ export class SensibleFT {
       utxoPrivateKeys,
       feeb: this.feeb,
       opreturnData,
+      debug: this.debug,
     });
 
     let routeCheckTxHex = routeCheckTx.serialize(true);

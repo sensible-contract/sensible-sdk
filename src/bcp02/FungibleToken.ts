@@ -344,6 +344,7 @@ export class FungibleToken {
 
     issuerPrivateKey,
     utxoPrivateKeys,
+    debug,
   }) {
     const tx = new bsv.Transaction();
 
@@ -507,8 +508,11 @@ export class FungibleToken {
         inputIndex: genesisInputIndex,
         inputSatoshis: genesisInputSatoshis,
       };
-      let ret = contractObj.verify(txContext);
-      if (ret.success == false) throw ret;
+      if (debug) {
+        let ret = contractObj.verify(txContext);
+        if (ret.success == false) throw ret;
+      }
+
       tx.inputs[genesisInputIndex].setScript(contractObj.toScript());
     }
 
@@ -631,6 +635,7 @@ export class FungibleToken {
     changeAddress,
     feeb,
     opreturnData,
+    debug,
   }) {
     const tx = new bsv.Transaction();
     let senderPk = senderPrivateKey.publicKey;
@@ -867,8 +872,11 @@ export class FungibleToken {
           inputIndex: tokenInputIndex,
           inputSatoshis: tokenInputSatoshis,
         };
-        let ret = unlockingContract.verify(txContext);
-        if (ret.success == false) throw ret;
+        if (debug) {
+          let ret = unlockingContract.verify(txContext);
+          if (ret.success == false) throw ret;
+        }
+
         tx.inputs[tokenInputIndex].setScript(unlockingContract.toScript());
       }
       const routeCheckInputSatoshis = routeCheckTx.outputs[0].satoshis;
@@ -900,8 +908,11 @@ export class FungibleToken {
         inputIndex: routeCheckInputIndex,
         inputSatoshis: routeCheckInputSatoshis,
       };
-      let ret = unlockingContract.verify(txContext);
-      if (ret.success == false) throw ret;
+      if (debug) {
+        let ret = unlockingContract.verify(txContext);
+        if (ret.success == false) throw ret;
+      }
+
       tx.inputs[routeCheckInputIndex].setScript(unlockingContract.toScript());
     }
 
