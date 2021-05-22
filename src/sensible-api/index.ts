@@ -59,14 +59,6 @@ export class SensibleApi {
    * @param {string} hex
    */
   async broadcast(txHex: string) {
-    // let _res:any = await Net.httpPost(
-    //   "https://apiv2.metasv.com/merchant/broadcast",
-    //   {
-    //     hex: txHex,
-    //   }
-    // );
-    // return _res.txid;
-
     let url = `${this.serverBase}/pushtx`;
     let _res = await Net.httpPost(url, {
       txHex,
@@ -82,7 +74,7 @@ export class SensibleApi {
   /**
    * @param {string} txid
    */
-  async getRawTxData(txid) {
+  async getRawTxData(txid: string) {
     let url = `${this.serverBase}/rawtx/${txid}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -137,7 +129,7 @@ export class SensibleApi {
       throw { title: "request sensible api failed", url, msg };
     }
 
-    return data.balance + data.pending_balance;
+    return data;
   }
 
   /**

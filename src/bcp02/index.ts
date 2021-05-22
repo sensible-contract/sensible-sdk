@@ -957,6 +957,7 @@ export class SensibleFT {
     utxos,
     changeAddress,
     noBroadcast = false,
+    opreturnData,
   }: {
     codehash: string;
     genesis: string;
@@ -964,6 +965,7 @@ export class SensibleFT {
     utxos?: any;
     changeAddress?: any;
     noBroadcast?: boolean;
+    opreturnData?: any;
   }) {
     return await this.transfer({
       codehash,
@@ -977,6 +979,11 @@ export class SensibleFT {
     });
   }
 
+  /**
+   * 查询某人持有的FT余额，以及utxo的数量
+   * @param param0
+   * @returns
+   */
   async getBalance({ codehash, genesis, address }) {
     return await this.sensibleApi.getFungbleTokenBalance(
       codehash,
