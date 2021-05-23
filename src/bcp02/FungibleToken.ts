@@ -260,11 +260,6 @@ export class FungibleToken {
       );
     }
 
-    tx.change(changeAddress);
-    tx.fee(
-      Math.ceil((tx.serialize(true).length / 2 + utxos.length * 107) * feeb)
-    );
-
     //unlock P2PKH
     tx.inputs.forEach((input, inputIndex) => {
       if (input.script.toBuffer().length == 0) {
@@ -272,6 +267,15 @@ export class FungibleToken {
         Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
       }
     });
+
+    tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+    let changeAmount = tx._getUnspentValue() - tx.getFee();
+    //足够dust才找零，否则归为手续费
+    if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+      tx.change(changeAddress);
+      //添加找零后要重新计算手续费
+      tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+    }
     return tx;
   }
 
@@ -374,6 +378,9 @@ export class FungibleToken {
           script: bsv.Script.empty(),
         })
       );
+      //unlock P2PKH
+      let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+      Utils.unlockP2PKHInput(privateKey, tx, tx.inputs.length - 1, sighashType);
     });
 
     const tokenDataPartObj = TokenProto.parseDataPart(
@@ -428,7 +435,6 @@ export class FungibleToken {
         })
       );
     }
-    tx.change(changeAddress);
 
     const genesisInputIndex = 0;
     const genesisInputSatoshis = tx.inputs[genesisInputIndex].output.satoshis;
@@ -470,9 +476,16 @@ export class FungibleToken {
 
     //let the fee to be exact in the second round
     for (let c = 0; c < 2; c++) {
-      tx.fee(
-        Math.ceil((tx.serialize(true).length / 2 + utxos.length * 107) * feeb)
-      );
+      tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+      let changeAmount = tx._getUnspentValue() - tx.getFee();
+      //足够dust才找零，否则归为手续费
+      if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+        tx.change(changeAddress);
+        //添加找零后要重新计算手续费
+        tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+        changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+      }
+
       let sig = signTx(
         tx,
         issuerPrivateKey,
@@ -516,13 +529,6 @@ export class FungibleToken {
       tx.inputs[genesisInputIndex].setScript(contractObj.toScript());
     }
 
-    //unlock P2PKH
-    tx.inputs.forEach((input, inputIndex) => {
-      if (input.script.toBuffer().length == 0) {
-        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
-      }
-    });
     return tx;
   }
 
@@ -595,6 +601,14 @@ export class FungibleToken {
       }))
     );
 
+    //unlock P2PKH
+    tx.inputs.forEach((input, inputIndex) => {
+      if (input.script.toBuffer().length == 0) {
+        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
+      }
+    });
+
     tx.addOutput(
       new bsv.Transaction.Output({
         script: routeCheckContract.lockingScript,
@@ -604,18 +618,16 @@ export class FungibleToken {
       })
     );
 
-    tx.change(changeAddress);
-    tx.fee(
-      Math.ceil((tx.serialize(true).length / 2 + utxos.length * 107) * feeb)
-    );
+    tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+    let changeAmount = tx._getUnspentValue() - tx.getFee();
+    //足够dust才找零，否则归为手续费
+    if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+      tx.change(changeAddress);
+      //添加找零后要重新计算手续费
+      tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+      changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+    }
 
-    //unlock P2PKH
-    tx.inputs.forEach((input, inputIndex) => {
-      if (input.script.toBuffer().length == 0) {
-        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
-      }
-    });
     return tx;
   }
 
@@ -704,6 +716,10 @@ export class FungibleToken {
         })
       );
 
+      //unlock P2PKH
+      let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+      Utils.unlockP2PKHInput(privateKey, tx, tx.inputs.length - 1, sighashType);
+
       // add outputpoint to prevouts
       const indexBuf = Buffer.alloc(4, 0);
       indexBuf.writeUInt32LE(outputIndex);
@@ -775,15 +791,18 @@ export class FungibleToken {
       );
     }
 
-    tx.change(changeAddress);
     //let the fee to be exact in the second round
     for (let c = 0; c < 2; c++) {
-      tx.fee(
-        Math.ceil(
-          (tx.serialize(true).length / 2 + satoshiInputArray.length * 107) *
-            feeb
-        )
-      );
+      tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+      let changeAmount = tx._getUnspentValue() - tx.getFee();
+      //足够dust才找零，否则归为手续费
+      if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+        tx.change(changeAddress);
+        //添加找零后要重新计算手续费
+        tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+        changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+      }
+
       let changeSatoshis = tx.outputs[tx.outputs.length - 1].satoshis;
       const routeCheckInputIndex = tokenInputLen + satoshiInputArray.length;
       for (let i = 0; i < tokenInputLen; i++) {
@@ -915,14 +934,6 @@ export class FungibleToken {
 
       tx.inputs[routeCheckInputIndex].setScript(unlockingContract.toScript());
     }
-
-    //unlock P2PKH
-    tx.inputs.forEach((input, inputIndex) => {
-      if (input.script.toBuffer().length == 0) {
-        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
-      }
-    });
 
     return tx;
   }

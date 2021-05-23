@@ -65,6 +65,14 @@ export class NonFungibleToken {
       }))
     );
 
+    //unlock P2PKH
+    tx.inputs.forEach((input, inputIndex) => {
+      if (input.script.toBuffer().length == 0) {
+        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
+      }
+    });
+
     let pl = new PayloadNFT({
       dataType: ISSUE,
       ownerPkh: issuerPk._getID(),
@@ -90,18 +98,15 @@ export class NonFungibleToken {
       );
     }
 
-    tx.change(changeAddress);
-    tx.fee(
-      Math.ceil((tx.serialize(true).length / 2 + utxos.length * 107) * feeb)
-    );
+    tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+    let changeAmount = tx._getUnspentValue() - tx.getFee();
+    //足够dust才找零，否则归为手续费
+    if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+      tx.change(changeAddress);
+      //添加找零后要重新计算手续费
+      tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+    }
 
-    //unlock P2PKH
-    tx.inputs.forEach((input, inputIndex) => {
-      if (input.script.toBuffer().length == 0) {
-        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
-      }
-    });
     return tx;
   }
 
@@ -132,6 +137,14 @@ export class NonFungibleToken {
         script: bsv.Script.buildPublicKeyHashOut(utxo.address).toHex(),
       }))
     );
+
+    //unlock P2PKH
+    tx.inputs.forEach((input, inputIndex) => {
+      if (input.script.toBuffer().length == 0) {
+        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
+      }
+    });
 
     let pl = new PayloadNFT();
     pl.read(issuerLockingScript.toBuffer());
@@ -191,8 +204,6 @@ export class NonFungibleToken {
       );
     }
 
-    tx.change(changeAddress);
-
     const curInputIndex = tx.inputs.length - 1;
     const curInputLockingScript = tx.inputs[curInputIndex].output.script;
     const curInputSatoshis = tx.inputs[curInputIndex].output.satoshis;
@@ -204,10 +215,15 @@ export class NonFungibleToken {
 
     //let the fee to be exact in the second round
     for (let c = 0; c < 2; c++) {
-      tx.fee(
-        Math.ceil((tx.serialize(true).length / 2 + utxos.length * 107) * feeb)
-      );
-      const changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+      tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+      let changeAmount = tx._getUnspentValue() - tx.getFee();
+      //足够dust才找零，否则归为手续费
+      if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+        tx.change(changeAddress);
+        //添加找零后要重新计算手续费
+        tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+        changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+      }
 
       let sigBuf = signTx(
         tx,
@@ -268,13 +284,6 @@ export class NonFungibleToken {
       tx.inputs[curInputIndex].setScript(contractObj.toScript());
     }
 
-    //unlock P2PKH
-    tx.inputs.forEach((input, inputIndex) => {
-      if (input.script.toBuffer().length == 0) {
-        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
-      }
-    });
     return {
       tx,
       tokenid: pl.tokenId,
@@ -306,6 +315,14 @@ export class NonFungibleToken {
         script: bsv.Script.buildPublicKeyHashOut(utxo.address).toHex(),
       }))
     );
+
+    //unlock P2PKH
+    tx.inputs.forEach((input, inputIndex) => {
+      if (input.script.toBuffer().length == 0) {
+        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
+      }
+    });
 
     let senderPk = senderPrivateKey.publicKey;
     let pl = new PayloadNFT();
@@ -348,8 +365,6 @@ export class NonFungibleToken {
       );
     }
 
-    tx.change(changeAddress);
-
     const curInputIndex = tx.inputs.length - 1;
     const curInputLockingScript = tx.inputs[curInputIndex].output.script;
     const curInputSatoshis = tx.inputs[curInputIndex].output.satoshis;
@@ -360,10 +375,15 @@ export class NonFungibleToken {
     let preDataPartHex = this.getDataPartFromScript(script);
 
     for (let c = 0; c < 2; c++) {
-      tx.fee(
-        Math.ceil((tx.serialize(true).length / 2 + utxos.length * 107) * feeb)
-      );
-      const changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+      tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+      let changeAmount = tx._getUnspentValue() - tx.getFee();
+      //足够dust才找零，否则归为手续费
+      if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+        tx.change(changeAddress);
+        //添加找零后要重新计算手续费
+        tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+        changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+      }
 
       this.nftContract.txContext = {
         tx: tx,
@@ -421,13 +441,6 @@ export class NonFungibleToken {
       tx.inputs[curInputIndex].setScript(contractObj.toScript());
     }
 
-    //unlock P2PKH
-    tx.inputs.forEach((input, inputIndex) => {
-      if (input.script.toBuffer().length == 0) {
-        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
-      }
-    });
     return tx;
   }
 
