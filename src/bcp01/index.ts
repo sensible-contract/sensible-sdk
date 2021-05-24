@@ -1,8 +1,9 @@
 import { bsv, toHex } from "scryptlib";
 import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import * as Utils from "../common/utils";
+import { SigHashInfo, SigInfo } from "../common/utils";
 import { API_NET, SensibleApi } from "../sensible-api";
-import { NonFungibleToken } from "./NonFungibleToken";
+import { NonFungibleToken, sighashType } from "./NonFungibleToken";
 const dummyNetwork = "mainnet";
 const dummyWif = "L5k7xi4diSR8aWoGKojSNTnc3YMEXEoNpJEaGzqWimdKry6CFrzz";
 const dummyPrivateKey = bsv.PrivateKey.fromWIF(dummyWif);
@@ -170,7 +171,7 @@ export class SensibleNFT {
       utxos.forEach((utxo) => {
         utxo.address = utxoAddress;
       });
-      utxoPrivateKeys = utxos.map((v) => utxoPrivateKey);
+      utxoPrivateKeys = utxos.map((v) => utxoPrivateKey).filter((v) => v);
     }
     if (utxos.length == 0) throw "Insufficient balance.";
     return { utxos, utxoPrivateKeys };
@@ -192,46 +193,121 @@ export class SensibleNFT {
     opreturnData,
     utxos,
     changeAddress,
+    noBroadcast = false,
   }: {
     genesisWif: string;
     totalSupply: string | bigint;
     opreturnData: any;
     utxos?: ParamUtxo[];
     changeAddress?: any;
-  }) {
-    let _res = await this.pretreatUtxos(utxos);
-    return await this._genesis({
-      genesisWif,
-      totalSupply: BigInt(totalSupply),
+    noBroadcast?: boolean;
+  }): Promise<{
+    codehash: string;
+    genesis: string;
+    txid: string;
+    txHex: string;
+  }> {
+    const genesisPrivateKey = new bsv.PrivateKey(genesisWif);
+    const genesisPublicKey = genesisPrivateKey.toPublicKey();
+
+    let utxoInfo = await this.pretreatUtxos(utxos);
+    if (changeAddress) {
+      changeAddress = new bsv.Address(changeAddress, this.network);
+    } else {
+      changeAddress = utxoInfo.utxos[0].address;
+    }
+
+    totalSupply = BigInt(totalSupply);
+
+    let { txHex, tx, codehash, genesis } = await this._genesis({
+      genesisPublicKey,
+      totalSupply,
       opreturnData,
-      utxos: _res.utxos,
-      utxoPrivateKeys: _res.utxoPrivateKeys,
-      changeAddress: changeAddress
-        ? new bsv.Address(changeAddress, this.network)
-        : _res.utxos[0].address,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress,
     });
+    if (!noBroadcast && !this.mock) {
+      await this.sensibleApi.broadcast(txHex);
+    }
+    return { codehash, genesis, txid: tx.id, txHex };
+  }
+
+  async unsignGenesis({
+    genesisPublicKey,
+    totalSupply,
+    opreturnData,
+    utxos,
+    changeAddress,
+  }: {
+    genesisPublicKey: string;
+    totalSupply: string | bigint;
+    opreturnData: any;
+    utxos?: ParamUtxo[];
+    changeAddress?: any;
+  }): Promise<{
+    tx: any;
+    sigHashList: SigHashInfo[];
+  }> {
+    genesisPublicKey = new bsv.PublicKey(genesisPublicKey);
+    let utxoInfo = await this.pretreatUtxos(utxos);
+    if (changeAddress) {
+      changeAddress = new bsv.Address(changeAddress, this.network);
+    } else {
+      changeAddress = utxoInfo.utxos[0].address;
+    }
+
+    totalSupply = BigInt(totalSupply);
+
+    let { txHex, tx, codehash, genesis } = await this._genesis({
+      genesisPublicKey,
+      totalSupply,
+      opreturnData,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress,
+    });
+
+    let sigHashList: SigHashInfo[] = [];
+    tx.inputs.forEach((input: any, inputIndex: number) => {
+      let address = utxoInfo.utxos[inputIndex].address.toString();
+      let isP2PKH = true;
+
+      sigHashList.push({
+        sighash: toHex(
+          bsv.Transaction.sighash.sighash(
+            tx,
+            sighashType,
+            inputIndex,
+            input.output.script,
+            input.output.satoshisBN
+          )
+        ),
+        sighashType,
+        address,
+        inputIndex,
+        isP2PKH,
+      });
+    });
+
+    return { tx, sigHashList };
   }
 
   async _genesis({
-    genesisWif,
+    genesisPublicKey,
     totalSupply,
     opreturnData,
     utxos,
     utxoPrivateKeys,
     changeAddress,
-    noBroadcast = false,
   }: {
-    genesisWif: string;
+    genesisPublicKey: any;
     totalSupply: bigint;
     opreturnData?: any;
     utxos?: ParamUtxo[];
     utxoPrivateKeys: any[];
     changeAddress?: any;
-    noBroadcast?: boolean;
-  }) {
-    const issuerPrivateKey = bsv.PrivateKey.fromWIF(genesisWif);
-
-    let issuerPk = issuerPrivateKey.toPublicKey();
+  }): Promise<{ txHex: string; tx: any; genesis: string; codehash: string }> {
     const utxoTxId = utxos[utxos.length - 1].txId;
     const utxoOutputIndex = utxos[utxos.length - 1].outputIndex;
 
@@ -240,7 +316,7 @@ export class SensibleNFT {
       outputIndex: utxoOutputIndex,
     });
     let tx = await this.nft.makeTxGenesis({
-      issuerPk,
+      genesisPublicKey,
       tokenId: BigInt(0),
       totalSupply,
       opreturnData,
@@ -260,10 +336,8 @@ export class SensibleNFT {
     if (balance < needFee) {
       throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
     }
-    if (!noBroadcast && !this.mock) {
-      await this.sensibleApi.broadcast(txHex);
-    }
-    return { txHex, txid: tx.id, genesis, codehash };
+
+    return { txHex, tx, genesis, codehash };
   }
 
   /**
@@ -299,25 +373,114 @@ export class SensibleNFT {
     utxos?: any[];
     changeAddress?: string;
     noBroadcast?: boolean;
-  }) {
+  }): Promise<{ txHex: string; txid: string }> {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
 
-    let _res = await this.pretreatUtxos(utxos);
-    return await this._issue({
+    const genesisPrivateKey = new bsv.PrivateKey(genesisWif);
+    const genesisPublicKey = genesisPrivateKey.toPublicKey();
+    let utxoInfo = await this.pretreatUtxos(utxos);
+    if (changeAddress) {
+      changeAddress = new bsv.Address(changeAddress, this.network);
+    } else {
+      changeAddress = utxoInfo.utxos[0].address;
+    }
+
+    receiverAddress = new bsv.Address(receiverAddress, this.network);
+
+    let { tx, txHex } = await this._issue({
       genesis,
       codehash,
-      genesisWif,
-      receiverAddress: new bsv.Address(receiverAddress, this.network),
+      genesisPrivateKey,
+      genesisPublicKey,
+      receiverAddress,
       metaTxId,
       opreturnData,
-      utxos: _res.utxos,
-      utxoPrivateKeys: _res.utxoPrivateKeys,
-      changeAddress: changeAddress
-        ? new bsv.Address(changeAddress, this.network)
-        : _res.utxos[0].address,
-      noBroadcast,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress: changeAddress,
     });
+
+    if (!noBroadcast && !this.mock) {
+      await this.sensibleApi.broadcast(txHex);
+    }
+
+    return { txHex, txid: tx.id };
+  }
+
+  async unsignIssue({
+    genesis,
+    codehash,
+    genesisPublicKey,
+    receiverAddress,
+    metaTxId,
+    opreturnData,
+    utxos,
+    changeAddress,
+  }: {
+    genesis: string;
+    codehash: string;
+    genesisPublicKey: any;
+    receiverAddress: string;
+    metaTxId: string;
+    opreturnData?: any;
+    utxos?: any[];
+    changeAddress?: string;
+  }): Promise<{ tx: any; sigHashList: SigHashInfo[] }> {
+    checkParamGenesis(genesis);
+    checkParamCodehash(codehash);
+
+    genesisPublicKey = new bsv.PublicKey(genesisPublicKey);
+    let utxoInfo = await this.pretreatUtxos(utxos);
+    if (changeAddress) {
+      changeAddress = new bsv.Address(changeAddress, this.network);
+    } else {
+      changeAddress = utxoInfo.utxos[0].address;
+    }
+
+    receiverAddress = new bsv.Address(receiverAddress, this.network);
+
+    let { tx, txHex } = await this._issue({
+      genesis,
+      codehash,
+      genesisPublicKey,
+      receiverAddress,
+      metaTxId,
+      opreturnData,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress: changeAddress,
+    });
+
+    let sigHashList: SigHashInfo[] = [];
+    tx.inputs.forEach((input: any, inputIndex: number) => {
+      let address = "";
+      let isP2PKH;
+      if (inputIndex == 0) {
+        address = genesisPublicKey.toAddress(this.network).toString();
+        isP2PKH = false;
+      } else {
+        address = utxoInfo.utxos[inputIndex - 1].address.toString();
+        isP2PKH = true;
+      }
+      sigHashList.push({
+        sighash: toHex(
+          bsv.Transaction.sighash.sighash(
+            tx,
+            sighashType,
+            inputIndex,
+            input.output.script,
+            input.output.satoshisBN
+          )
+        ),
+        sighashType,
+        address,
+        inputIndex,
+        isP2PKH,
+      });
+    });
+
+    return { tx, sigHashList };
   }
   /**
    *
@@ -335,18 +498,27 @@ export class SensibleNFT {
   async _issue({
     genesis,
     codehash,
-    genesisWif,
+    genesisPrivateKey,
+    genesisPublicKey,
     receiverAddress,
     metaTxId,
     opreturnData,
     utxos,
     utxoPrivateKeys,
     changeAddress,
-    noBroadcast,
-  }) {
-    const issuerPrivateKey = bsv.PrivateKey.fromWIF(genesisWif);
-    const issuerPublicKey = bsv.PublicKey.fromPrivateKey(issuerPrivateKey);
-    const issuerAddress = issuerPrivateKey.toAddress(this.network);
+  }: {
+    genesis: string;
+    codehash: string;
+    genesisPrivateKey?: any;
+    genesisPublicKey: any;
+    receiverAddress: any;
+    metaTxId: string;
+    opreturnData?: any;
+    utxos: any[];
+    utxoPrivateKeys?: any[];
+    changeAddress: any;
+  }): Promise<{ tx: any; txHex: string; tokenid: bigint }> {
+    const issuerAddress = genesisPublicKey.toAddress(this.network);
 
     let { genesisTxId, genesisOutputIndex } = parseGenesis(genesis);
 
@@ -370,8 +542,6 @@ export class SensibleNFT {
     let preUtxoOutputIndex = preTx.inputs[preInputIndex].outputIndex;
     let preUtxoTxHex = await this.sensibleApi.getRawTxData(preUtxoTxId);
 
-    let issuerPk = issuerPrivateKey.toPublicKey();
-
     const preIssueTx = new bsv.Transaction(spendByTxHex);
     const issuerLockingScript = preIssueTx.outputs[spendByOutputIndex].script;
 
@@ -391,7 +561,8 @@ export class SensibleNFT {
         byTxHex: spendByTxHex,
       },
 
-      issuerPrivateKey,
+      genesisPrivateKey,
+      genesisPublicKey,
       metaTxId,
       receiverAddress,
       opreturnData,
@@ -410,25 +581,11 @@ export class SensibleNFT {
     if (balance < needFee) {
       throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
     }
-    if (!noBroadcast && !this.mock) {
-      await this.sensibleApi.broadcast(txHex);
-    }
-    return { txHex, txid: tx.id, tokenid };
+
+    return { txHex, tx, tokenid };
   }
 
-  /**
-   *
-   * @param {Object} param0
-   * @param {String} param0.genesis
-   * @param {String} param0.codehash
-   * @param {String} param0.tokenid
-   * @param {String} param0.senderWif
-   * @param {String} param0.receiverAddress 接受者的地址
-   * @param {Array=} param0.utxos 手续费UTXO
-   * @param {String=} param0.changeAddress 手续费找零地址
-   * @returns {Object} {txid}
-   */
-  async transfer({
+  public async transfer({
     genesis,
     codehash,
     tokenid,
@@ -448,41 +605,154 @@ export class SensibleNFT {
     utxos?: any[];
     changeAddress?: string;
     noBroadcast?: boolean;
-  }) {
+  }): Promise<{ txid: string; txHex: string }> {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
-    let utxoPrivateKeys = [];
-    if (utxos) {
-      checkParamUtxoFormat(utxos[0]);
-      utxos.forEach((v) => {
-        let privateKey = bsv.PrivateKey.fromWIF(v.wif);
-        v.address = privateKey.toAddress(this.network);
-        utxoPrivateKeys.push(privateKey);
-      });
+
+    const senderPrivateKey = new bsv.PrivateKey(senderWif);
+    const senderPublicKey = senderPrivateKey.toPublicKey();
+    let utxoInfo = await this.pretreatUtxos(utxos);
+    if (changeAddress) {
+      changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
-      const utxoPrivateKey = bsv.PrivateKey.fromWIF(this.purse);
-      const utxoAddress = utxoPrivateKey.toAddress(this.network);
-      utxos = await this.sensibleApi.getUnspents(utxoAddress.toString());
-      utxos.forEach((utxo) => {
-        utxo.address = utxoAddress;
-      });
-      utxoPrivateKeys = utxos.map((v) => utxoPrivateKey);
+      changeAddress = utxoInfo.utxos[0].address;
     }
+    receiverAddress = new bsv.Address(receiverAddress, this.network);
+
+    let { tx, txHex } = await this._transfer({
+      genesis,
+      codehash,
+      tokenid,
+      senderPrivateKey,
+      senderPublicKey,
+      receiverAddress,
+      opreturnData,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress,
+    });
+
+    if (!noBroadcast && !this.mock) {
+      await this.sensibleApi.broadcast(txHex);
+    }
+    return { txid: tx.id, txHex };
+  }
+
+  public async unsignTransfer({
+    genesis,
+    codehash,
+    tokenid,
+    senderPublicKey,
+    receiverAddress,
+    opreturnData,
+    utxos,
+    changeAddress,
+  }: {
+    genesis: string;
+    codehash: string;
+    tokenid: string;
+    senderPublicKey: any;
+    receiverAddress: string;
+    opreturnData?: any;
+    utxos?: any[];
+    changeAddress?: string;
+  }): Promise<{ tx: any; sigHashList: SigHashInfo[] }> {
+    checkParamGenesis(genesis);
+    checkParamCodehash(codehash);
+
+    senderPublicKey = new bsv.PublicKey(senderPublicKey);
+    let utxoInfo = await this.pretreatUtxos(utxos);
+    if (changeAddress) {
+      changeAddress = new bsv.Address(changeAddress, this.network);
+    } else {
+      changeAddress = utxoInfo.utxos[0].address;
+    }
+    receiverAddress = new bsv.Address(receiverAddress, this.network);
+
+    let { tx, txHex } = await this._transfer({
+      genesis,
+      codehash,
+      tokenid,
+      senderPublicKey,
+      receiverAddress,
+      opreturnData,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress,
+    });
+
+    let sigHashList: SigHashInfo[] = [];
+    tx.inputs.forEach((input: any, inputIndex: number) => {
+      let address = "";
+      let isP2PKH;
+      if (inputIndex == tx.inputs.length - 1) {
+        address = senderPublicKey.toAddress(this.network).toString();
+        isP2PKH = false;
+      } else {
+        address = utxoInfo.utxos[inputIndex].address.toString();
+        isP2PKH = true;
+      }
+      sigHashList.push({
+        sighash: toHex(
+          bsv.Transaction.sighash.sighash(
+            tx,
+            sighashType,
+            inputIndex,
+            input.output.script,
+            input.output.satoshisBN
+          )
+        ),
+        sighashType,
+        address,
+        inputIndex,
+        isP2PKH,
+      });
+    });
+    return { tx, sigHashList };
+  }
+
+  /**
+   *
+   * @param {Object} param0
+   * @param {String} param0.genesis
+   * @param {String} param0.codehash
+   * @param {String} param0.tokenid
+   * @param {String} param0.senderWif
+   * @param {String} param0.receiverAddress 接受者的地址
+   * @param {Array=} param0.utxos 手续费UTXO
+   * @param {String=} param0.changeAddress 手续费找零地址
+   * @returns {Object} {txid}
+   */
+  private async _transfer({
+    genesis,
+    codehash,
+    tokenid,
+    senderPrivateKey,
+    senderPublicKey,
+    receiverAddress,
+    opreturnData,
+    utxos,
+    utxoPrivateKeys,
+    changeAddress,
+  }: {
+    genesis: string;
+    codehash: string;
+    tokenid: string;
+    senderPrivateKey?: any;
+    senderPublicKey: any;
+    receiverAddress: any;
+    opreturnData?: any;
+    utxos: any[];
+    utxoPrivateKeys: any[];
+    changeAddress: any;
+  }): Promise<{ tx: any; txHex: string }> {
     let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
     if (balance == 0) {
       //检查余额
       throw "Insufficient balance.";
     }
 
-    if (changeAddress) {
-      changeAddress = new bsv.Address(changeAddress, this.network);
-    } else {
-      changeAddress = utxos[0].address;
-    }
-
-    const senderPrivateKey = bsv.PrivateKey.fromWIF(senderWif);
     let { genesisTxId, genesisOutputIndex } = parseGenesis(genesis);
-
     let nftUtxo = await this.sensibleApi.getNonFungbleTokenUnspentDetail(
       codehash,
       genesis,
@@ -502,7 +772,6 @@ export class SensibleNFT {
     utxos.forEach((utxo) => {
       utxo.address = new bsv.Address(utxo.address, this.network);
     });
-    receiverAddress = new bsv.Address(receiverAddress, this.network);
 
     this.nft.setTxGenesisPart({
       prevTxId: genesisTxId,
@@ -524,6 +793,7 @@ export class SensibleNFT {
       },
 
       senderPrivateKey,
+      senderPublicKey,
       receiverAddress,
       opreturnData,
 
@@ -540,11 +810,8 @@ export class SensibleNFT {
     if (balance < needFee) {
       throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
     }
-    if (!noBroadcast && !this.mock) {
-      await this.sensibleApi.broadcast(txHex);
-    }
 
-    return { txHex, txid: tx.id };
+    return { txHex, tx };
   }
 
   /*
@@ -628,5 +895,13 @@ export class SensibleNFT {
     let dust = 0;
     let fee = Math.ceil(size * this.feeb) + dust;
     return fee;
+  }
+
+  public sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
+    Utils.sign(tx, sigHashList, sigList);
+  }
+
+  public async broadcast(txHex: string, apiTarget: string) {
+    await this.sensibleApi.broadcast(txHex, apiTarget);
   }
 }

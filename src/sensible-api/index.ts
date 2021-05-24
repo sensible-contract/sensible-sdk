@@ -58,23 +58,36 @@ export class SensibleApi {
   /**
    * @param {string} hex
    */
-  async broadcast(txHex: string) {
-    let url = `${this.serverBase}/pushtx`;
-    let _res = await Net.httpPost(url, {
-      txHex,
-    });
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      console.log(txHex);
-      throw { title: "request sensible api failed", url, msg };
+  async broadcast(
+    txHex: string,
+    apiTarget: string = "sensible"
+  ): Promise<string> {
+    if (apiTarget == "metasv") {
+      let _res: any = await Net.httpPost(
+        "https://apiv2.metasv.com/tx/broadcast",
+        {
+          hex: txHex,
+        }
+      );
+      return _res.txid;
+    } else {
+      let url = `${this.serverBase}/pushtx`;
+      let _res = await Net.httpPost(url, {
+        txHex,
+      });
+      const { code, data, msg } = _res as ResData;
+      if (code != 0) {
+        console.log(txHex);
+        throw { title: "request sensible api failed", url, msg };
+      }
+      return data;
     }
-    return data;
   }
 
   /**
    * @param {string} txid
    */
-  async getRawTxData(txid: string) {
+  async getRawTxData(txid: string): Promise<string> {
     let url = `${this.serverBase}/rawtx/${txid}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -121,7 +134,7 @@ export class SensibleApi {
     codehash: string,
     genesis: string,
     address: string
-  ) {
+  ): Promise<{ balance: number; pendingBalance: number; utxoCount: number }> {
     let url = `${this.serverBase}/ft/balance/${codehash}/${genesis}/${address}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -235,7 +248,15 @@ export class SensibleApi {
   /**
    * 查询某人持有的FT Token列表。获得每个token的余额
    */
-  async getFungbleTokenSummary(address: string) {
+  async getFungbleTokenSummary(
+    address: string
+  ): Promise<{
+    codehash: string;
+    genesis: string;
+    pendingBalance: number;
+    balance: number;
+    symbol: string;
+  }> {
     let url = `${this.serverBase}/ft/summary/${address}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -251,7 +272,15 @@ export class SensibleApi {
    * @param {String} address
    * @returns
    */
-  async getNonFungbleTokenSummary(address: string) {
+  async getNonFungbleTokenSummary(
+    address: string
+  ): Promise<{
+    codehash: string;
+    genesis: string;
+    count: number;
+    pendingCount: number;
+    symbol: string;
+  }> {
     let url = `${this.serverBase}/nft/summary/${address}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;

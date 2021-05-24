@@ -13,10 +13,11 @@ import {
   toHex,
 } from "scryptlib";
 import * as Utils from "../common/utils";
+import { P2PKH_UNLOCK_SIZE, SIG_PLACE_HOLDER } from "../common/utils";
 import { ISSUE, PayloadNFT, TRANSFER } from "./PayloadNFT";
 const DataLen4 = 4;
 const Signature = bsv.crypto.Signature;
-const sighashType =
+export const sighashType =
   Signature.SIGHASH_ANYONECANPAY |
   Signature.SIGHASH_ALL |
   Signature.SIGHASH_FORKID;
@@ -46,7 +47,7 @@ export class NonFungibleToken {
   }
 
   async makeTxGenesis({
-    issuerPk,
+    genesisPublicKey,
     tokenId,
     totalSupply,
     opreturnData,
@@ -56,26 +57,26 @@ export class NonFungibleToken {
     changeAddress,
     feeb,
   }) {
-    let tx = new bsv.Transaction().from(
-      utxos.map((utxo) => ({
-        txId: utxo.txId,
-        outputIndex: utxo.outputIndex,
-        satoshis: utxo.satoshis,
-        script: bsv.Script.buildPublicKeyHashOut(utxo.address).toHex(),
-      }))
-    );
+    let tx = new bsv.Transaction();
 
-    //unlock P2PKH
-    tx.inputs.forEach((input, inputIndex) => {
-      if (input.script.toBuffer().length == 0) {
-        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
-      }
+    //添加utxo作为输入
+    utxos.forEach((utxo) => {
+      tx.addInput(
+        new bsv.Transaction.Input.PublicKeyHash({
+          output: new bsv.Transaction.Output({
+            script: bsv.Script.buildPublicKeyHashOut(utxo.address),
+            satoshis: utxo.satoshis,
+          }),
+          prevTxId: utxo.txId,
+          outputIndex: utxo.outputIndex,
+          script: bsv.Script.empty(),
+        })
+      );
     });
 
     let pl = new PayloadNFT({
       dataType: ISSUE,
-      ownerPkh: issuerPk._getID(),
+      ownerPkh: genesisPublicKey._getID(),
       totalSupply: totalSupply,
       tokenId: tokenId,
     });
@@ -83,12 +84,15 @@ export class NonFungibleToken {
       [this.nftCodePart, this.nftGenesisPart, pl.dump()].join(" ")
     );
 
+    //第一个输出为发行合约
     tx.addOutput(
       new bsv.Transaction.Output({
         script: lockingScript,
         satoshis: Utils.getDustThreshold(lockingScript.toBuffer().length),
       })
     );
+
+    //第二个输出可能为opReturn
     if (opreturnData) {
       tx.addOutput(
         new bsv.Transaction.Output({
@@ -98,15 +102,29 @@ export class NonFungibleToken {
       );
     }
 
-    tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+    //计算手续费并判断是否找零
+    //如果有找零将在最后一项输出
+    const unlockSize = utxos.length * P2PKH_UNLOCK_SIZE;
+    tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
     let changeAmount = tx._getUnspentValue() - tx.getFee();
     //足够dust才找零，否则归为手续费
-    if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+    if (
+      changeAmount >=
+      bsv.Transaction.DUST_AMOUNT + bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE
+    ) {
       tx.change(changeAddress);
       //添加找零后要重新计算手续费
-      tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+      tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
     }
 
+    if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+      tx.inputs.forEach((input, inputIndex) => {
+        if (input.script.toBuffer().length == 0) {
+          let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+          Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
+        }
+      });
+    }
     return tx;
   }
 
@@ -116,7 +134,8 @@ export class NonFungibleToken {
     issuerLockingScript,
     satotxData,
 
-    issuerPrivateKey,
+    genesisPrivateKey,
+    genesisPublicKey,
     receiverAddress,
     metaTxId,
     opreturnData,
@@ -128,22 +147,21 @@ export class NonFungibleToken {
     feeb,
     debug,
   }) {
-    let issuerPk = issuerPrivateKey.publicKey;
-    let tx = new bsv.Transaction().from(
-      utxos.map((utxo) => ({
-        txId: utxo.txId,
-        outputIndex: utxo.outputIndex,
-        satoshis: utxo.satoshis,
-        script: bsv.Script.buildPublicKeyHashOut(utxo.address).toHex(),
-      }))
-    );
+    let tx = new bsv.Transaction();
 
-    //unlock P2PKH
-    tx.inputs.forEach((input, inputIndex) => {
-      if (input.script.toBuffer().length == 0) {
-        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
-      }
+    //添加utxo作为输入
+    utxos.forEach((utxo) => {
+      tx.addInput(
+        new bsv.Transaction.Input.PublicKeyHash({
+          output: new bsv.Transaction.Output({
+            script: bsv.Script.buildPublicKeyHashOut(utxo.address),
+            satoshis: utxo.satoshis,
+          }),
+          prevTxId: utxo.txId,
+          outputIndex: utxo.outputIndex,
+          script: bsv.Script.empty(),
+        })
+      );
     });
 
     let pl = new PayloadNFT();
@@ -213,26 +231,49 @@ export class NonFungibleToken {
     let script = new bsv.Script(sigInfo.script);
     let preDataPartHex = this.getDataPartFromScript(script);
 
+    let changeAmount = 0;
     //let the fee to be exact in the second round
     for (let c = 0; c < 2; c++) {
-      tx.fee(Math.ceil(tx.toBuffer().length * feeb));
-      let changeAmount = tx._getUnspentValue() - tx.getFee();
+      const unlockSize = utxos.length * P2PKH_UNLOCK_SIZE;
+      tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
       //足够dust才找零，否则归为手续费
-      if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+      let leftAmount = tx._getUnspentValue() - tx.getFee() + changeAmount;
+      if (
+        leftAmount >=
+        bsv.Transaction.DUST_AMOUNT + bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE
+      ) {
         tx.change(changeAddress);
         //添加找零后要重新计算手续费
-        tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+        tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
         changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+      } else {
+        if (!Utils.isNull(tx._changeIndex)) {
+          tx._removeOutput(tx._changeIndex);
+        }
+        changeAmount = 0;
+        //无找零是很危险的事情，禁止大于1的费率
+        let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
+        let _feeb = fee / tx.toBuffer().length;
+        if (_feeb > 1) {
+          throw "unsupport feeb";
+        }
       }
 
-      let sigBuf = signTx(
-        tx,
-        issuerPrivateKey,
-        curInputLockingScript.toASM(),
-        curInputSatoshis,
-        curInputIndex,
-        sighashType
-      );
+      let sig: Buffer;
+      if (genesisPrivateKey) {
+        //如果提供了私钥就进行签名
+        sig = signTx(
+          tx,
+          genesisPrivateKey,
+          curInputLockingScript.toASM(),
+          curInputSatoshis,
+          curInputIndex,
+          sighashType
+        );
+      } else {
+        //如果没有提供私钥就使用71字节的占位符
+        sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
+      }
 
       const preimage = getPreimage(
         tx,
@@ -245,9 +286,11 @@ export class NonFungibleToken {
       if (
         this.nftContract.lockingScript.toHex() != curInputLockingScript.toHex()
       ) {
-        console.log(this.nftContract.lockingScript.toASM());
-        console.log(curInputLockingScript.toASM());
-        throw "error";
+        if (debug) {
+          console.log(this.nftContract.lockingScript.toASM());
+          console.log(curInputLockingScript.toASM());
+        }
+        throw "nftContract lockingScript unmatch ";
       }
 
       let contractObj = this.nftContract.issue(
@@ -261,8 +304,8 @@ export class NonFungibleToken {
             ? new bsv.Script.buildSafeDataOut(opreturnData).toHex()
             : ""
         ),
-        new Sig(toHex(sigBuf)),
-        new PubKey(toHex(issuerPk)),
+        new Sig(toHex(sig)),
+        new PubKey(toHex(genesisPublicKey)),
         new Bytes(metaTxId),
         new Ripemd160(toHex(receiverAddress.hashBuffer)),
         nftOutputSatoshis,
@@ -274,7 +317,7 @@ export class NonFungibleToken {
         inputIndex: curInputIndex,
         inputSatoshis: curInputSatoshis,
       };
-      if (debug) {
+      if (debug && genesisPrivateKey) {
         let ret = contractObj.verify(txContext);
         if (ret.success == false) {
           throw ret;
@@ -284,6 +327,14 @@ export class NonFungibleToken {
       tx.inputs[curInputIndex].setScript(contractObj.toScript());
     }
 
+    if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+      tx.inputs.forEach((input, inputIndex) => {
+        if (input.script.toBuffer().length == 0) {
+          let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+          Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
+        }
+      });
+    }
     return {
       tx,
       tokenid: pl.tokenId,
@@ -297,6 +348,7 @@ export class NonFungibleToken {
     satotxData,
 
     senderPrivateKey,
+    senderPublicKey,
     receiverAddress,
     opreturnData,
 
@@ -307,24 +359,23 @@ export class NonFungibleToken {
     signers,
     debug,
   }) {
-    let tx = new bsv.Transaction().from(
-      utxos.map((utxo) => ({
-        txId: utxo.txId,
-        outputIndex: utxo.outputIndex,
-        satoshis: utxo.satoshis,
-        script: bsv.Script.buildPublicKeyHashOut(utxo.address).toHex(),
-      }))
-    );
+    let tx = new bsv.Transaction();
 
-    //unlock P2PKH
-    tx.inputs.forEach((input, inputIndex) => {
-      if (input.script.toBuffer().length == 0) {
-        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
-      }
+    //添加utxo作为输入
+    utxos.forEach((utxo) => {
+      tx.addInput(
+        new bsv.Transaction.Input.PublicKeyHash({
+          output: new bsv.Transaction.Output({
+            script: bsv.Script.buildPublicKeyHashOut(utxo.address),
+            satoshis: utxo.satoshis,
+          }),
+          prevTxId: utxo.txId,
+          outputIndex: utxo.outputIndex,
+          script: bsv.Script.empty(),
+        })
+      );
     });
 
-    let senderPk = senderPrivateKey.publicKey;
     let pl = new PayloadNFT();
     pl.read(transferLockingScript.toBuffer());
 
@@ -374,15 +425,31 @@ export class NonFungibleToken {
     let script = new bsv.Script(sigInfo.script);
     let preDataPartHex = this.getDataPartFromScript(script);
 
+    let changeAmount = 0;
     for (let c = 0; c < 2; c++) {
-      tx.fee(Math.ceil(tx.toBuffer().length * feeb));
-      let changeAmount = tx._getUnspentValue() - tx.getFee();
+      const unlockSize = utxos.length * P2PKH_UNLOCK_SIZE;
+      tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
       //足够dust才找零，否则归为手续费
-      if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+      let leftAmount = tx._getUnspentValue() - tx.getFee() + changeAmount;
+      if (
+        leftAmount >=
+        bsv.Transaction.DUST_AMOUNT + bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE
+      ) {
         tx.change(changeAddress);
         //添加找零后要重新计算手续费
-        tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+        tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
         changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+      } else {
+        if (!Utils.isNull(tx._changeIndex)) {
+          tx._removeOutput(tx._changeIndex);
+        }
+        changeAmount = 0;
+        //无找零是很危险的事情，禁止大于1的费率
+        let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
+        let _feeb = fee / tx.toBuffer().length;
+        if (_feeb > 1) {
+          throw "unsupport feeb";
+        }
       }
 
       this.nftContract.txContext = {
@@ -391,14 +458,21 @@ export class NonFungibleToken {
         inputSatoshis: curInputSatoshis,
       };
 
-      let sigBuf = signTx(
-        tx,
-        senderPrivateKey,
-        curInputLockingScript.toASM(),
-        curInputSatoshis,
-        curInputIndex,
-        sighashType
-      );
+      let sig: Buffer;
+      if (senderPrivateKey) {
+        //如果提供了私钥就进行签名
+        sig = signTx(
+          tx,
+          senderPrivateKey,
+          curInputLockingScript.toASM(),
+          curInputSatoshis,
+          curInputIndex,
+          sighashType
+        );
+      } else {
+        //如果没有提供私钥就使用71字节的占位符
+        sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
+      }
 
       const preimage = getPreimage(
         tx,
@@ -419,8 +493,8 @@ export class NonFungibleToken {
             ? new bsv.Script.buildSafeDataOut(opreturnData).toHex()
             : ""
         ),
-        new Sig(sigBuf.toString("hex")),
-        new PubKey(toHex(senderPk)),
+        new Sig(toHex(sig)),
+        new PubKey(toHex(senderPublicKey)),
         new Bytes(""),
         new Ripemd160(toHex(receiverAddress.hashBuffer)),
         nftOutputSatoshis,
@@ -433,7 +507,7 @@ export class NonFungibleToken {
         inputIndex: curInputIndex,
         inputSatoshis: curInputSatoshis,
       };
-      if (debug) {
+      if (debug && senderPrivateKey) {
         let ret = contractObj.verify(txContext);
         if (ret.success == false) throw ret;
       }
@@ -441,6 +515,14 @@ export class NonFungibleToken {
       tx.inputs[curInputIndex].setScript(contractObj.toScript());
     }
 
+    if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+      tx.inputs.forEach((input, inputIndex) => {
+        if (input.script.toBuffer().length == 0) {
+          let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+          Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
+        }
+      });
+    }
     return tx;
   }
 

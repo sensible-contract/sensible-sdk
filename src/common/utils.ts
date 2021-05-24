@@ -87,3 +87,53 @@ export function isNull(val: any) {
     return false;
   }
 }
+export type SigHashInfo = {
+  sighash: string;
+  sighashType: number;
+  address: string;
+  inputIndex: number;
+  isP2PKH: boolean;
+};
+
+export type SigInfo = {
+  sig: any;
+  publicKey: any;
+};
+export const SIG_PLACE_HOLDER =
+  "41682c2074686973206973206120706c61636520686f6c64657220616e642077696c6c206265207265706c6163656420696e207468652066696e616c207369676e61747572652e";
+export const P2PKH_UNLOCK_SIZE = 1 + 1 + 71 + 1 + 33;
+
+export function sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
+  sigHashList.forEach(({ inputIndex, isP2PKH, sighashType }, index) => {
+    let input = tx.inputs[inputIndex];
+    let { publicKey, sig } = sigList[index];
+    if (isP2PKH) {
+      const signature = new bsv.Transaction.Signature({
+        publicKey,
+        prevTxId: input.prevTxId,
+        outputIndex: input.outputIndex,
+        inputIndex: inputIndex,
+        signature: sig,
+        sigtype: sighashType,
+      });
+      input.setScript(
+        bsv.Script.buildPublicKeyHashIn(
+          signature.publicKey,
+          signature.signature.toDER(),
+          signature.sigtype
+        )
+      );
+    } else {
+      let _sig = sig.toTxFormat();
+      let oldSigHex = Buffer.concat([
+        Buffer.from("47", "hex"),
+        Buffer.from(SIG_PLACE_HOLDER, "hex"),
+      ]).toString("hex");
+      let newSigHex = Buffer.concat([
+        Buffer.from(_sig.length.toString(16), "hex"),
+        _sig,
+      ]).toString("hex");
+      input.setScript(input.script.toHex().replace(oldSigHex, newSigHex));
+    }
+  });
+}

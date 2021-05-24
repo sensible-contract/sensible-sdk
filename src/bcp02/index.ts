@@ -1,11 +1,13 @@
 import { bsv, Bytes, toHex } from "scryptlib";
 import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import * as Utils from "../common/utils";
+import { SigHashInfo, SigInfo } from "../common/utils";
 import { API_NET, SensibleApi } from "../sensible-api";
-import { FungibleToken, RouteCheckType } from "./FungibleToken";
+import { FungibleToken, RouteCheckType, sighashType } from "./FungibleToken";
 import * as SizeHelper from "./SizeHelper";
 import * as TokenProto from "./tokenProto";
 import * as TokenUtil from "./tokenUtil";
+const $ = bsv.util.preconditions;
 const defaultSignerConfigs: SignerConfig[] = [
   {
     satotxApiPrefix: "https://api.satotx.com",
@@ -34,6 +36,14 @@ const SIZE_OF_ROUTE_CHECK_TYPE_20To3 = 21765;
 const BASE_UTXO_FEE = 1000;
 const BASE_FEE = 52416;
 const SIZE_OF_P2PKH = 106;
+
+type ParamUtxo = {
+  txId: string;
+  outputIndex: number;
+  satoshis: number;
+  wif?: string;
+  address?: any;
+};
 
 function checkParamUtxoFormat(utxo) {
   if (utxo) {
@@ -120,6 +130,12 @@ function checkParamReceivers(receivers) {
   }
 }
 
+/**
+ * 构造genesis值
+ * @param txid
+ * @param index
+ * @returns
+ */
 function getGenesis(txid: string, index: number): string {
   const txidBuf = Buffer.from(txid, "hex").reverse();
   const indexBuf = Buffer.alloc(4, 0);
@@ -127,6 +143,11 @@ function getGenesis(txid: string, index: number): string {
   return toHex(Buffer.concat([txidBuf, indexBuf]));
 }
 
+/**
+ * 解析genesis值
+ * @param genesis
+ * @returns
+ */
 function parseGenesis(genesis: string) {
   let tokenIDBuf = Buffer.from(genesis, "hex");
   let genesisTxId = tokenIDBuf.slice(0, 32).reverse().toString("hex");
@@ -138,15 +159,8 @@ function parseGenesis(genesis: string) {
 }
 
 /**
-
-FT这里有三套genesis/codehash
-1.第一个用于是发行的TokenGenesis（同一个私钥发行的一样，可根据3的genesis来尝试花费）
-codehash:aa1d1d2612197246fc04223442f15603befd52e3
-genesis:000000000000000000000000000000000000000000000000000000000000000000000000
-2.用于增发时的TokenGenesis（同一个私钥发行的codehash一样，并根据3的genesis通过API查）
-3.实际转移的FT（codehash独一无二）
-
-创建FT后返回一个3的genesis/codehash对来标识一种FT。
+Sensible Fungible Token
+感应合约同质化代币
  */
 export class SensibleFT {
   signers: SatotxSigner[];
@@ -158,30 +172,30 @@ export class SensibleFT {
   zeroAddress: string;
   ft: FungibleToken;
   debug: boolean;
+  transferPart2?: any;
   /**
    *
-   * @param {Object} param0
-   * @param {Array} param0.signers - 签名器
-   * @param {Number=} param0.feeb
-   * @param {String=} param0.network
-   * @param {String=} param0.purse
-   * @param {Boolean=} param0.mock
+   * @param param0.signers - 签名器
+   * @param param0.feeb (可选)交易费率，默认0.5
+   * @param param0.network (可选)当前网络，mainnet/testnet，默认mainnet
+   * @param param0.purse (可选)提供手续费的私钥wif，不提供则需要在genesis/issue/transfer手动传utxos
+   * @param param0.mock (可选)开启后genesis/issue/transfer时不进行广播，默认关闭
+   * @param param0.debug (可选)开启后将会在解锁合约时进行verify，默认关闭
    */
   constructor({
     signers = defaultSignerConfigs,
     feeb = 0.5,
     network = API_NET.MAIN,
-    // apiTarget = "whatsonchain",
     mock = false,
     purse,
     debug = false,
   }: {
     signers: SignerConfig[];
-    feeb: number;
-    network: API_NET;
-    mock: boolean;
-    purse: string;
-    debug: boolean;
+    feeb?: number;
+    network?: API_NET;
+    mock?: boolean;
+    purse?: string;
+    debug?: boolean;
   }) {
     checkParamSigners(signers);
     checkParamNetwork(network);
@@ -209,49 +223,15 @@ export class SensibleFT {
     );
   }
 
-  /**
-   * genesis
-   * @param {Object} param0
-   * @param {String} param0.tokenName
-   * @param {String} param0.tokenSymbol
-   * @param {Number} param0.decimalNum
-   * @param {String} param0.genesisWif
-   * @param {Array=} param0.utxos
-   * @param {String=} param0.changeAddress
-   * @returns
-   */
-  async genesis({
-    tokenName,
-    tokenSymbol,
-    decimalNum,
-    genesisWif,
-    utxos,
-    changeAddress,
-    opreturnData,
-    noBroadcast = false,
-  }: {
-    tokenName: string;
-    tokenSymbol: string;
-    decimalNum: number;
-    genesisWif: string;
-    utxos?: any;
-    changeAddress?: any;
-    opreturnData?: any;
-    noBroadcast?: boolean;
-  }) {
-    //validate params
-    checkParamTokenName(tokenName);
-    checkParamTokenSymbol(tokenSymbol);
-    checkParamDecimalNum(decimalNum);
-
-    //decide utxos
+  private async pretreatUtxos(utxos: ParamUtxo[]) {
     let utxoPrivateKeys = [];
     if (utxos) {
-      checkParamUtxoFormat(utxos[0]);
       utxos.forEach((v) => {
-        let privateKey = bsv.PrivateKey.fromWIF(v.wif);
-        v.address = privateKey.toAddress(this.network);
-        utxoPrivateKeys.push(privateKey);
+        if (v.wif) {
+          let privateKey = bsv.PrivateKey.fromWIF(v.wif);
+          v.address = privateKey.toAddress(this.network);
+          utxoPrivateKeys.push(privateKey);
+        }
       });
     } else {
       const utxoPrivateKey = bsv.PrivateKey.fromWIF(this.purse);
@@ -260,22 +240,176 @@ export class SensibleFT {
       utxos.forEach((utxo) => {
         utxo.address = utxoAddress;
       });
-      utxoPrivateKeys = utxos.map((v) => utxoPrivateKey);
+      utxoPrivateKeys = utxos.map((v) => utxoPrivateKey).filter((v) => v);
     }
-    let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
-    if (balance == 0) throw "Insufficient balance.";
+    if (utxos.length == 0) throw "Insufficient balance.";
+    return { utxos, utxoPrivateKeys };
+  }
 
+  /**
+   * 构造一笔的genesis交易,并广播
+   * @param param0.tokenName 代币名称
+   * @param param0.tokenSymbol 代币符号
+   * @param param0.decimalNum 代币符号
+   * @param param0.utxos (可选)手动传utxo
+   * @param param0.changeAddress (可选)指定找零地址
+   * @param param0.opreturnData (可选)追加一个opReturn输出
+   * @param param0.genesisWif 发行私钥
+   * @param param0.noBroadcast (可选)不进行广播，默认false
+   * @returns
+   */
+  public async genesis({
+    tokenName,
+    tokenSymbol,
+    decimalNum,
+    utxos,
+    changeAddress,
+    opreturnData,
+    genesisWif,
+    noBroadcast = false,
+  }: {
+    tokenName: string;
+    tokenSymbol: string;
+    decimalNum: number;
+    utxos?: any;
+    changeAddress?: any;
+    opreturnData?: any;
+    genesisWif: any;
+    noBroadcast?: any;
+  }): Promise<{
+    txHex: string;
+    txid: string;
+    genesis: string;
+    codehash: string;
+  }> {
+    //validate params
+    checkParamTokenName(tokenName);
+    checkParamTokenSymbol(tokenSymbol);
+    checkParamDecimalNum(decimalNum);
+    $.checkArgument(genesisWif, "genesisWif is required");
+    let utxoInfo = await this.pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
-      changeAddress = utxos[0].address;
+      changeAddress = utxoInfo.utxos[0].address;
     }
+    let genesisPrivateKey = new bsv.PrivateKey(genesisWif);
+    let genesisPublicKey = genesisPrivateKey.toPublicKey();
+    let { txHex, codehash, genesis, tx } = await this._genesis({
+      tokenName,
+      tokenSymbol,
+      decimalNum,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress,
+      opreturnData,
+      genesisPublicKey,
+    });
 
-    const issuerPrivateKey = bsv.PrivateKey.fromWIF(genesisWif);
-    const issuerPk = issuerPrivateKey.toPublicKey();
+    if (!noBroadcast && !this.mock) {
+      await this.sensibleApi.broadcast(txHex);
+    }
+    return { txHex, codehash, genesis, txid: tx.id };
+  }
 
+  /**
+   * 构造(未签名的)genesis交易
+   * @param param0.tokenName 代币名称
+   * @param param0.tokenSymbol 代币符号
+   * @param param0.decimalNum 代币符号
+   * @param param0.utxos (可选)手动传utxo
+   * @param param0.changeAddress (可选)指定找零地址
+   * @param param0.opreturnData (可选)追加一个opReturn输出
+   * @param param0.genesisPublicKey 发行公钥
+   * @returns
+   */
+  public async unsignGenesis({
+    tokenName,
+    tokenSymbol,
+    decimalNum,
+    utxos,
+    changeAddress,
+    opreturnData,
+    genesisPublicKey,
+  }: {
+    tokenName: string;
+    tokenSymbol: string;
+    decimalNum: number;
+    utxos?: any;
+    changeAddress?: any;
+    opreturnData?: any;
+    genesisPublicKey: any;
+  }): Promise<{
+    tx: any;
+    sigHashList: SigHashInfo[];
+  }> {
+    //validate params
+    checkParamTokenName(tokenName);
+    checkParamTokenSymbol(tokenSymbol);
+    checkParamDecimalNum(decimalNum);
+    $.checkArgument(genesisPublicKey, "genesisPublicKey is required");
+    let utxoInfo = await this.pretreatUtxos(utxos);
+    if (changeAddress) {
+      changeAddress = new bsv.Address(changeAddress, this.network);
+    } else {
+      changeAddress = utxoInfo.utxos[0].address;
+    }
+    genesisPublicKey = new bsv.PublicKey(genesisPublicKey);
+    let { tx } = await this._genesis({
+      tokenName,
+      tokenSymbol,
+      decimalNum,
+      utxos: utxoInfo.utxos,
+      changeAddress,
+      opreturnData,
+      genesisPublicKey,
+    });
+
+    let sigHashList: SigHashInfo[] = [];
+    tx.inputs.forEach((input: any, inputIndex: number) => {
+      let address = utxoInfo.utxos[inputIndex].address.toString();
+      console.log(address.toString());
+      sigHashList.push({
+        sighash: toHex(
+          bsv.Transaction.sighash.sighash(
+            tx,
+            sighashType,
+            inputIndex,
+            input.output.script,
+            input.output.satoshisBN
+          )
+        ),
+        sighashType,
+        address,
+        inputIndex,
+        isP2PKH: true,
+      });
+    });
+
+    return { tx, sigHashList };
+  }
+
+  private async _genesis({
+    tokenName,
+    tokenSymbol,
+    decimalNum,
+    utxos,
+    utxoPrivateKeys,
+    changeAddress,
+    opreturnData,
+    genesisPublicKey,
+  }: {
+    tokenName: string;
+    tokenSymbol: string;
+    decimalNum: number;
+    utxos?: any;
+    utxoPrivateKeys?: any;
+    changeAddress?: any;
+    opreturnData?: any;
+    genesisPublicKey: any;
+  }) {
     //create genesis contract
-    let genesisContract = this.ft.createGenesisContract(issuerPk, {
+    let genesisContract = this.ft.createGenesisContract(genesisPublicKey, {
       tokenName,
       tokenSymbol,
       decimalNum,
@@ -302,7 +436,7 @@ export class SensibleFT {
         genesisOutputIndex,
         genesisContract.lockingScript,
         {
-          receiverAddress: changeAddress, //dummy address
+          receiverAddress: new bsv.Address(this.zeroAddress), //dummy address
           tokenAmount: BigInt(0),
         }
       );
@@ -312,30 +446,30 @@ export class SensibleFT {
     //check fee enough
     let txHex = tx.serialize(true);
     let needFee = (txHex.length / 2) * this.feeb;
+    let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
+    if (balance == 0) throw "Insufficient balance.";
     if (balance < needFee) {
       throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
     }
 
-    if (!noBroadcast && !this.mock) {
-      await this.sensibleApi.broadcast(txHex);
-    }
-    return { txHex, txid: tx.id, genesis, codehash };
+    return { tx, txHex, genesis, codehash };
   }
 
   /**
-   * token 发行
-   * @param {Object} param0
-   * @param {String} param0.genesis
-   * @param {String} param0.codehash
-   * @param {String} param0.genesisWif
-   * @param {String} param0.receiverAddress
-   * @param {String} param0.tokenAmount
-   * @param {Boolean} param0.allowIncreaseIssues
-   * @param {Array=} param0.utxos
-   * @param {String=} param0.changeAddress
+   * 构造发行代币的交易并广播
+   * @param param0.genesis 代币的genesis
+   * @param param0.codehash 代币的codehash
+   * @param param0.genesisWif 发行私钥
+   * @param param0.receiverAddress 接收地址
+   * @param param0.tokenAmount 发行代币数量
+   * @param param0.allowIncreaseIssues (可选)是否允许增发，默认允许
+   * @param param0.utxos (可选)指定utxos
+   * @param param0.changeAddress (可选)指定找零地址
+   * @param param0.opreturnData (可选)追加一个opReturn输出
+   * @param param0.noBroadcast (可选)是否不广播交易，默认false
    * @returns
    */
-  async issue({
+  public async issue({
     genesis,
     codehash,
     genesisWif,
@@ -357,72 +491,198 @@ export class SensibleFT {
     changeAddress?: any;
     opreturnData?: any;
     noBroadcast?: boolean;
-  }) {
+  }): Promise<{ txHex: string; txid: string }> {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
-    let utxoPrivateKeys = [];
-    if (utxos) {
-      checkParamUtxoFormat(utxos[0]);
-      utxos.forEach((v) => {
-        let privateKey = bsv.PrivateKey.fromWIF(v.wif);
-        v.address = privateKey.toAddress(this.network);
-        utxoPrivateKeys.push(privateKey);
-      });
-    } else {
-      const utxoPrivateKey = bsv.PrivateKey.fromWIF(this.purse);
-      const utxoAddress = utxoPrivateKey.toAddress(this.network);
-      utxos = await this.sensibleApi.getUnspents(utxoAddress.toString());
-      utxos.forEach((utxo) => {
-        utxo.address = utxoAddress;
-      });
-      utxoPrivateKeys = utxos.map((v) => utxoPrivateKey);
-    }
-    let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
-    if (balance == 0) throw "Insufficient balance.";
+    $.checkArgument(genesisWif, "genesisPublicKey is required");
+    $.checkArgument(receiverAddress, "receiverAddress is required");
+    $.checkArgument(tokenAmount, "tokenAmount is required");
 
+    let utxoInfo = await this.pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
-      changeAddress = utxos[0].address;
+      changeAddress = utxoInfo.utxos[0].address;
     }
-
+    let genesisPrivateKey = new bsv.PrivateKey(genesisWif);
+    let genesisPublicKey = genesisPrivateKey.toPublicKey();
     receiverAddress = new bsv.Address(receiverAddress, this.network);
     tokenAmount = BigInt(tokenAmount);
-    const issuerPrivateKey = bsv.PrivateKey.fromWIF(genesisWif);
-    let { genesisTxId, genesisOutputIndex } = parseGenesis(genesis);
+    let { txHex, tx } = await this._issue({
+      genesis,
+      codehash,
+      receiverAddress,
+      tokenAmount,
+      allowIncreaseIssues,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress,
+      opreturnData,
+      genesisPrivateKey,
+      genesisPublicKey,
+    });
 
-    let spendByTxId;
-    let spendByOutputIndex;
+    if (!noBroadcast && !this.mock) {
+      await this.sensibleApi.broadcast(txHex);
+    }
+    return { txHex, txid: tx.id };
+  }
 
-    let genesisContract = this.ft.createGenesisContract(
-      issuerPrivateKey.toPublicKey()
-    );
+  /**
+   * 构造(未签名的)发行代币的交易
+   * @param param0.genesis 代币的genesis
+   * @param param0.codehash 代币的codehash
+   * @param param0.genesisPublicKey 发行公钥
+   * @param param0.receiverAddress 接收地址
+   * @param param0.tokenAmount 发行代币数量
+   * @param param0.allowIncreaseIssues (可选)是否允许增发，默认允许
+   * @param param0.utxos (可选)指定utxos
+   * @param param0.changeAddress (可选)指定找零地址
+   * @param param0.opreturnData (可选)追加一个opReturn输出
+   * @returns
+   */
+  public async unsignIssue({
+    genesis,
+    codehash,
+    genesisPublicKey,
+    receiverAddress,
+    tokenAmount,
+    allowIncreaseIssues = true,
+    utxos,
+    changeAddress,
+    opreturnData,
+  }: {
+    genesis: string;
+    codehash: string;
+    genesisPublicKey: any;
+    receiverAddress: any;
+    tokenAmount: string | bigint;
+    allowIncreaseIssues?: boolean;
+    utxos?: any;
+    changeAddress?: any;
+    opreturnData?: any;
+  }): Promise<{ tx: any; sigHashList: SigHashInfo[] }> {
+    checkParamGenesis(genesis);
+    checkParamCodehash(codehash);
+    $.checkArgument(genesisPublicKey, "genesisPublicKey is required");
+    $.checkArgument(receiverAddress, "receiverAddress is required");
+    $.checkArgument(tokenAmount, "tokenAmount is required");
+    let utxoInfo = await this.pretreatUtxos(utxos);
+    if (changeAddress) {
+      changeAddress = new bsv.Address(changeAddress, this.network);
+    } else {
+      changeAddress = utxoInfo.utxos[0].address;
+    }
+    genesisPublicKey = new bsv.PublicKey(genesisPublicKey);
+    receiverAddress = new bsv.Address(receiverAddress, this.network);
+    tokenAmount = BigInt(tokenAmount);
+    let { txHex, tx } = await this._issue({
+      genesis,
+      codehash,
+      receiverAddress,
+      tokenAmount,
+      allowIncreaseIssues,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress,
+      opreturnData,
+      genesisPublicKey,
+    });
+
+    let sigHashList: SigHashInfo[] = [];
+    tx.inputs.forEach((input: any, inputIndex: number) => {
+      let address = "";
+      let isP2PKH;
+      if (inputIndex == 0) {
+        address = genesisPublicKey.toAddress(this.network).toString();
+        isP2PKH = false;
+      } else {
+        address = utxoInfo.utxos[inputIndex - 1].address.toString();
+        isP2PKH = true;
+      }
+      sigHashList.push({
+        sighash: toHex(
+          bsv.Transaction.sighash.sighash(
+            tx,
+            sighashType,
+            inputIndex,
+            input.output.script,
+            input.output.satoshisBN
+          )
+        ),
+        sighashType,
+        address,
+        inputIndex,
+        isP2PKH,
+      });
+    });
+
+    return { tx, sigHashList };
+  }
+
+  private async _issue({
+    genesis,
+    codehash,
+    receiverAddress,
+    tokenAmount,
+    allowIncreaseIssues = true,
+    utxos,
+    utxoPrivateKeys,
+    changeAddress,
+    opreturnData,
+    genesisPrivateKey,
+    genesisPublicKey,
+  }: {
+    genesis: string;
+    codehash: string;
+    receiverAddress: any;
+    tokenAmount: bigint;
+    allowIncreaseIssues: boolean;
+    utxos?: any;
+    utxoPrivateKeys?: any;
+    changeAddress?: any;
+    opreturnData?: any;
+    noBroadcast?: boolean;
+    genesisPrivateKey?: any;
+    genesisPublicKey: any;
+  }) {
+    //构造发行合约
+    let genesisContract = this.ft.createGenesisContract(genesisPublicKey);
     let genesisContractCodehash = Utils.getCodeHash(
       genesisContract.lockingScript
     );
+
+    //寻找发行用的UTXO
+    let spendByTxId;
+    let spendByOutputIndex;
+    let { genesisTxId, genesisOutputIndex } = parseGenesis(genesis);
     let issueUtxos = await this.sensibleApi.getFungbleTokenUnspents(
       genesisContractCodehash,
       genesis,
       this.zeroAddress
     );
     if (issueUtxos.length > 0) {
+      //非首次发行
       spendByTxId = issueUtxos[0].txId;
       spendByOutputIndex = issueUtxos[0].outputIndex;
     } else {
+      //首次发行
       spendByTxId = genesisTxId;
       spendByOutputIndex = genesisOutputIndex;
     }
-    if (!spendByTxId) {
-      throw "No valid FungbleTokenUnspents to issue";
-    }
+    //当出现重复发行时会在verify的时候不通过
+    //应该在这里提前判断
+    //todo
 
+    //查询前序交易的信息
     let spendByTxHex = await this.sensibleApi.getRawTxData(spendByTxId);
-
-    const preTx = new bsv.Transaction(spendByTxHex);
-    let preUtxoTxId = preTx.inputs[0].prevTxId.toString("hex"); //第一个输入必定能够作为前序输入
-    let preUtxoOutputIndex = preTx.inputs[0].outputIndex;
+    const spendByTx = new bsv.Transaction(spendByTxHex);
+    let preUtxoTxId = spendByTx.inputs[0].prevTxId.toString("hex"); //第一个输入必定能够作为前序输入
+    let preUtxoOutputIndex = spendByTx.inputs[0].outputIndex;
     let preUtxoTxHex = await this.sensibleApi.getRawTxData(preUtxoTxId);
 
+    let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
+    if (balance == 0) throw "Insufficient balance.";
     {
       //检查余额是否充足
       let inputSatoshis = Utils.getDustThreshold(SIZE_OF_GENESIS_TOKEN);
@@ -442,11 +702,11 @@ export class SensibleFT {
       }
     }
 
-    const spendByLockingScript = preTx.outputs[spendByOutputIndex].script;
+    //构造token合约
+    const spendByLockingScript = spendByTx.outputs[spendByOutputIndex].script;
     let dataPartObj = TokenProto.parseDataPart(spendByLockingScript.toBuffer());
     const dataPart = TokenProto.newDataPart(dataPartObj);
     genesisContract.setDataPart(dataPart.toString("hex"));
-    //create token contract
     let tokenContract = this.ft.createTokenContract(
       genesisTxId,
       genesisOutputIndex,
@@ -457,7 +717,7 @@ export class SensibleFT {
       }
     );
 
-    //create issue tx
+    //构造发行交易
     let tx = await this.ft.createIssueTx({
       genesisContract,
 
@@ -480,23 +740,21 @@ export class SensibleFT {
       signers: this.signers,
 
       opreturnData,
-      issuerPrivateKey,
+      genesisPrivateKey,
       utxoPrivateKeys,
       debug: this.debug,
     });
 
+    //判断最终手续费是否充足
     let txHex = tx.serialize(true);
     let needFee = (txHex.length / 2) * this.feeb;
     if (balance < needFee) {
       throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
     }
-    if (!noBroadcast && !this.mock) {
-      await this.sensibleApi.broadcast(txHex);
-    }
-    return { txHex, txid: tx.id };
+    return { txHex, tx };
   }
 
-  async supplyFtUtxosInfo(ftUtxos) {
+  private async supplyFtUtxosInfo(ftUtxos) {
     ftUtxos.forEach((v) => {
       v.tokenAmount = BigInt(v.tokenAmount);
     });
@@ -568,18 +826,18 @@ export class SensibleFT {
   }
 
   /**
-   * token转账
-   * @param {Object} param0
-   * @param {String} param0.genesis
-   * @param {String} param0.codehash
-   * @param {String} param0.senderWif
-   * @param {Array} param0.receivers
-   * @param {Array=} param0.utxos
-   * @param {String=} param0.changeAddress
-   * @param {String=} param0.opreturnData
+   * 构造转移代币的交易
+   * @param param0.genesis 代币的genesis
+   * @param param0.codehash 代币的codehash
+   * @param param0.senderWif 发送者的私钥wif
+   * @param param0.receivers 接收数组，格式为[{address:'xxx',amount:'1000'}]
+   * @param param0.utxos (可选)指定utxos
+   * @param param0.changeAddress (可选)指定找零地址
+   * @param param0.opreturnData (可选)追加一个opReturn输出
+   * @param param0.noBroadcast (可选)是否不广播交易，默认false
    * @returns
    */
-  async transfer({
+  public async transfer({
     codehash,
     genesis,
     senderWif,
@@ -594,8 +852,8 @@ export class SensibleFT {
     genesis: string;
     senderWif: string;
     receivers?: any[];
-    utxos: any[];
-    changeAddress: any;
+    utxos?: any[];
+    changeAddress?: any;
     isMerge?: boolean;
     opreturnData?: any;
     noBroadcast?: boolean;
@@ -603,43 +861,160 @@ export class SensibleFT {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
     checkParamReceivers(receivers);
+    $.checkArgument(senderWif, "senderWif is required");
 
-    let utxoPrivateKeys = [];
-    if (utxos) {
-      checkParamUtxoFormat(utxos[0]);
-      utxos.forEach((v) => {
-        let privateKey = bsv.PrivateKey.fromWIF(v.wif);
-        v.address = privateKey.toAddress(this.network);
-        utxoPrivateKeys.push(privateKey);
-      });
+    let utxoInfo = await this.pretreatUtxos(utxos);
+    if (changeAddress) {
+      changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
-      const utxoPrivateKey = bsv.PrivateKey.fromWIF(this.purse);
-      const utxoAddress = utxoPrivateKey.toAddress(this.network);
-      utxos = await this.sensibleApi.getUnspents(utxoAddress.toString());
-      utxos.forEach((utxo) => {
-        utxo.address = utxoAddress;
-      });
-      utxoPrivateKeys = utxos.map((v) => utxoPrivateKey);
+      changeAddress = utxoInfo.utxos[0].address;
     }
+
+    const senderPrivateKey = bsv.PrivateKey.fromWIF(senderWif);
+    const senderPublicKey = senderPrivateKey.toPublicKey();
+
+    let { routeCheckTxHex, txHex, tx } = await this._transfer({
+      codehash,
+      genesis,
+      senderPrivateKey,
+      senderPublicKey,
+      receivers,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress,
+      opreturnData,
+      isMerge,
+    });
+    if (!noBroadcast && !this.mock) {
+      await this.sensibleApi.broadcast(routeCheckTxHex);
+      await this.sensibleApi.broadcast(txHex);
+    }
+
+    return { routeCheckTxHex, txHex, txid: tx.id };
+  }
+
+  /**
+   * 构造(未签名的)转移代币的交易
+   * @param param0.genesis 代币的genesis
+   * @param param0.codehash 代币的codehash
+   * @param param0.senderPublicKey 发送者的公钥
+   * @param param0.receivers 接收数组，格式为[{address:'xxx',amount:'1000'}]
+   * @param param0.utxos (可选)指定utxos
+   * @param param0.changeAddress (可选)指定找零地址
+   * @param param0.opreturnData (可选)追加一个opReturn输出
+   * @returns
+   */
+  public async unsignPreTransfer({
+    codehash,
+    genesis,
+    senderPublicKey,
+    receivers,
+    utxos,
+    changeAddress,
+    isMerge,
+    opreturnData,
+  }: {
+    codehash: string;
+    genesis: string;
+    senderPublicKey: any;
+    receivers?: any[];
+    utxos: any[];
+    changeAddress: any;
+    isMerge?: boolean;
+    opreturnData?: any;
+  }): Promise<{
+    routeCheckTx: any;
+    routeCheckSigHashList: SigHashInfo[];
+  }> {
+    checkParamGenesis(genesis);
+    checkParamCodehash(codehash);
+    checkParamReceivers(receivers);
+    $.checkArgument(senderPublicKey, "senderPublicKey is required");
+
+    let utxoInfo = await this.pretreatUtxos(utxos);
+    if (changeAddress) {
+      changeAddress = new bsv.Address(changeAddress, this.network);
+    } else {
+      changeAddress = utxoInfo.utxos[0].address;
+    }
+
+    senderPublicKey = new bsv.PublicKey(senderPublicKey);
+
+    let { routeCheckTx } = await this._transfer({
+      codehash,
+      genesis,
+      senderPublicKey,
+      receivers,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress,
+      opreturnData,
+      isMerge,
+    });
+
+    let routeCheckSigHashList: SigHashInfo[] = [];
+    routeCheckTx.inputs.forEach((input: any, inputIndex: number) => {
+      let address = utxoInfo.utxos[inputIndex].address.toString();
+      let isP2PKH = true;
+      routeCheckSigHashList.push({
+        sighash: toHex(
+          bsv.Transaction.sighash.sighash(
+            routeCheckTx,
+            sighashType,
+            inputIndex,
+            input.output.script,
+            input.output.satoshisBN
+          )
+        ),
+        sighashType,
+        address,
+        inputIndex,
+        isP2PKH,
+      });
+    });
+
+    return {
+      routeCheckTx,
+      routeCheckSigHashList,
+    };
+  }
+
+  async _transfer({
+    codehash,
+    genesis,
+    senderPrivateKey,
+    senderPublicKey,
+    receivers,
+    utxos,
+    utxoPrivateKeys,
+    changeAddress,
+    isMerge,
+    opreturnData,
+  }: {
+    codehash: string;
+    genesis: string;
+    senderPrivateKey?: any;
+    senderPublicKey?: any;
+    receivers?: any[];
+    utxos: any[];
+    utxoPrivateKeys: any[];
+    changeAddress: any;
+    isMerge?: boolean;
+    opreturnData?: any;
+  }) {
     let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
     if (balance == 0) {
       //检查余额
       throw "Insufficient balance.";
     }
 
+    let senderAddress = senderPublicKey.toAddress(this.network);
+
+    //将routeCheck的找零utxo作为transfer的输入utxo
     let changeAddress0 = utxos[0].address;
     let utxoPrivateKey0 = utxoPrivateKeys[0];
-    if (changeAddress) {
-      changeAddress = new bsv.Address(changeAddress, this.network);
-    } else {
-      changeAddress = utxos[0].address;
-    }
 
-    const senderPrivateKey = bsv.PrivateKey.fromWIF(senderWif);
-    const senderPublicKey = bsv.PublicKey.fromPrivateKey(senderPrivateKey);
-    const senderAddress = senderPrivateKey.toAddress(this.network);
-
-    //获取token
+    //获取token的utxo
     let ftUtxos = await this.sensibleApi.getFungbleTokenUnspents(
       codehash,
       genesis,
@@ -664,7 +1039,7 @@ export class SensibleFT {
     }
     //格式化接收者
     let tokenOutputArray = receivers.map((v) => ({
-      address: bsv.Address.fromString(v.address, this.network),
+      address: new bsv.Address(v.address, this.network),
       tokenAmount: BigInt(v.amount),
     }));
 
@@ -695,20 +1070,22 @@ export class SensibleFT {
       inputTokenAmountSum = mergeTokenAmountSum;
     }
     ftUtxos = _ftUtxos;
+    //完善ftUtxo的信息
     await this.supplyFtUtxosInfo(ftUtxos);
 
     if (inputTokenAmountSum < outputTokenAmountSum) {
       throw `insufficent token.Need ${outputTokenAmountSum} But only ${inputTokenAmountSum}`;
     }
-    //找零
+    //判断是否需要token找零
     let changeTokenAmount = inputTokenAmountSum - outputTokenAmountSum;
     if (changeTokenAmount > BigInt(0)) {
       tokenOutputArray.push({
-        address: senderPrivateKey.toAddress(this.network),
+        address: senderPublicKey.toAddress(this.network),
         tokenAmount: changeTokenAmount,
       });
     }
 
+    //选择xTox的转账方案
     let routeCheckType: RouteCheckType;
     let inputLength = ftUtxos.length;
     let outputLength = tokenOutputArray.length;
@@ -765,8 +1142,6 @@ export class SensibleFT {
       throw `Insufficient balance.It take more than ${estimateSatoshis}, but only ${balance}.`;
     }
 
-    const senderPk = senderPrivateKey.toPublicKey();
-
     const defaultFtUtxo = ftUtxos[0];
     const ftUtxoTx = new bsv.Transaction(defaultFtUtxo.txHex);
     const tokenLockingScript =
@@ -802,16 +1177,11 @@ export class SensibleFT {
         outputIndex: routeCheckTx.outputs.length - 1,
       },
     ];
-
     utxos.forEach((utxo) => {
       utxo.address = changeAddress0;
     });
-    utxoPrivateKeys = utxos.map((v) => utxoPrivateKey0);
-
+    utxoPrivateKeys = utxos.map((v) => utxoPrivateKey0).filter((v) => v);
     const signerSelecteds = [0, 1];
-
-    //create routeCheck tx
-    // let routeCheckTx = new bsv.Transaction(routeCheckHex);
 
     const tokenInputArray = ftUtxos.map((v) => {
       const preTx = new bsv.Transaction(v.preTxHex);
@@ -842,6 +1212,7 @@ export class SensibleFT {
     let checkRabinPaddingArray = Buffer.alloc(0);
     let checkRabinSigArray = Buffer.alloc(0);
 
+    //先并发请求签名信息
     let sigReqArray = [];
     for (let i = 0; i < ftUtxos.length; i++) {
       let v = ftUtxos[i];
@@ -859,6 +1230,7 @@ export class SensibleFT {
       }
     }
 
+    //提供给routeCheck的签名信息
     for (let i = 0; i < sigReqArray.length; i++) {
       for (let j = 0; j < sigReqArray[i].length; j++) {
         let sigInfo = await sigReqArray[i][j];
@@ -885,8 +1257,9 @@ export class SensibleFT {
         ]);
       }
     }
-    const tokenRabinDatas = [];
 
+    //提供给token的签名信息
+    const tokenRabinDatas = [];
     for (let i = 0; i < sigReqArray.length; i++) {
       let tokenRabinMsg;
       let tokenRabinSigArray = [];
@@ -906,7 +1279,7 @@ export class SensibleFT {
 
     let rabinPubKeyIndexArray = signerSelecteds;
 
-    let tx = await this.ft.createTransferTx({
+    let transferPart2 = {
       routeCheckTx,
       tokenInputArray,
       satoshiInputArray,
@@ -918,12 +1291,21 @@ export class SensibleFT {
       tokenRabinDatas,
       routeCheckContract,
       senderPrivateKey,
+      senderPublicKey,
       changeAddress,
       utxoPrivateKeys,
       feeb: this.feeb,
       opreturnData,
       debug: this.debug,
-    });
+      changeAddress0,
+    };
+
+    if (!senderPrivateKey) {
+      delete transferPart2.routeCheckTx;
+      this.transferPart2 = transferPart2;
+      return { routeCheckTx };
+    }
+    let tx = await this.ft.createTransferTx(transferPart2);
 
     let routeCheckTxHex = routeCheckTx.serialize(true);
     let txHex = tx.serialize(true);
@@ -932,28 +1314,72 @@ export class SensibleFT {
       throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
     }
 
-    if (!noBroadcast && !this.mock) {
-      await this.sensibleApi.broadcast(routeCheckTxHex);
-      await this.sensibleApi.broadcast(txHex);
-    }
-
-    return { routeCheckTxHex, txHex, routeCheckTx, txid: tx.id };
+    return { routeCheckTxHex, txHex, routeCheckTx, tx };
   }
 
   /**
-   * 合并钱包最多20个token-utxo
-   * @param {Object} param0
-   * @param {String} param0.genesis
-   * @param {String} param0.codehash
-   * @param {String} param0.senderWif
-   * @param {Array=} param0.utxos
-   * @param {String=} param0.changeAddress
+   * 无签名转账交易的后续部分，需要前置交易先完成签名
+   * @param transferPart2
    * @returns
    */
-  async merge({
+  public async unsignTransfer(routeCheckTx: any) {
+    let transferPart2 = this.transferPart2;
+    transferPart2.routeCheckTx = routeCheckTx;
+    transferPart2.satoshiInputArray.forEach((v) => {
+      v.txId = routeCheckTx.id;
+    });
+    let tx = await this.ft.createTransferTx(transferPart2);
+
+    let sigHashList: SigHashInfo[] = [];
+    tx.inputs.forEach((input: any, inputIndex: number) => {
+      let address = "";
+      let isP2PKH;
+      if (inputIndex == tx.inputs.length - 1) {
+        //routeCheck不需要签名
+        return;
+      } else if (inputIndex == tx.inputs.length - 2) {
+        address = transferPart2.changeAddress0.toString();
+        isP2PKH = true;
+      } else {
+        address = transferPart2.senderPublicKey
+          .toAddress(this.network)
+          .toString();
+        isP2PKH = false;
+      }
+      sigHashList.push({
+        sighash: toHex(
+          bsv.Transaction.sighash.sighash(
+            tx,
+            sighashType,
+            inputIndex,
+            input.output.script,
+            input.output.satoshisBN
+          )
+        ),
+        sighashType,
+        address,
+        inputIndex,
+        isP2PKH,
+      });
+    });
+    return { tx, sigHashList };
+  }
+
+  /**
+   * 构造合并代币的交易，最多合并20个utxo
+   * @param param0.genesis 代币的genesis
+   * @param param0.codehash 代币的codehash
+   * @param param0.senderWif 代币所有者的私钥wif
+   * @param param0.utxos (可选)指定utxos
+   * @param param0.changeAddress (可选)指定找零地址
+   * @param param0.opreturnData (可选)追加一个opReturn输出
+   * @param param0.noBroadcast (可选)是否不广播交易，默认false
+   * @returns
+   */
+  public async merge({
     codehash,
     genesis,
-    senderWif,
+    ownerWif,
     utxos,
     changeAddress,
     noBroadcast = false,
@@ -961,30 +1387,107 @@ export class SensibleFT {
   }: {
     codehash: string;
     genesis: string;
-    senderWif: string;
+    ownerWif: string;
     utxos?: any;
     changeAddress?: any;
     noBroadcast?: boolean;
     opreturnData?: any;
   }) {
+    $.checkArgument(ownerWif, "ownerWif is required");
     return await this.transfer({
       codehash,
       genesis,
-      senderWif,
+      senderWif: ownerWif,
       utxos,
       changeAddress,
       isMerge: true,
       noBroadcast,
       receivers: [],
+      opreturnData,
     });
   }
 
   /**
-   * 查询某人持有的FT余额，以及utxo的数量
-   * @param param0
+   * 构造(未签名的)合并代币的第一部分交易，最多合并20个utxo
+   * @param param0.genesis 代币的genesis
+   * @param param0.codehash 代币的codehash
+   * @param param0.senderWif 代币所有者的私钥wif
+   * @param param0.utxos (可选)指定utxos
+   * @param param0.changeAddress (可选)指定找零地址
+   * @param param0.opreturnData (可选)追加一个opReturn输出
    * @returns
    */
-  async getBalance({ codehash, genesis, address }) {
+  public async unsignPreMerge({
+    codehash,
+    genesis,
+    ownerPublicKey,
+    utxos,
+    changeAddress,
+    opreturnData,
+  }: {
+    codehash: string;
+    genesis: string;
+    ownerPublicKey: string;
+    utxos?: any;
+    changeAddress?: any;
+    opreturnData?: any;
+  }) {
+    return await this.unsignPreTransfer({
+      codehash,
+      genesis,
+      senderPublicKey: ownerPublicKey,
+      utxos,
+      changeAddress,
+      isMerge: true,
+      receivers: [],
+      opreturnData,
+    });
+  }
+
+  /**
+   * 构造(未签名的)合并代币的第二部分交易
+   * @param routeCheckTx
+   * @returns
+   */
+  public async unsignMerge(routeCheckTx) {
+    return await this.unsignTransfer(routeCheckTx);
+  }
+
+  /**
+   * 查询某人持有的FT余额
+   * @param param0.codehash
+   * @param param0.genesis
+   * @param param0.address
+   * @returns
+   */
+  public async getBalance({ codehash, genesis, address }) {
+    let {
+      balance,
+      pendingBalance,
+    } = await this.sensibleApi.getFungbleTokenBalance(
+      codehash,
+      genesis,
+      address
+    );
+    return balance + pendingBalance;
+  }
+
+  /**
+   * 查询某人持有的FT余额，以及utxo的数量
+   * @param param0.codehash
+   * @param param0.genesis
+   * @param param0.address
+   * @returns
+   */
+  public async getBalanceDetail({
+    codehash,
+    genesis,
+    address,
+  }: {
+    codehash: string;
+    genesis: string;
+    address: string;
+  }) {
     return await this.sensibleApi.getFungbleTokenBalance(
       codehash,
       genesis,
@@ -994,14 +1497,19 @@ export class SensibleFT {
 
   /**
    * 查询某人持有的FT Token列表。获得每个token的余额
-   * @param {String} address
+   * @param address
    * @returns
    */
-  async getSummary(address: string) {
+  public async getSummary(address: string) {
     return await this.sensibleApi.getFungbleTokenSummary(address);
   }
 
-  async getGenesisEstimateFee({ opreturnData }) {
+  /**
+   * 估算genesis的费用
+   * @param param0
+   * @returns
+   */
+  public async getGenesisEstimateFee({ opreturnData }) {
     let p2pkhInputNum = 1;
     let p2pkhOutputNum = 1;
     p2pkhInputNum = 10; //支持10输入的费用
@@ -1022,7 +1530,15 @@ export class SensibleFT {
     return fee;
   }
 
-  async getIssueEstimateFee({ opreturnData, allowIncreaseIssues = true }) {
+  /**
+   * 估算issue的费用
+   * @param param0
+   * @returns
+   */
+  public async getIssueEstimateFee({
+    opreturnData,
+    allowIncreaseIssues = true,
+  }) {
     let p2pkhInputNum = 1; //至少1输入
     let p2pkhOutputNum = 1; //最多1找零
     p2pkhInputNum = 10; //支持10输入的费用
@@ -1057,7 +1573,7 @@ export class SensibleFT {
    * @param {String=} param0.opreturnData
    * @returns
    */
-  async getTransferEstimateFee({
+  public async getTransferEstimateFee({
     codehash,
     genesis,
     senderWif,
@@ -1181,6 +1697,78 @@ export class SensibleFT {
       BASE_UTXO_FEE;
 
     return estimateSatoshis;
+  }
+
+  /**
+   * 更新交易解锁脚本
+   * @param tx
+   * @param sigHashList
+   * @param sigList
+   */
+  public sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
+    Utils.sign(tx, sigHashList, sigList);
+  }
+
+  /**
+   * 广播一笔交易
+   * @param txHex
+   * @param apiTarget 广播节点，可选sensible、metasv，默认sensible
+   */
+  public async broadcast(txHex: string, apiTarget?: string) {
+    return await this.sensibleApi.broadcast(txHex, apiTarget);
+  }
+
+  /**
+   * 计算代币的codehash和genesis
+   * @param genesisTxId genesis的txid
+   * @param genesisOutputIndex (可选)genesis的outputIndex，默认为0
+   * @returns
+   */
+  public async getCodehashAndGensis(
+    genesisTxId: string,
+    genesisOutputIndex: number = 0
+  ) {
+    let genesisTxHex = await this.sensibleApi.getRawTxData(genesisTxId);
+    let genesisTx = new bsv.Transaction(genesisTxHex);
+    let genesis = getGenesis(genesisTxId, genesisOutputIndex);
+    let tokenContract = this.ft.createTokenContract(
+      genesisTxId,
+      genesisOutputIndex,
+      genesisTx.outputs[genesisOutputIndex].script,
+      {
+        receiverAddress: new bsv.Address(this.zeroAddress), //dummy address
+        tokenAmount: BigInt(0),
+      }
+    );
+    let codehash = Utils.getCodeHash(tokenContract.lockingScript);
+
+    return { codehash, genesis };
+  }
+
+  /**
+   * 计算代币的codehash和genesis
+   * @param genesisTx genesis的tx
+   * @param genesisOutputIndex (可选)genesis的outputIndex，默认为0
+   * @returns
+   */
+  public getCodehashAndGensisByTx(
+    genesisTx: any,
+    genesisOutputIndex: number = 0
+  ) {
+    let genesisTxId = genesisTx.id;
+    let genesis = getGenesis(genesisTxId, genesisOutputIndex);
+    let tokenContract = this.ft.createTokenContract(
+      genesisTxId,
+      genesisOutputIndex,
+      genesisTx.outputs[genesisOutputIndex].script,
+      {
+        receiverAddress: new bsv.Address(this.zeroAddress), //dummy address
+        tokenAmount: BigInt(0),
+      }
+    );
+    let codehash = Utils.getCodeHash(tokenContract.lockingScript);
+
+    return { codehash, genesis };
   }
 }
 

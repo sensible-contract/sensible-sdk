@@ -11,6 +11,7 @@ import {
   toHex,
 } from "scryptlib";
 import * as Utils from "../common/utils";
+import { SIG_PLACE_HOLDER } from "../common/utils";
 import * as TokenProto from "./tokenProto";
 import * as TokenUtil from "./tokenUtil";
 const Signature = bsv.crypto.Signature;
@@ -66,6 +67,7 @@ const UnlockContractCheckContractClass_3To100 = buildContractClass(
   require("./contract-desc/tokenUnlockContractCheck_3To100_desc.json")
 );
 
+const P2PKH_UNLOCK_SIZE = 1 + 1 + 71 + 1 + 33;
 export enum RouteCheckType {
   from3To3 = "3To3",
   from6To6 = "6To6",
@@ -221,7 +223,9 @@ export class FungibleToken {
    * @param {Object[]} utxos utxos
    * @param {bsv.Address} changeAddress the change address
    * @param {number} feeb feeb
-   * @param {string} genesisScript genesis contract's locking scriptsatoshis
+   * @param {Object} genesisScript genesis contract's locking scriptsatoshis
+   * @param {Array=} utxoPrivateKeys
+   * @param {string|Array=} opreturnData
    */
   createGenesisTx({
     utxos,
@@ -230,15 +234,31 @@ export class FungibleToken {
     genesisContract,
     utxoPrivateKeys,
     opreturnData,
+  }: {
+    utxos: any;
+    changeAddress: any;
+    feeb: number;
+    genesisContract: any;
+    utxoPrivateKeys?: any;
+    opreturnData?: any;
   }) {
-    const tx = new bsv.Transaction().from(
-      utxos.map((utxo) => ({
-        txId: utxo.txId,
-        outputIndex: utxo.outputIndex,
-        satoshis: utxo.satoshis,
-        script: bsv.Script.buildPublicKeyHashOut(utxo.address).toHex(),
-      }))
-    );
+    const tx = new bsv.Transaction();
+    //添加utxo作为输入
+    utxos.forEach((utxo) => {
+      tx.addInput(
+        new bsv.Transaction.Input.PublicKeyHash({
+          output: new bsv.Transaction.Output({
+            script: bsv.Script.buildPublicKeyHashOut(utxo.address),
+            satoshis: utxo.satoshis,
+          }),
+          prevTxId: utxo.txId,
+          outputIndex: utxo.outputIndex,
+          script: bsv.Script.empty(),
+        })
+      );
+    });
+
+    //第一项输出为genesis合约
     tx.addOutput(
       new bsv.Transaction.Output({
         script: genesisContract.lockingScript,
@@ -248,10 +268,9 @@ export class FungibleToken {
       })
     );
 
-    let opreturnScriptHex = "";
+    //如果有opReturn则添加到第二项输出
     if (opreturnData) {
       let script = new bsv.Script.buildSafeDataOut(opreturnData);
-      opreturnScriptHex = script.toHex();
       tx.addOutput(
         new bsv.Transaction.Output({
           script,
@@ -260,21 +279,27 @@ export class FungibleToken {
       );
     }
 
-    //unlock P2PKH
-    tx.inputs.forEach((input, inputIndex) => {
-      if (input.script.toBuffer().length == 0) {
-        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
-      }
-    });
-
-    tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+    //计算手续费并判断是否找零
+    //如果有找零将在最后一项输出
+    const unlockSize = utxos.length * P2PKH_UNLOCK_SIZE;
+    tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
     let changeAmount = tx._getUnspentValue() - tx.getFee();
     //足够dust才找零，否则归为手续费
-    if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+    if (
+      changeAmount >=
+      bsv.Transaction.DUST_AMOUNT + bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE
+    ) {
       tx.change(changeAddress);
       //添加找零后要重新计算手续费
-      tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+      tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
+    }
+
+    if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+      //如果提供私钥就进行解锁
+      tx.inputs.forEach((input, inputIndex) => {
+        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
+      });
     }
     return tx;
   }
@@ -346,12 +371,13 @@ export class FungibleToken {
     satotxData,
     signers,
 
-    issuerPrivateKey,
+    genesisPrivateKey,
     utxoPrivateKeys,
     debug,
   }) {
     const tx = new bsv.Transaction();
 
+    //第一个输入为发行合约
     tx.addInput(
       new bsv.Transaction.Input({
         output: new bsv.Transaction.Output({
@@ -366,6 +392,7 @@ export class FungibleToken {
       })
     );
 
+    //随后添加utxo作为输入
     utxos.forEach((utxo) => {
       tx.addInput(
         new bsv.Transaction.Input({
@@ -378,9 +405,6 @@ export class FungibleToken {
           script: bsv.Script.empty(),
         })
       );
-      //unlock P2PKH
-      let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-      Utils.unlockP2PKHInput(privateKey, tx, tx.inputs.length - 1, sighashType);
     });
 
     const tokenDataPartObj = TokenProto.parseDataPart(
@@ -393,6 +417,7 @@ export class FungibleToken {
     const isFirstGenesis =
       genesisDataPartObj.tokenID.txid == genesisTokenIDTxid;
 
+    //如果允许增发，则添加新的发行合约作为第一个输出
     let genesisContractSatoshis = 0;
     if (allowIncreaseIssues) {
       genesisDataPartObj.tokenID = tokenDataPartObj.tokenID;
@@ -416,7 +441,7 @@ export class FungibleToken {
     const tokenContractSatoshis = Utils.getDustThreshold(
       tokenContract.lockingScript.toBuffer().length
     );
-
+    //添加token合约作为输出
     tx.addOutput(
       new bsv.Transaction.Output({
         script: tokenContract.lockingScript,
@@ -424,6 +449,7 @@ export class FungibleToken {
       })
     );
 
+    //如果有opReturn,则添加输出
     let opreturnScriptHex = "";
     if (opreturnData) {
       let script = new bsv.Script.buildSafeDataOut(opreturnData);
@@ -446,11 +472,13 @@ export class FungibleToken {
     let rabinSigArray = [];
     let rabinPubKeyIndexArray = [];
     if (isFirstGenesis) {
+      //如果是首次发行，则不需要查询签名器
       rabinMsg = Buffer.alloc(1, 0);
       rabinPaddingArray = [new Bytes("00"), new Bytes("00")];
       rabinSigArray = [0, 0];
       rabinPubKeyIndexArray = [0, 1];
     } else {
+      //查询签名器
       let signerSelecteds = [];
       for (let i = 0; i < 3; i++) {
         if (signerSelecteds.length == 2) break;
@@ -469,31 +497,61 @@ export class FungibleToken {
     if (
       genesisContract.lockingScript.toHex() != genesisInputLockingScript.toHex()
     ) {
-      console.log(genesisContract.lockingScript.toASM());
-      console.log(genesisInputLockingScript.toASM());
-      throw "error";
+      //如果构造出来的发行合约与要进行解锁的发行合约不一致
+      //则可能是签名器公钥不一致
+      if (debug) {
+        console.log(genesisContract.lockingScript.toASM());
+        console.log(genesisInputLockingScript.toASM());
+      }
+      throw "genesisContract lockingScript unmatch ";
     }
 
+    //第一轮运算获取最终交易准确的大小，然后重新找零
+    //由于重新找零了，需要第二轮重新进行脚本解锁
     //let the fee to be exact in the second round
+    let changeAmount = 0;
     for (let c = 0; c < 2; c++) {
-      tx.fee(Math.ceil(tx.toBuffer().length * feeb));
-      let changeAmount = tx._getUnspentValue() - tx.getFee();
+      const unlockSize = utxos.length * P2PKH_UNLOCK_SIZE;
+      tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
       //足够dust才找零，否则归为手续费
-      if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+      let leftAmount = tx._getUnspentValue() - tx.getFee() + changeAmount;
+      if (
+        leftAmount >=
+        bsv.Transaction.DUST_AMOUNT + bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE
+      ) {
         tx.change(changeAddress);
         //添加找零后要重新计算手续费
-        tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+        tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
         changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+      } else {
+        if (!Utils.isNull(tx._changeIndex)) {
+          tx._removeOutput(tx._changeIndex);
+        }
+        changeAmount = 0;
+        //无找零是很危险的事情，禁止大于1的费率
+        let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
+        let _feeb = fee / tx.toBuffer().length;
+        if (_feeb > 1) {
+          throw "unsupport feeb";
+        }
       }
 
-      let sig = signTx(
-        tx,
-        issuerPrivateKey,
-        genesisInputLockingScript.toASM(),
-        genesisInputSatoshis,
-        genesisInputIndex,
-        sighashType
-      );
+      let sig: Buffer;
+      if (genesisPrivateKey) {
+        //如果提供了私钥就进行签名
+        sig = signTx(
+          tx,
+          genesisPrivateKey,
+          genesisInputLockingScript.toASM(),
+          genesisInputSatoshis,
+          genesisInputIndex,
+          sighashType
+        );
+      } else {
+        //如果没有提供私钥就使用71字节的占位符
+        sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
+      }
+
       let changeSatoshis = tx.outputs[tx.outputs.length - 1].satoshis;
       let preimage = getPreimage(
         tx,
@@ -502,6 +560,7 @@ export class FungibleToken {
         genesisInputIndex,
         sighashType
       );
+      //解锁发行合约
       let contractObj = genesisContract.unlock(
         new SigHashPreimage(toHex(preimage)),
         new Sig(toHex(sig)),
@@ -521,12 +580,22 @@ export class FungibleToken {
         inputIndex: genesisInputIndex,
         inputSatoshis: genesisInputSatoshis,
       };
-      if (debug) {
+      if (debug && genesisPrivateKey) {
+        //提供了私钥的情况下才能进行校验，否则会在签名校验时出错
         let ret = contractObj.verify(txContext);
         if (ret.success == false) throw ret;
       }
 
       tx.inputs[genesisInputIndex].setScript(contractObj.toScript());
+    }
+
+    if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+      tx.inputs.forEach((input, inputIndex) => {
+        if (input.script.toBuffer().length == 0) {
+          let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+          Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
+        }
+      });
     }
 
     return tx;
@@ -592,21 +661,21 @@ export class FungibleToken {
     routeCheckContract,
     utxoPrivateKeys,
   }) {
-    const tx = new bsv.Transaction().from(
-      utxos.map((utxo) => ({
-        txId: utxo.txId,
-        outputIndex: utxo.outputIndex,
-        satoshis: utxo.satoshis,
-        script: bsv.Script.buildPublicKeyHashOut(utxo.address).toHex(),
-      }))
-    );
+    const tx = new bsv.Transaction();
 
-    //unlock P2PKH
-    tx.inputs.forEach((input, inputIndex) => {
-      if (input.script.toBuffer().length == 0) {
-        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
-      }
+    //添加utxo作为输入
+    utxos.forEach((utxo) => {
+      tx.addInput(
+        new bsv.Transaction.Input.PublicKeyHash({
+          output: new bsv.Transaction.Output({
+            script: bsv.Script.buildPublicKeyHashOut(utxo.address),
+            satoshis: utxo.satoshis,
+          }),
+          prevTxId: utxo.txId,
+          outputIndex: utxo.outputIndex,
+          script: bsv.Script.empty(),
+        })
+      );
     });
 
     tx.addOutput(
@@ -618,16 +687,29 @@ export class FungibleToken {
       })
     );
 
-    tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+    //计算手续费并判断是否找零
+    //如果有找零将在最后一项输出
+    const unlockSize = utxos.length * P2PKH_UNLOCK_SIZE;
+    tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
     let changeAmount = tx._getUnspentValue() - tx.getFee();
     //足够dust才找零，否则归为手续费
-    if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+    if (
+      changeAmount >=
+      bsv.Transaction.DUST_AMOUNT + bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE
+    ) {
       tx.change(changeAddress);
       //添加找零后要重新计算手续费
-      tx.fee(Math.ceil(tx.toBuffer().length * feeb));
-      changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+      tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
     }
 
+    if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+      tx.inputs.forEach((input, inputIndex) => {
+        if (input.script.toBuffer().length == 0) {
+          let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+          Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
+        }
+      });
+    }
     return tx;
   }
 
@@ -643,6 +725,7 @@ export class FungibleToken {
     tokenRabinDatas,
     routeCheckContract,
     senderPrivateKey,
+    senderPublicKey,
     utxoPrivateKeys,
     changeAddress,
     feeb,
@@ -650,8 +733,8 @@ export class FungibleToken {
     debug,
   }) {
     const tx = new bsv.Transaction();
-    let senderPk = senderPrivateKey.publicKey;
 
+    //首先添加token作为输入
     let prevouts = Buffer.alloc(0);
     const tokenInputLen = tokenInputArray.length;
     let inputTokenScript;
@@ -695,6 +778,7 @@ export class FungibleToken {
       prevouts = Buffer.concat([prevouts, txidBuf, indexBuf]);
     }
 
+    //tx addInput utxo
     for (let i = 0; i < satoshiInputArray.length; i++) {
       const satoshiInput = satoshiInputArray[i];
       const lockingScript = bsv.Script.fromBuffer(
@@ -716,10 +800,6 @@ export class FungibleToken {
         })
       );
 
-      //unlock P2PKH
-      let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-      Utils.unlockP2PKHInput(privateKey, tx, tx.inputs.length - 1, sighashType);
-
       // add outputpoint to prevouts
       const indexBuf = Buffer.alloc(4, 0);
       indexBuf.writeUInt32LE(outputIndex);
@@ -727,7 +807,7 @@ export class FungibleToken {
       prevouts = Buffer.concat([prevouts, txidBuf, indexBuf]);
     }
 
-    // add routeCheckTx
+    //添加routeCheck为最后一个输入
     tx.addInput(
       new bsv.Transaction.Input({
         output: new bsv.Transaction.Output({
@@ -791,16 +871,32 @@ export class FungibleToken {
       );
     }
 
+    let changeAmount = 0;
     //let the fee to be exact in the second round
     for (let c = 0; c < 2; c++) {
-      tx.fee(Math.ceil(tx.toBuffer().length * feeb));
-      let changeAmount = tx._getUnspentValue() - tx.getFee();
+      const unlockSize = satoshiInputArray.length * P2PKH_UNLOCK_SIZE;
+      tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
       //足够dust才找零，否则归为手续费
-      if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+      let leftAmount = tx._getUnspentValue() - tx.getFee() + changeAmount;
+      if (
+        leftAmount >=
+        bsv.Transaction.DUST_AMOUNT + bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE
+      ) {
         tx.change(changeAddress);
         //添加找零后要重新计算手续费
-        tx.fee(Math.ceil(tx.toBuffer().length * feeb));
+        tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
         changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+      } else {
+        if (!Utils.isNull(tx._changeIndex)) {
+          tx._removeOutput(tx._changeIndex);
+        }
+        changeAmount = 0;
+        //无找零是很危险的事情，禁止大于1的费率
+        let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
+        let _feeb = fee / tx.toBuffer().length;
+        if (_feeb > 1) {
+          throw "unsupport feeb";
+        }
       }
 
       let changeSatoshis = tx.outputs[tx.outputs.length - 1].satoshis;
@@ -811,14 +907,21 @@ export class FungibleToken {
         const tokenInputSatoshis = tokenInput.satoshis;
         const tokenInputIndex = i;
 
-        let sig = signTx(
-          tx,
-          senderPrivateKey,
-          tokenInputLockingScript.toASM(),
-          tokenInputSatoshis,
-          tokenInputIndex,
-          sighashType
-        );
+        let sig: Buffer;
+        if (senderPrivateKey) {
+          //如果提供了私钥就进行签名
+          sig = signTx(
+            tx,
+            senderPrivateKey,
+            tokenInputLockingScript.toASM(),
+            tokenInputSatoshis,
+            tokenInputIndex,
+            sighashType
+          );
+        } else {
+          //如果没有提供私钥就使用71字节的占位符
+          sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
+        }
 
         const preimage = getPreimage(
           tx,
@@ -860,9 +963,11 @@ export class FungibleToken {
         if (
           tokenContract.lockingScript.toHex() != tokenInputLockingScript.toHex()
         ) {
-          console.log(tokenContract.lockingScript.toASM());
-          console.log(tokenInputLockingScript.toASM());
-          throw "error";
+          if (debug) {
+            console.log(tokenContract.lockingScript.toASM());
+            console.log(tokenInputLockingScript.toASM());
+          }
+          throw "tokenContract lockingScript unmatch ";
         }
 
         const unlockingContract = tokenContract.unlock(
@@ -879,7 +984,7 @@ export class FungibleToken {
           tokenOutputLen,
           new Bytes(toHex(tokenInput.preTokenAddress.hashBuffer)),
           tokenInput.preTokenAmount,
-          new PubKey(toHex(senderPk)),
+          new PubKey(toHex(senderPublicKey)),
           new Sig(toHex(sig)),
           0,
           new Bytes("00"),
@@ -891,7 +996,7 @@ export class FungibleToken {
           inputIndex: tokenInputIndex,
           inputSatoshis: tokenInputSatoshis,
         };
-        if (debug) {
+        if (debug && senderPrivateKey) {
           let ret = unlockingContract.verify(txContext);
           if (ret.success == false) throw ret;
         }
@@ -933,6 +1038,15 @@ export class FungibleToken {
       }
 
       tx.inputs[routeCheckInputIndex].setScript(unlockingContract.toScript());
+    }
+
+    if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+      tx.inputs.forEach((input, inputIndex) => {
+        if (input.script.toBuffer().length == 0) {
+          let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+          Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
+        }
+      });
     }
 
     return tx;
