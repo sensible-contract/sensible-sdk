@@ -1,6 +1,6 @@
 const ts = require("gulp-typescript");
 const tsProject = ts.createProject("tsconfig.json");
-
+const typedoc = require("gulp-typedoc");
 const gulp = require("gulp");
 const browserify = require("browserify");
 const source = require("vinyl-source-stream");
@@ -65,6 +65,17 @@ gulp.task("browserify", function () {
     .pipe(gulp.dest("dist"));
 });
 
+gulp.task("typedoc", function () {
+  return gulp.src(["src/**/*.ts"]).pipe(
+    typedoc({
+      entryPoints: ["./src/index.ts"],
+      out: "./docs",
+      name: "sensible-sdk",
+      tsconfig: "tsconfig.json",
+      excludePrivate: true,
+    })
+  );
+});
 gulp.task(
   "default",
   gulp.series(
@@ -74,5 +85,6 @@ gulp.task(
     "copy_bcp01_contact",
     "copy_bcp02_contact",
     "browserify"
+    // "typedoc"
   )
 );

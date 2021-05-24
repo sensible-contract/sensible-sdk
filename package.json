@@ -24,16 +24,17 @@
   "author": "sensiblecontract.org",
   "license": "MIT",
   "dependencies": {
-    "glob": "^7.1.6",
     "request": "^2.88.2",
     "scryptlib": "=0.3.10"
   },
   "devDependencies": {
     "browserify": "^17.0.0",
     "chai": "^4.3.4",
+    "glob": "^7.1.7",
     "gulp": "^4.0.2",
     "gulp-clean": "^0.4.0",
     "gulp-sourcemaps": "^3.0.0",
+    "gulp-typedoc": "^3.0.0",
     "gulp-typescript": "*",
     "gulp-uglify": "^3.0.2",
     "gulp-util": "^3.0.8",

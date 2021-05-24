@@ -107,23 +107,27 @@ function parseGenesis(genesis: string) {
   };
 }
 
+/**
+Sensible Non Fungible Token
+感应合约非同质化代币
+ */
 export class SensibleNFT {
-  signers: SatotxSigner[];
-  feeb: number;
-  network: API_NET;
-  mock: boolean;
-  purse: string;
-  sensibleApi: SensibleApi;
-  nft: NonFungibleToken;
-  debug: boolean;
+  private signers: SatotxSigner[];
+  private feeb: number;
+  private network: API_NET;
+  private mock: boolean;
+  private purse: string;
+  private sensibleApi: SensibleApi;
+  private nft: NonFungibleToken;
+  private debug: boolean;
   /**
    *
-   * @param {Object} param0
-   * @param {Array} param0.signers - 签名器
-   * @param {Number=} param0.feeb
-   * @param {String=} param0.network
-   * @param {String=} param0.purse
-   * @param {Boolean=} param0.mock
+   * @param signers - 签名器
+   * @param feeb (可选)交易费率，默认0.5
+   * @param network (可选)当前网络，mainnet/testnet，默认mainnet
+   * @param purse (可选)提供手续费的私钥wif，不提供则需要在genesis/issue/transfer手动传utxos
+   * @param mock (可选)开启后genesis/issue/transfer时不进行广播，默认关闭
+   * @param debug (可选)开启后将会在解锁合约时进行verify，默认关闭
    */
   constructor({
     signers = defaultSignerConfigs,
@@ -155,7 +159,7 @@ export class SensibleNFT {
     this.debug = debug;
   }
 
-  async pretreatUtxos(utxos: ParamUtxo[]) {
+  private async _pretreatUtxos(utxos: ParamUtxo[]) {
     let utxoPrivateKeys = [];
     if (utxos) {
       checkParamUtxoFormat(utxos[0]);
@@ -178,14 +182,14 @@ export class SensibleNFT {
   }
 
   /**
-   * 创世
-   * @param {Object} param0
-   * @param {String} param0.genesisWif 发行方私钥WIF
-   * @param {String} param0.totalSupply 最大供应量
-   * @param {String} param0.opreturnData 追加输出
-   * @param {Array=} param0.utxos 手续费UTXO
-   * @param {String=} param0.changeAddress 手续费找零地址
-   * @returns {Object} {txid,genesis,codehash}
+   * 构造genesis交易
+   * @param genesisWif 发行私钥
+   * @param totalSupply 最大发行量,8字节
+   * @param opreturnData (可选)追加一个opReturn输出
+   * @param utxos (可选)指定utxos
+   * @param changeAddress (可选)找零地址
+   * @param noBroadcast (可选)是否不广播交易，默认false
+   * @returns
    */
   async genesis({
     genesisWif,
@@ -210,7 +214,7 @@ export class SensibleNFT {
     const genesisPrivateKey = new bsv.PrivateKey(genesisWif);
     const genesisPublicKey = genesisPrivateKey.toPublicKey();
 
-    let utxoInfo = await this.pretreatUtxos(utxos);
+    let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
@@ -233,6 +237,15 @@ export class SensibleNFT {
     return { codehash, genesis, txid: tx.id, txHex };
   }
 
+  /**
+   * 构造(未签名的)genesis交易
+   * @param genesisPublicKey 发行公钥
+   * @param totalSupply 最大发行量,8字节
+   * @param opreturnData (可选)追加一个opReturn输出
+   * @param utxos (可选)指定utxos
+   * @param changeAddress (可选)找零地址
+   * @returns
+   */
   async unsignGenesis({
     genesisPublicKey,
     totalSupply,
@@ -242,7 +255,7 @@ export class SensibleNFT {
   }: {
     genesisPublicKey: string;
     totalSupply: string | bigint;
-    opreturnData: any;
+    opreturnData?: any;
     utxos?: ParamUtxo[];
     changeAddress?: any;
   }): Promise<{
@@ -250,7 +263,7 @@ export class SensibleNFT {
     sigHashList: SigHashInfo[];
   }> {
     genesisPublicKey = new bsv.PublicKey(genesisPublicKey);
-    let utxoInfo = await this.pretreatUtxos(utxos);
+    let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
@@ -293,7 +306,7 @@ export class SensibleNFT {
     return { tx, sigHashList };
   }
 
-  async _genesis({
+  private async _genesis({
     genesisPublicKey,
     totalSupply,
     opreturnData,
@@ -341,16 +354,16 @@ export class SensibleNFT {
   }
 
   /**
-   *
-   * @param {Object} param0
-   * @param {String} param0.genesis
-   * @param {String} param0.codehash
-   * @param {String} param0.genesisWif 创世的私钥
-   * @param {String} param0.metaTxId NFTState
-   * @param {String} param0.opreturnData 追加的OPRETURN
-   * @param {String} param0.receiverAddress 接受者的地址
-   * @param {Array=} param0.utxos 手续费UTXO
-   * @param {String=} param0.changeAddress 手续费找零地址
+   * 构造一笔铸造NFT的交易
+   * @param genesis NFT的genesis
+   * @param codehash NFT的codehash
+   * @param genesisWif 发行私钥wif
+   * @param metaTxId NFTState
+   * @param opreturnData (可选)追加一个opReturn输出
+   * @param receiverAddress 接受者的地址
+   * @param utxos (可选)指定utxos
+   * @param changeAddress (可选)指定找零地址
+   * @param noBroadcast (可选)是否不广播交易，默认false
    * @returns {Object} {txid,tokenid}
    */
   async issue({
@@ -379,7 +392,7 @@ export class SensibleNFT {
 
     const genesisPrivateKey = new bsv.PrivateKey(genesisWif);
     const genesisPublicKey = genesisPrivateKey.toPublicKey();
-    let utxoInfo = await this.pretreatUtxos(utxos);
+    let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
@@ -408,6 +421,18 @@ export class SensibleNFT {
     return { txHex, txid: tx.id };
   }
 
+  /**
+   * 构造(未签名的)发行交易
+   * @param genesis NFT的genesis
+   * @param codehash NFT的codehash
+   * @param genesisPublicKey 发行公钥
+   * @param receiverAddress 接收地址
+   * @param metaTxId NFT状态节点，推荐用metaid
+   * @param opreturnData (可选)追加一个opReturn输出
+   * @param utxos (可选)指定utxos
+   * @param changeAddress (可选)找零地址
+   * @returns
+   */
   async unsignIssue({
     genesis,
     codehash,
@@ -431,7 +456,7 @@ export class SensibleNFT {
     checkParamCodehash(codehash);
 
     genesisPublicKey = new bsv.PublicKey(genesisPublicKey);
-    let utxoInfo = await this.pretreatUtxos(utxos);
+    let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
@@ -482,20 +507,8 @@ export class SensibleNFT {
 
     return { tx, sigHashList };
   }
-  /**
-   *
-   * @param {Object} param0
-   * @param {String} param0.genesis
-   * @param {String} param0.codehash
-   * @param {String} param0.genesisWif 创世的私钥
-   * @param {String} param0.metaTxId NFTState
-   * @param {String} param0.opreturnData 追加的OPRETURN
-   * @param {String} param0.receiverAddress 接受者的地址
-   * @param {Array=} param0.utxos 手续费UTXO
-   * @param {String=} param0.changeAddress 手续费找零地址
-   * @returns {Object} {txid,tokenid}
-   */
-  async _issue({
+
+  private async _issue({
     genesis,
     codehash,
     genesisPrivateKey,
@@ -522,7 +535,7 @@ export class SensibleNFT {
 
     let { genesisTxId, genesisOutputIndex } = parseGenesis(genesis);
 
-    let issueNftUnspents = await this.sensibleApi.getNonFungbleTokenUnspents(
+    let issueNftUnspents = await this.sensibleApi.getNonFungibleTokenUnspents(
       codehash,
       genesis,
       issuerAddress.toString()
@@ -585,6 +598,19 @@ export class SensibleNFT {
     return { txHex, tx, tokenid };
   }
 
+  /**
+   * 构造一笔转移NFT的交易并进行广播
+   * @param genesis NFT的genesis
+   * @param codehash NFT的genesis
+   * @param tokenid NFT的tokenid
+   * @param senderWif 发送者私钥wif
+   * @param receiverAddress 接受者的地址
+   * @param opreturnData (可选)追加一个opReturn输出
+   * @param utxos (可选)指定utxos
+   * @param changeAddress (可选)指定找零地址
+   * @param noBroadcast (可选)是否不广播交易，默认false
+   * @returns
+   */
   public async transfer({
     genesis,
     codehash,
@@ -611,7 +637,7 @@ export class SensibleNFT {
 
     const senderPrivateKey = new bsv.PrivateKey(senderWif);
     const senderPublicKey = senderPrivateKey.toPublicKey();
-    let utxoInfo = await this.pretreatUtxos(utxos);
+    let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
@@ -638,6 +664,18 @@ export class SensibleNFT {
     return { txid: tx.id, txHex };
   }
 
+  /**
+   * 构造一笔转移NFT的交易
+   * @param genesis NFT的genesis
+   * @param codehash NFT的genesis
+   * @param tokenid NFT的tokenid
+   * @param senderPublicKey 发送者公钥
+   * @param receiverAddress 接受者的地址
+   * @param opreturnData (可选)追加一个opReturn输出
+   * @param utxos (可选)指定utxos
+   * @param changeAddress (可选)指定找零地址
+   * @returns
+   */
   public async unsignTransfer({
     genesis,
     codehash,
@@ -661,7 +699,7 @@ export class SensibleNFT {
     checkParamCodehash(codehash);
 
     senderPublicKey = new bsv.PublicKey(senderPublicKey);
-    let utxoInfo = await this.pretreatUtxos(utxos);
+    let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
@@ -711,18 +749,6 @@ export class SensibleNFT {
     return { tx, sigHashList };
   }
 
-  /**
-   *
-   * @param {Object} param0
-   * @param {String} param0.genesis
-   * @param {String} param0.codehash
-   * @param {String} param0.tokenid
-   * @param {String} param0.senderWif
-   * @param {String} param0.receiverAddress 接受者的地址
-   * @param {Array=} param0.utxos 手续费UTXO
-   * @param {String=} param0.changeAddress 手续费找零地址
-   * @returns {Object} {txid}
-   */
   private async _transfer({
     genesis,
     codehash,
@@ -753,7 +779,7 @@ export class SensibleNFT {
     }
 
     let { genesisTxId, genesisOutputIndex } = parseGenesis(genesis);
-    let nftUtxo = await this.sensibleApi.getNonFungbleTokenUnspentDetail(
+    let nftUtxo = await this.sensibleApi.getNonFungibleTokenUnspentDetail(
       codehash,
       genesis,
       tokenid
@@ -814,25 +840,36 @@ export class SensibleNFT {
     return { txHex, tx };
   }
 
-  /*
-  查询某人持有的所有NFT Token列表。获得持有的nft数量计数
-  */
-  async getSummary(address) {
-    return await this.sensibleApi.getNonFungbleTokenSummary(address);
+  /**
+   * 查询某人持有的所有NFT Token列表
+   * @param address 用户地址
+   * @returns
+   */
+  async getSummary(address: string) {
+    return await this.sensibleApi.getNonFungibleTokenSummary(address);
   }
 
-  /*
-  查询某人持有的某种NFT Token列表。
-  */
+  /**
+   * 查询某人持有的某种NFT Token列表。
+   * @param codehash NFT的codehash
+   * @param genesis NFT的genesis
+   * @param address 拥有者的地址
+   * @returns
+   */
   async getSummaryDetail(codehash: string, genesis: string, address: string) {
-    return await this.sensibleApi.getNonFungbleTokenUnspents(
+    return await this.sensibleApi.getNonFungibleTokenUnspents(
       codehash,
       genesis,
       address
     );
   }
 
-  async getGenesisEstimateFee({ opreturnData }) {
+  /**
+   * 估算genesis所需花费
+   * @param opreturnData
+   * @returns
+   */
+  async getGenesisEstimateFee({ opreturnData }: { opreturnData?: any }) {
     let p2pkhInputNum = 1;
     let p2pkhOutputNum = 1;
     p2pkhInputNum = 10; //支持10输入的费用
@@ -853,7 +890,12 @@ export class SensibleNFT {
     return fee;
   }
 
-  async getIssueEstimateFee({ opreturnData }) {
+  /**
+   * 估算铸造NFT所需花费
+   * @param param0
+   * @returns
+   */
+  async getIssueEstimateFee({ opreturnData }: { opreturnData?: any }) {
     let p2pkhInputNum = 1;
     let p2pkhOutputNum = 1;
     p2pkhInputNum = 10; //支持10输入的费用
@@ -875,7 +917,12 @@ export class SensibleNFT {
     return fee;
   }
 
-  async getTransferEstimateFee({ opreturnData }) {
+  /**
+   * 估算转移NFT所花费金额
+   * @param param0
+   * @returns
+   */
+  async getTransferEstimateFee({ opreturnData }: { opreturnData?: any }) {
     let p2pkhInputNum = 1;
     let p2pkhOutputNum = 1;
     p2pkhInputNum = 10; //支持10输入的费用
@@ -897,11 +944,22 @@ export class SensibleNFT {
     return fee;
   }
 
+  /**
+   * 更新交易的解锁脚本
+   * @param tx
+   * @param sigHashList
+   * @param sigList
+   */
   public sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
     Utils.sign(tx, sigHashList, sigList);
   }
 
+  /**
+   * 广播一笔交易
+   * @param txHex
+   * @param apiTarget 广播节点，可选sensible、metasv，默认sensible
+   */
   public async broadcast(txHex: string, apiTarget: string) {
-    await this.sensibleApi.broadcast(txHex, apiTarget);
+    return await this.sensibleApi.broadcast(txHex, apiTarget);
   }
 }

@@ -163,24 +163,24 @@ Sensible Fungible Token
 感应合约同质化代币
  */
 export class SensibleFT {
-  signers: SatotxSigner[];
-  feeb: number;
-  network: API_NET;
-  mock: boolean;
-  purse: string;
-  sensibleApi: SensibleApi;
-  zeroAddress: string;
-  ft: FungibleToken;
-  debug: boolean;
-  transferPart2?: any;
+  private signers: SatotxSigner[];
+  private feeb: number;
+  private network: API_NET;
+  private mock: boolean;
+  private purse: string;
+  private sensibleApi: SensibleApi;
+  private zeroAddress: string;
+  private ft: FungibleToken;
+  private debug: boolean;
+  private transferPart2?: any;
   /**
    *
-   * @param param0.signers - 签名器
-   * @param param0.feeb (可选)交易费率，默认0.5
-   * @param param0.network (可选)当前网络，mainnet/testnet，默认mainnet
-   * @param param0.purse (可选)提供手续费的私钥wif，不提供则需要在genesis/issue/transfer手动传utxos
-   * @param param0.mock (可选)开启后genesis/issue/transfer时不进行广播，默认关闭
-   * @param param0.debug (可选)开启后将会在解锁合约时进行verify，默认关闭
+   * @param signers - 签名器
+   * @param feeb (可选)交易费率，默认0.5
+   * @param network (可选)当前网络，mainnet/testnet，默认mainnet
+   * @param purse (可选)提供手续费的私钥wif，不提供则需要在genesis/issue/transfer手动传utxos
+   * @param mock (可选)开启后genesis/issue/transfer时不进行广播，默认关闭
+   * @param debug (可选)开启后将会在解锁合约时进行verify，默认关闭
    */
   constructor({
     signers = defaultSignerConfigs,
@@ -223,7 +223,7 @@ export class SensibleFT {
     );
   }
 
-  private async pretreatUtxos(utxos: ParamUtxo[]) {
+  private async _pretreatUtxos(utxos: ParamUtxo[]) {
     let utxoPrivateKeys = [];
     if (utxos) {
       utxos.forEach((v) => {
@@ -248,14 +248,14 @@ export class SensibleFT {
 
   /**
    * 构造一笔的genesis交易,并广播
-   * @param param0.tokenName 代币名称
-   * @param param0.tokenSymbol 代币符号
-   * @param param0.decimalNum 代币符号
-   * @param param0.utxos (可选)手动传utxo
-   * @param param0.changeAddress (可选)指定找零地址
-   * @param param0.opreturnData (可选)追加一个opReturn输出
-   * @param param0.genesisWif 发行私钥
-   * @param param0.noBroadcast (可选)不进行广播，默认false
+   * @param tokenName 代币名称
+   * @param tokenSymbol 代币符号
+   * @param decimalNum 代币符号
+   * @param utxos (可选)手动传utxo
+   * @param changeAddress (可选)指定找零地址
+   * @param opreturnData (可选)追加一个opReturn输出
+   * @param genesisWif 发行私钥
+   * @param noBroadcast (可选)不进行广播，默认false
    * @returns
    */
   public async genesis({
@@ -287,7 +287,7 @@ export class SensibleFT {
     checkParamTokenSymbol(tokenSymbol);
     checkParamDecimalNum(decimalNum);
     $.checkArgument(genesisWif, "genesisWif is required");
-    let utxoInfo = await this.pretreatUtxos(utxos);
+    let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
@@ -314,13 +314,13 @@ export class SensibleFT {
 
   /**
    * 构造(未签名的)genesis交易
-   * @param param0.tokenName 代币名称
-   * @param param0.tokenSymbol 代币符号
-   * @param param0.decimalNum 代币符号
-   * @param param0.utxos (可选)手动传utxo
-   * @param param0.changeAddress (可选)指定找零地址
-   * @param param0.opreturnData (可选)追加一个opReturn输出
-   * @param param0.genesisPublicKey 发行公钥
+   * @param tokenName 代币名称
+   * @param tokenSymbol 代币符号
+   * @param decimalNum 代币符号
+   * @param utxos (可选)手动传utxo
+   * @param changeAddress (可选)指定找零地址
+   * @param opreturnData (可选)追加一个opReturn输出
+   * @param genesisPublicKey 发行公钥
    * @returns
    */
   public async unsignGenesis({
@@ -348,7 +348,7 @@ export class SensibleFT {
     checkParamTokenSymbol(tokenSymbol);
     checkParamDecimalNum(decimalNum);
     $.checkArgument(genesisPublicKey, "genesisPublicKey is required");
-    let utxoInfo = await this.pretreatUtxos(utxos);
+    let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
@@ -457,16 +457,16 @@ export class SensibleFT {
 
   /**
    * 构造发行代币的交易并广播
-   * @param param0.genesis 代币的genesis
-   * @param param0.codehash 代币的codehash
-   * @param param0.genesisWif 发行私钥
-   * @param param0.receiverAddress 接收地址
-   * @param param0.tokenAmount 发行代币数量
-   * @param param0.allowIncreaseIssues (可选)是否允许增发，默认允许
-   * @param param0.utxos (可选)指定utxos
-   * @param param0.changeAddress (可选)指定找零地址
-   * @param param0.opreturnData (可选)追加一个opReturn输出
-   * @param param0.noBroadcast (可选)是否不广播交易，默认false
+   * @param genesis 代币的genesis
+   * @param codehash 代币的codehash
+   * @param genesisWif 发行私钥
+   * @param receiverAddress 接收地址
+   * @param tokenAmount 发行代币数量
+   * @param allowIncreaseIssues (可选)是否允许增发，默认允许
+   * @param utxos (可选)指定utxos
+   * @param changeAddress (可选)指定找零地址
+   * @param opreturnData (可选)追加一个opReturn输出
+   * @param noBroadcast (可选)是否不广播交易，默认false
    * @returns
    */
   public async issue({
@@ -498,7 +498,7 @@ export class SensibleFT {
     $.checkArgument(receiverAddress, "receiverAddress is required");
     $.checkArgument(tokenAmount, "tokenAmount is required");
 
-    let utxoInfo = await this.pretreatUtxos(utxos);
+    let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
@@ -530,15 +530,15 @@ export class SensibleFT {
 
   /**
    * 构造(未签名的)发行代币的交易
-   * @param param0.genesis 代币的genesis
-   * @param param0.codehash 代币的codehash
-   * @param param0.genesisPublicKey 发行公钥
-   * @param param0.receiverAddress 接收地址
-   * @param param0.tokenAmount 发行代币数量
-   * @param param0.allowIncreaseIssues (可选)是否允许增发，默认允许
-   * @param param0.utxos (可选)指定utxos
-   * @param param0.changeAddress (可选)指定找零地址
-   * @param param0.opreturnData (可选)追加一个opReturn输出
+   * @param genesis 代币的genesis
+   * @param codehash 代币的codehash
+   * @param genesisPublicKey 发行公钥
+   * @param receiverAddress 接收地址
+   * @param tokenAmount 发行代币数量
+   * @param allowIncreaseIssues (可选)是否允许增发，默认允许
+   * @param utxos (可选)指定utxos
+   * @param changeAddress (可选)指定找零地址
+   * @param opreturnData (可选)追加一个opReturn输出
    * @returns
    */
   public async unsignIssue({
@@ -567,7 +567,7 @@ export class SensibleFT {
     $.checkArgument(genesisPublicKey, "genesisPublicKey is required");
     $.checkArgument(receiverAddress, "receiverAddress is required");
     $.checkArgument(tokenAmount, "tokenAmount is required");
-    let utxoInfo = await this.pretreatUtxos(utxos);
+    let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
@@ -656,7 +656,7 @@ export class SensibleFT {
     let spendByTxId;
     let spendByOutputIndex;
     let { genesisTxId, genesisOutputIndex } = parseGenesis(genesis);
-    let issueUtxos = await this.sensibleApi.getFungbleTokenUnspents(
+    let issueUtxos = await this.sensibleApi.getFungibleTokenUnspents(
       genesisContractCodehash,
       genesis,
       this.zeroAddress
@@ -827,14 +827,14 @@ export class SensibleFT {
 
   /**
    * 构造转移代币的交易
-   * @param param0.genesis 代币的genesis
-   * @param param0.codehash 代币的codehash
-   * @param param0.senderWif 发送者的私钥wif
-   * @param param0.receivers 接收数组，格式为[{address:'xxx',amount:'1000'}]
-   * @param param0.utxos (可选)指定utxos
-   * @param param0.changeAddress (可选)指定找零地址
-   * @param param0.opreturnData (可选)追加一个opReturn输出
-   * @param param0.noBroadcast (可选)是否不广播交易，默认false
+   * @param genesis 代币的genesis
+   * @param codehash 代币的codehash
+   * @param senderWif 发送者的私钥wif
+   * @param receivers 接收数组，格式为[{address:'xxx',amount:'1000'}]
+   * @param utxos (可选)指定utxos
+   * @param changeAddress (可选)指定找零地址
+   * @param opreturnData (可选)追加一个opReturn输出
+   * @param noBroadcast (可选)是否不广播交易，默认false
    * @returns
    */
   public async transfer({
@@ -863,7 +863,7 @@ export class SensibleFT {
     checkParamReceivers(receivers);
     $.checkArgument(senderWif, "senderWif is required");
 
-    let utxoInfo = await this.pretreatUtxos(utxos);
+    let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
@@ -895,13 +895,13 @@ export class SensibleFT {
 
   /**
    * 构造(未签名的)转移代币的交易
-   * @param param0.genesis 代币的genesis
-   * @param param0.codehash 代币的codehash
-   * @param param0.senderPublicKey 发送者的公钥
-   * @param param0.receivers 接收数组，格式为[{address:'xxx',amount:'1000'}]
-   * @param param0.utxos (可选)指定utxos
-   * @param param0.changeAddress (可选)指定找零地址
-   * @param param0.opreturnData (可选)追加一个opReturn输出
+   * @param genesis 代币的genesis
+   * @param codehash 代币的codehash
+   * @param senderPublicKey 发送者的公钥
+   * @param receivers 接收数组，格式为[{address:'xxx',amount:'1000'}]
+   * @param utxos (可选)指定utxos
+   * @param changeAddress (可选)指定找零地址
+   * @param opreturnData (可选)追加一个opReturn输出
    * @returns
    */
   public async unsignPreTransfer({
@@ -931,7 +931,7 @@ export class SensibleFT {
     checkParamReceivers(receivers);
     $.checkArgument(senderPublicKey, "senderPublicKey is required");
 
-    let utxoInfo = await this.pretreatUtxos(utxos);
+    let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
@@ -979,7 +979,7 @@ export class SensibleFT {
     };
   }
 
-  async _transfer({
+  private async _transfer({
     codehash,
     genesis,
     senderPrivateKey,
@@ -1015,7 +1015,7 @@ export class SensibleFT {
     let utxoPrivateKey0 = utxoPrivateKeys[0];
 
     //获取token的utxo
-    let ftUtxos = await this.sensibleApi.getFungbleTokenUnspents(
+    let ftUtxos = await this.sensibleApi.getFungibleTokenUnspents(
       codehash,
       genesis,
       senderAddress.toString()
@@ -1367,13 +1367,13 @@ export class SensibleFT {
 
   /**
    * 构造合并代币的交易，最多合并20个utxo
-   * @param param0.genesis 代币的genesis
-   * @param param0.codehash 代币的codehash
-   * @param param0.senderWif 代币所有者的私钥wif
-   * @param param0.utxos (可选)指定utxos
-   * @param param0.changeAddress (可选)指定找零地址
-   * @param param0.opreturnData (可选)追加一个opReturn输出
-   * @param param0.noBroadcast (可选)是否不广播交易，默认false
+   * @param genesis 代币的genesis
+   * @param codehash 代币的codehash
+   * @param senderWif 代币所有者的私钥wif
+   * @param utxos (可选)指定utxos
+   * @param changeAddress (可选)指定找零地址
+   * @param opreturnData (可选)追加一个opReturn输出
+   * @param noBroadcast (可选)是否不广播交易，默认false
    * @returns
    */
   public async merge({
@@ -1409,12 +1409,12 @@ export class SensibleFT {
 
   /**
    * 构造(未签名的)合并代币的第一部分交易，最多合并20个utxo
-   * @param param0.genesis 代币的genesis
-   * @param param0.codehash 代币的codehash
-   * @param param0.senderWif 代币所有者的私钥wif
-   * @param param0.utxos (可选)指定utxos
-   * @param param0.changeAddress (可选)指定找零地址
-   * @param param0.opreturnData (可选)追加一个opReturn输出
+   * @param genesis 代币的genesis
+   * @param codehash 代币的codehash
+   * @param senderWif 代币所有者的私钥wif
+   * @param utxos (可选)指定utxos
+   * @param changeAddress (可选)指定找零地址
+   * @param opreturnData (可选)追加一个opReturn输出
    * @returns
    */
   public async unsignPreMerge({
@@ -1455,16 +1455,16 @@ export class SensibleFT {
 
   /**
    * 查询某人持有的FT余额
-   * @param param0.codehash
-   * @param param0.genesis
-   * @param param0.address
+   * @param codehash
+   * @param genesis
+   * @param address
    * @returns
    */
   public async getBalance({ codehash, genesis, address }) {
     let {
       balance,
       pendingBalance,
-    } = await this.sensibleApi.getFungbleTokenBalance(
+    } = await this.sensibleApi.getFungibleTokenBalance(
       codehash,
       genesis,
       address
@@ -1474,9 +1474,9 @@ export class SensibleFT {
 
   /**
    * 查询某人持有的FT余额，以及utxo的数量
-   * @param param0.codehash
-   * @param param0.genesis
-   * @param param0.address
+   * @param codehash
+   * @param genesis
+   * @param address
    * @returns
    */
   public async getBalanceDetail({
@@ -1488,7 +1488,7 @@ export class SensibleFT {
     genesis: string;
     address: string;
   }) {
-    return await this.sensibleApi.getFungbleTokenBalance(
+    return await this.sensibleApi.getFungibleTokenBalance(
       codehash,
       genesis,
       address
@@ -1501,12 +1501,12 @@ export class SensibleFT {
    * @returns
    */
   public async getSummary(address: string) {
-    return await this.sensibleApi.getFungbleTokenSummary(address);
+    return await this.sensibleApi.getFungibleTokenSummary(address);
   }
 
   /**
    * 估算genesis的费用
-   * @param param0
+   * @param opreturnData
    * @returns
    */
   public async getGenesisEstimateFee({ opreturnData }) {
@@ -1565,12 +1565,11 @@ export class SensibleFT {
 
   /**
    * 提前计算费用
-   * @param {Object} param0
-   * @param {String} param0.genesis
-   * @param {String} param0.codehash
-   * @param {String} param0.senderWif
-   * @param {Array} param0.receivers
-   * @param {String=} param0.opreturnData
+   * @param genesis
+   * @param codehash
+   * @param senderWif
+   * @param receivers
+   * @param opreturnData
    * @returns
    */
   public async getTransferEstimateFee({
@@ -1579,6 +1578,12 @@ export class SensibleFT {
     senderWif,
     receivers,
     opreturnData,
+  }: {
+    codehash: string;
+    genesis: string;
+    senderWif: string;
+    receivers: any;
+    opreturnData?: any;
   }) {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
@@ -1589,7 +1594,7 @@ export class SensibleFT {
     const senderAddress = senderPrivateKey.toAddress(this.network);
 
     //获取token
-    let ftUtxos = await this.sensibleApi.getFungbleTokenUnspents(
+    let ftUtxos = await this.sensibleApi.getFungibleTokenUnspents(
       codehash,
       genesis,
       senderAddress.toString()
@@ -1700,7 +1705,7 @@ export class SensibleFT {
   }
 
   /**
-   * 更新交易解锁脚本
+   * 更新交易的解锁脚本
    * @param tx
    * @param sigHashList
    * @param sigList

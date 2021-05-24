@@ -1,5 +1,11 @@
 # Sensible-SDK
 
+## Links
+
+- [![npm version](https://img.shields.io/npm/v/sensible-sdk.svg)](https://www.npmjs.com/package/sensible-sdk)
+- [![TypeDoc](https://img.shields.io/badge/documentation-TypeDoc-green.svg)](https://sensible-contract.github.io/sensible-sdk/)
+- [![Documentation](https://img.shields.io/badge/documentation-sensiblecontract.org-green.svg)](https://sensiblecontract.org/)
+
 ## How to install
 
 npm install sensible-sdk --save

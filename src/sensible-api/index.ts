@@ -27,6 +27,27 @@ type SensibleQueryUtxo = {
   vout?: number;
   metaTxId?: string;
 };
+
+type NonFungibleTokenUnspent = {
+  txId: string;
+  satoshis: number;
+  outputIndex: number;
+  rootHeight: number;
+  lockingScript: string;
+  tokenAddress: string;
+  tokenId: number;
+  metaTxId: string;
+};
+
+type FungibleTokenUnspent = {
+  txId: string;
+  satoshis: number;
+  outputIndex: number;
+  rootHeight: number;
+  lockingScript: string;
+  tokenAddress: string;
+  tokenAmount: bigint;
+};
 export class SensibleApi {
   serverBase: string;
   constructor(apiNet: API_NET) {
@@ -103,11 +124,11 @@ export class SensibleApi {
   /**
    * 通过FT合约CodeHash+溯源genesis获取某地址的utxo列表
    */
-  async getFungbleTokenUnspents(
+  async getFungibleTokenUnspents(
     codehash: string,
     genesis: string,
     address: string
-  ) {
+  ): Promise<any[]> {
     let url = `${this.serverBase}/ft/utxo/${codehash}/${genesis}/${address}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -115,7 +136,7 @@ export class SensibleApi {
       throw { title: "request sensible api failed", url, msg };
     }
     if (!data) return [];
-    let ret = data.map((v: SensibleQueryUtxo) => ({
+    let ret: FungibleTokenUnspent[] = data.map((v: SensibleQueryUtxo) => ({
       txId: v.txid,
       satoshis: v.satoshi,
       outputIndex: v.vout,
@@ -130,7 +151,7 @@ export class SensibleApi {
   /**
    * 查询某人持有的某FT的余额
    */
-  async getFungbleTokenBalance(
+  async getFungibleTokenBalance(
     codehash: string,
     genesis: string,
     address: string
@@ -148,7 +169,7 @@ export class SensibleApi {
   /**
    * 获取指定交易的FT输出信息
    */
-  async getOutputFungbleToken(txid: string, index: number) {
+  async getOutputFungibleToken(txid: string, index: number) {
     let url = `${this.serverBase}/tx/${txid}/out/${index}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -171,11 +192,11 @@ export class SensibleApi {
   /**
    * 通过NFT合约CodeHash+溯源genesis获取某地址的utxo列表
    */
-  async getNonFungbleTokenUnspents(
+  async getNonFungibleTokenUnspents(
     codehash: string,
     genesis: string,
     address: string
-  ) {
+  ): Promise<NonFungibleTokenUnspent[]> {
     let url = `${this.serverBase}/nft/utxo/${codehash}/${genesis}/${address}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -184,7 +205,7 @@ export class SensibleApi {
     }
 
     if (!data) return [];
-    let ret = data.map((v: SensibleQueryUtxo) => ({
+    let ret: NonFungibleTokenUnspent[] = data.map((v: SensibleQueryUtxo) => ({
       txId: v.txid,
       satoshis: v.satoshi,
       outputIndex: v.vout,
@@ -200,7 +221,7 @@ export class SensibleApi {
   /**
    * 查询某人持有的某FT的UTXO
    */
-  async getNonFungbleTokenUnspentDetail(
+  async getNonFungibleTokenUnspentDetail(
     codehash: string,
     genesis: string,
     tokenid: string
@@ -225,7 +246,7 @@ export class SensibleApi {
     return ret;
   }
 
-  async getOutputNonFungbleToken(txid: string, index: number) {
+  async getOutputNonFungibleToken(txid: string, index: number) {
     let url = `${this.serverBase}/tx/${txid}/out/${index}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -248,7 +269,7 @@ export class SensibleApi {
   /**
    * 查询某人持有的FT Token列表。获得每个token的余额
    */
-  async getFungbleTokenSummary(
+  async getFungibleTokenSummary(
     address: string
   ): Promise<{
     codehash: string;
@@ -272,7 +293,7 @@ export class SensibleApi {
    * @param {String} address
    * @returns
    */
-  async getNonFungbleTokenSummary(
+  async getNonFungibleTokenSummary(
     address: string
   ): Promise<{
     codehash: string;
