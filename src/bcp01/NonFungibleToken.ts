@@ -21,8 +21,6 @@ export const sighashType =
   Signature.SIGHASH_ANYONECANPAY |
   Signature.SIGHASH_ALL |
   Signature.SIGHASH_FORKID;
-var contractJsonPath = "../../contract-desc/bcp01/";
-const loadDesc = (filename) => require(path.join(contractJsonPath, filename));
 const nftContractClass = buildContractClass(
   require("./contract-desc/nft_desc.json")
 );
