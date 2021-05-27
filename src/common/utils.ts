@@ -100,8 +100,8 @@ export type SigInfo = {
   publicKey: any;
 };
 export const SIG_PLACE_HOLDER =
-  "41682c2074686973206973206120706c61636520686f6c64657220616e642077696c6c206265207265706c6163656420696e207468652066696e616c207369676e61747572652e";
-export const P2PKH_UNLOCK_SIZE = 1 + 1 + 71 + 1 + 33;
+  "41682c2074686973206973206120706c61636520686f6c64657220616e642077696c6c206265207265706c6163656420696e207468652066696e616c207369676e61747572652e00";
+export const P2PKH_UNLOCK_SIZE = 1 + 1 + 72 + 1 + 33;
 
 export function sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
   sigHashList.forEach(({ inputIndex, isP2PKH, sighashType }, index) => {
@@ -136,4 +136,81 @@ export function sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
       input.setScript(input.script.toHex().replace(oldSigHex, newSigHex));
     }
   });
+}
+
+function satoshisToBSV(satoshis) {
+  return (satoshis / 100000000).toFixed(8);
+}
+export function dumpTx(tx, network = "mainnet") {
+  const version = tx.version;
+  const size = tx.toBuffer().length;
+  const feePaid = tx._getUnspentValue();
+  const feeRate = (feePaid / size).toFixed(4);
+
+  console.log(`
+=============================================================================================
+Summary
+  txid:     ${tx.id}
+  Size:     ${size}
+  Fee Paid: ${satoshisToBSV(feePaid)}
+  Fee Rate: ${feeRate} sat/B
+  Detail:   ${tx.inputs.length} Inputs, ${tx.outputs.length} Outputs
+----------------------------------------------------------------------------------------------
+${tx.inputs
+  .map((input, index) => {
+    let type = "";
+    if (input.output.script.isPublicKeyHashOut()) {
+      type = "standard";
+    } else if (input.output.script.isSafeDataOut()) {
+      type = "OP_RETURN";
+    } else {
+      type = "nonstandard";
+    }
+    let str = `
+=>${index}    ${
+      type == "standard"
+        ? input.output.script.toAddress(network).toString()
+        : type == "OP_RETURN"
+        ? "OP_RETURN" + " ".repeat(34 - 9)
+        : "nonstandard" + " ".repeat(34 - 11)
+    }    ${satoshisToBSV(input.output.satoshis)} BSV
+       lock-size:   ${input.output.script.toBuffer().length}
+       unlock-size: ${input.script.toBuffer().length}
+       via ${input.prevTxId.toString("hex")} [${input.outputIndex}]
+`;
+    return str;
+  })
+  .join("")}
+Input total: ${satoshisToBSV(
+    tx.inputs.reduce((pre, cur) => pre + cur.output.satoshis, 0)
+  )} BSV
+----------------------------------------------------------------------------------------------
+${tx.outputs
+  .map((output, index) => {
+    let type = "";
+    if (output.script.isPublicKeyHashOut()) {
+      type = "standard";
+    } else if (output.script.isSafeDataOut()) {
+      type = "OP_RETURN";
+    } else {
+      type = "nonstandard";
+    }
+    let str = `
+=>${index}    ${
+      type == "standard"
+        ? output.script.toAddress(network).toString()
+        : type == "OP_RETURN"
+        ? "OP_RETURN" + " ".repeat(34 - 9)
+        : "nonstandard" + " ".repeat(34 - 11)
+    }    ${satoshisToBSV(output.satoshis)} BSV
+       size: ${output.script.toBuffer().length}
+		`;
+    return str;
+  })
+  .join("")}
+Output total: ${satoshisToBSV(
+    tx.outputs.reduce((pre, cur) => pre + cur.satoshis, 0)
+  )} BSV
+=============================================================================================
+	 `);
 }

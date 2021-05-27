@@ -108,7 +108,8 @@ export class NonFungibleToken {
     //足够dust才找零，否则归为手续费
     if (
       changeAmount >=
-      bsv.Transaction.DUST_AMOUNT + bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE
+      bsv.Transaction.DUST_AMOUNT +
+        bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
     ) {
       tx.change(changeAddress);
       //添加找零后要重新计算手续费
@@ -230,32 +231,43 @@ export class NonFungibleToken {
     let preDataPartHex = this.getDataPartFromScript(script);
 
     let changeAmount = 0;
-    //let the fee to be exact in the second round
+    let extraSigLen = 0;
     for (let c = 0; c < 2; c++) {
       const unlockSize = utxos.length * P2PKH_UNLOCK_SIZE;
-      tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
+      tx.fee(
+        Math.ceil((tx.toBuffer().length + extraSigLen + unlockSize) * feeb)
+      );
+      //足够dust才找零，否则归为手续费
       if (c == 1) {
-        //足够dust才找零，否则归为手续费
         let leftAmount = tx._getUnspentValue() - tx.getFee();
         if (
           leftAmount >=
-          bsv.Transaction.DUST_AMOUNT + bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE
+          bsv.Transaction.DUST_AMOUNT +
+            bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
         ) {
           tx.change(changeAddress);
           //添加找零后要重新计算手续费
-          tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
+          tx.fee(
+            Math.ceil(
+              (tx.toBuffer().length +
+                extraSigLen +
+                unlockSize +
+                Buffer.from(leftAmount.toString(16), "hex").length) *
+                feeb
+            )
+          );
           changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
         } else {
           if (!Utils.isNull(tx._changeIndex)) {
             tx._removeOutput(tx._changeIndex);
           }
-          changeAmount = 0;
           //无找零是很危险的事情，禁止大于1的费率
           let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
           let _feeb = fee / tx.toBuffer().length;
           if (_feeb > 1) {
             throw "unsupport feeb";
           }
+          changeAmount = 0;
         }
       }
 
@@ -271,9 +283,10 @@ export class NonFungibleToken {
           sighashType
         );
       } else {
-        //如果没有提供私钥就使用71字节的占位符
+        //如果没有提供私钥就使用72字节的占位符
         sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
       }
+      extraSigLen = 72 - sig.length;
 
       const preimage = getPreimage(
         tx,
@@ -426,31 +439,43 @@ export class NonFungibleToken {
     let preDataPartHex = this.getDataPartFromScript(script);
 
     let changeAmount = 0;
+    let extraSigLen = 0;
     for (let c = 0; c < 2; c++) {
       const unlockSize = utxos.length * P2PKH_UNLOCK_SIZE;
-      tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
+      tx.fee(
+        Math.ceil((tx.toBuffer().length + extraSigLen + unlockSize) * feeb)
+      );
+      //足够dust才找零，否则归为手续费
       if (c == 1) {
-        //足够dust才找零，否则归为手续费
         let leftAmount = tx._getUnspentValue() - tx.getFee();
         if (
           leftAmount >=
-          bsv.Transaction.DUST_AMOUNT + bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE
+          bsv.Transaction.DUST_AMOUNT +
+            bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
         ) {
           tx.change(changeAddress);
           //添加找零后要重新计算手续费
-          tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
+          tx.fee(
+            Math.ceil(
+              (tx.toBuffer().length +
+                extraSigLen +
+                unlockSize +
+                Buffer.from(leftAmount.toString(16), "hex").length) *
+                feeb
+            )
+          );
           changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
         } else {
           if (!Utils.isNull(tx._changeIndex)) {
             tx._removeOutput(tx._changeIndex);
           }
-          changeAmount = 0;
           //无找零是很危险的事情，禁止大于1的费率
           let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
           let _feeb = fee / tx.toBuffer().length;
           if (_feeb > 1) {
             throw "unsupport feeb";
           }
+          changeAmount = 0;
         }
       }
 
@@ -472,9 +497,10 @@ export class NonFungibleToken {
           sighashType
         );
       } else {
-        //如果没有提供私钥就使用71字节的占位符
+        //如果没有提供私钥就使用72字节的占位符
         sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
       }
+      extraSigLen = 72 - sig.length;
 
       const preimage = getPreimage(
         tx,

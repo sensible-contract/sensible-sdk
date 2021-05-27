@@ -191,7 +191,7 @@ export class SensibleNFT {
    * @param noBroadcast (可选)是否不广播交易，默认false
    * @returns
    */
-  async genesis({
+  public async genesis({
     genesisWif,
     totalSupply,
     opreturnData,
@@ -210,6 +210,7 @@ export class SensibleNFT {
     genesis: string;
     txid: string;
     txHex: string;
+    tx: any;
   }> {
     const genesisPrivateKey = new bsv.PrivateKey(genesisWif);
     const genesisPublicKey = genesisPrivateKey.toPublicKey();
@@ -223,7 +224,7 @@ export class SensibleNFT {
 
     totalSupply = BigInt(totalSupply);
 
-    let { txHex, tx, codehash, genesis } = await this._genesis({
+    let { tx, codehash, genesis } = await this._genesis({
       genesisPublicKey,
       totalSupply,
       opreturnData,
@@ -231,10 +232,11 @@ export class SensibleNFT {
       utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
       changeAddress,
     });
+    let txHex = tx.serialize(true);
     if (!noBroadcast && !this.mock) {
       await this.sensibleApi.broadcast(txHex);
     }
-    return { codehash, genesis, txid: tx.id, txHex };
+    return { codehash, genesis, tx, txid: tx.id, txHex };
   }
 
   /**
@@ -246,7 +248,7 @@ export class SensibleNFT {
    * @param changeAddress (可选)找零地址
    * @returns
    */
-  async unsignGenesis({
+  public async unsignGenesis({
     genesisPublicKey,
     totalSupply,
     opreturnData,
@@ -272,7 +274,7 @@ export class SensibleNFT {
 
     totalSupply = BigInt(totalSupply);
 
-    let { txHex, tx, codehash, genesis } = await this._genesis({
+    let { tx, codehash, genesis } = await this._genesis({
       genesisPublicKey,
       totalSupply,
       opreturnData,
@@ -320,7 +322,7 @@ export class SensibleNFT {
     utxos?: ParamUtxo[];
     utxoPrivateKeys: any[];
     changeAddress?: any;
-  }): Promise<{ txHex: string; tx: any; genesis: string; codehash: string }> {
+  }): Promise<{ tx: any; genesis: string; codehash: string }> {
     const utxoTxId = utxos[utxos.length - 1].txId;
     const utxoOutputIndex = utxos[utxos.length - 1].outputIndex;
 
@@ -343,14 +345,15 @@ export class SensibleNFT {
     let genesis = toHex(getGenesis(utxoTxId, utxoOutputIndex));
     let codehash = toHex(Utils.getCodeHash(tx.outputs[0].script));
 
-    let txHex = tx.serialize(true);
-    let needFee = (txHex.length / 2) * this.feeb;
-    let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
-    if (balance < needFee) {
-      throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
+    const size = tx.toBuffer().length;
+    const feePaid = tx._getUnspentValue();
+    const feeRate = feePaid / size;
+    if (feeRate < this.feeb) {
+      throw `Insufficient balance.The fee rate should not be less than ${
+        this.feeb
+      }, but in the end it is ${feeRate.toFixed(4)}.`;
     }
-
-    return { txHex, tx, genesis, codehash };
+    return { tx, genesis, codehash };
   }
 
   /**
@@ -366,7 +369,7 @@ export class SensibleNFT {
    * @param noBroadcast (可选)是否不广播交易，默认false
    * @returns {Object} {txid,tokenid}
    */
-  async issue({
+  public async issue({
     genesis,
     codehash,
     genesisWif,
@@ -386,7 +389,7 @@ export class SensibleNFT {
     utxos?: any[];
     changeAddress?: string;
     noBroadcast?: boolean;
-  }): Promise<{ txHex: string; txid: string }> {
+  }): Promise<{ txHex: string; txid: string; tx: any }> {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
 
@@ -401,7 +404,7 @@ export class SensibleNFT {
 
     receiverAddress = new bsv.Address(receiverAddress, this.network);
 
-    let { tx, txHex } = await this._issue({
+    let { tx } = await this._issue({
       genesis,
       codehash,
       genesisPrivateKey,
@@ -414,11 +417,12 @@ export class SensibleNFT {
       changeAddress: changeAddress,
     });
 
+    let txHex = tx.serialize(true);
     if (!noBroadcast && !this.mock) {
       await this.sensibleApi.broadcast(txHex);
     }
 
-    return { txHex, txid: tx.id };
+    return { txHex, txid: tx.id, tx };
   }
 
   /**
@@ -433,7 +437,7 @@ export class SensibleNFT {
    * @param changeAddress (可选)找零地址
    * @returns
    */
-  async unsignIssue({
+  public async unsignIssue({
     genesis,
     codehash,
     genesisPublicKey,
@@ -465,7 +469,7 @@ export class SensibleNFT {
 
     receiverAddress = new bsv.Address(receiverAddress, this.network);
 
-    let { tx, txHex } = await this._issue({
+    let { tx } = await this._issue({
       genesis,
       codehash,
       genesisPublicKey,
@@ -530,7 +534,7 @@ export class SensibleNFT {
     utxos: any[];
     utxoPrivateKeys?: any[];
     changeAddress: any;
-  }): Promise<{ tx: any; txHex: string; tokenid: bigint }> {
+  }): Promise<{ tx: any; tokenid: bigint }> {
     const issuerAddress = genesisPublicKey.toAddress(this.network);
 
     let { genesisTxId, genesisOutputIndex } = parseGenesis(genesis);
@@ -588,14 +592,15 @@ export class SensibleNFT {
       debug: this.debug,
     });
 
-    let txHex = tx.serialize(true);
-    let needFee = (txHex.length / 2) * this.feeb;
-    let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
-    if (balance < needFee) {
-      throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
+    const size = tx.toBuffer().length;
+    const feePaid = tx._getUnspentValue();
+    const feeRate = feePaid / size;
+    if (feeRate < this.feeb) {
+      throw `Insufficient balance.The fee rate should not be less than ${
+        this.feeb
+      }, but in the end it is ${feeRate.toFixed(4)}.`;
     }
-
-    return { txHex, tx, tokenid };
+    return { tx, tokenid };
   }
 
   /**
@@ -631,7 +636,7 @@ export class SensibleNFT {
     utxos?: any[];
     changeAddress?: string;
     noBroadcast?: boolean;
-  }): Promise<{ txid: string; txHex: string }> {
+  }): Promise<{ tx: any; txid: string; txHex: string }> {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
 
@@ -645,7 +650,7 @@ export class SensibleNFT {
     }
     receiverAddress = new bsv.Address(receiverAddress, this.network);
 
-    let { tx, txHex } = await this._transfer({
+    let { tx } = await this._transfer({
       genesis,
       codehash,
       tokenid,
@@ -658,10 +663,11 @@ export class SensibleNFT {
       changeAddress,
     });
 
+    let txHex = tx.serialize(true);
     if (!noBroadcast && !this.mock) {
       await this.sensibleApi.broadcast(txHex);
     }
-    return { txid: tx.id, txHex };
+    return { tx, txHex, txid: tx.id };
   }
 
   /**
@@ -707,7 +713,7 @@ export class SensibleNFT {
     }
     receiverAddress = new bsv.Address(receiverAddress, this.network);
 
-    let { tx, txHex } = await this._transfer({
+    let { tx } = await this._transfer({
       genesis,
       codehash,
       tokenid,
@@ -771,7 +777,7 @@ export class SensibleNFT {
     utxos: any[];
     utxoPrivateKeys: any[];
     changeAddress: any;
-  }): Promise<{ tx: any; txHex: string }> {
+  }): Promise<{ tx: any }> {
     let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
     if (balance == 0) {
       //检查余额
@@ -831,13 +837,15 @@ export class SensibleNFT {
       debug: this.debug,
     });
 
-    let txHex = tx.serialize(true);
-    let needFee = (txHex.length / 2) * this.feeb;
-    if (balance < needFee) {
-      throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
+    const size = tx.toBuffer().length;
+    const feePaid = tx._getUnspentValue();
+    const feeRate = feePaid / size;
+    if (feeRate < this.feeb) {
+      throw `Insufficient balance.The fee rate should not be less than ${
+        this.feeb
+      }, but in the end it is ${feeRate.toFixed(4)}.`;
     }
-
-    return { txHex, tx };
+    return { tx };
   }
 
   /**
@@ -961,5 +969,9 @@ export class SensibleNFT {
    */
   public async broadcast(txHex: string, apiTarget: string) {
     return await this.sensibleApi.broadcast(txHex, apiTarget);
+  }
+
+  public dumpTx(tx) {
+    Utils.dumpTx(tx, this.network);
   }
 }

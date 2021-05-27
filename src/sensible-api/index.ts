@@ -127,9 +127,10 @@ export class SensibleApi {
   async getFungibleTokenUnspents(
     codehash: string,
     genesis: string,
-    address: string
+    address: string,
+    size: number = 10
   ): Promise<any[]> {
-    let url = `${this.serverBase}/ft/utxo/${codehash}/${genesis}/${address}`;
+    let url = `${this.serverBase}/ft/utxo/${codehash}/${genesis}/${address}?size=${size}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {

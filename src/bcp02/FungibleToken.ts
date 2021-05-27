@@ -287,7 +287,8 @@ export class FungibleToken {
     //足够dust才找零，否则归为手续费
     if (
       changeAmount >=
-      bsv.Transaction.DUST_AMOUNT + bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE
+      bsv.Transaction.DUST_AMOUNT +
+        bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
     ) {
       tx.change(changeAddress);
       //添加找零后要重新计算手续费
@@ -510,31 +511,43 @@ export class FungibleToken {
     //由于重新找零了，需要第二轮重新进行脚本解锁
     //let the fee to be exact in the second round
     let changeAmount = 0;
+    let extraSigLen = 0;
     for (let c = 0; c < 2; c++) {
       const unlockSize = utxos.length * P2PKH_UNLOCK_SIZE;
-      tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
+      tx.fee(
+        Math.ceil((tx.toBuffer().length + extraSigLen + unlockSize) * feeb)
+      );
       //足够dust才找零，否则归为手续费
       if (c == 1) {
         let leftAmount = tx._getUnspentValue() - tx.getFee();
         if (
           leftAmount >=
-          bsv.Transaction.DUST_AMOUNT + bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE
+          bsv.Transaction.DUST_AMOUNT +
+            bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
         ) {
           tx.change(changeAddress);
           //添加找零后要重新计算手续费
-          tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
+          tx.fee(
+            Math.ceil(
+              (tx.toBuffer().length +
+                extraSigLen +
+                unlockSize +
+                Buffer.from(leftAmount.toString(16), "hex").length) *
+                feeb
+            )
+          );
           changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
         } else {
           if (!Utils.isNull(tx._changeIndex)) {
             tx._removeOutput(tx._changeIndex);
           }
-          changeAmount = 0;
           //无找零是很危险的事情，禁止大于1的费率
           let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
           let _feeb = fee / tx.toBuffer().length;
           if (_feeb > 1) {
             throw "unsupport feeb";
           }
+          changeAmount = 0;
         }
       }
 
@@ -550,11 +563,11 @@ export class FungibleToken {
           sighashType
         );
       } else {
-        //如果没有提供私钥就使用71字节的占位符
+        //如果没有提供私钥就使用72字节的占位符
         sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
       }
+      extraSigLen += 72 - sig.length;
 
-      let changeSatoshis = tx.outputs[tx.outputs.length - 1].satoshis;
       let preimage = getPreimage(
         tx,
         genesisInputLockingScript.toASM(),
@@ -562,6 +575,7 @@ export class FungibleToken {
         genesisInputIndex,
         sighashType
       );
+
       //解锁发行合约
       let contractObj = genesisContract.unlock(
         new SigHashPreimage(toHex(preimage)),
@@ -574,7 +588,7 @@ export class FungibleToken {
         new Bytes(tokenContract.lockingScript.toHex()),
         tokenContractSatoshis,
         new Ripemd160(toHex(changeAddress.hashBuffer)),
-        changeSatoshis,
+        changeAmount,
         new Bytes(opreturnScriptHex)
       );
       let txContext = {
@@ -697,7 +711,8 @@ export class FungibleToken {
     //足够dust才找零，否则归为手续费
     if (
       changeAmount >=
-      bsv.Transaction.DUST_AMOUNT + bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE
+      bsv.Transaction.DUST_AMOUNT +
+        bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
     ) {
       tx.change(changeAddress);
       //添加找零后要重新计算手续费
@@ -873,37 +888,50 @@ export class FungibleToken {
       );
     }
 
-    let changeAmount = 0;
+    //第一轮运算获取最终交易准确的大小，然后重新找零
+    //由于重新找零了，需要第二轮重新进行脚本解锁
     //let the fee to be exact in the second round
+    let changeAmount = 0;
+    let extraSigLen = 0;
     for (let c = 0; c < 2; c++) {
       const unlockSize = satoshiInputArray.length * P2PKH_UNLOCK_SIZE;
-      tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
+      tx.fee(
+        Math.ceil((tx.toBuffer().length + extraSigLen + unlockSize) * feeb)
+      );
+      //足够dust才找零，否则归为手续费
       if (c == 1) {
-        //足够dust才找零，否则归为手续费
         let leftAmount = tx._getUnspentValue() - tx.getFee();
         if (
           leftAmount >=
-          bsv.Transaction.DUST_AMOUNT + bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE
+          bsv.Transaction.DUST_AMOUNT +
+            bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
         ) {
           tx.change(changeAddress);
           //添加找零后要重新计算手续费
-          tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
+          tx.fee(
+            Math.ceil(
+              (tx.toBuffer().length +
+                extraSigLen +
+                unlockSize +
+                Buffer.from(leftAmount.toString(16), "hex").length) *
+                feeb
+            )
+          );
           changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
         } else {
           if (!Utils.isNull(tx._changeIndex)) {
             tx._removeOutput(tx._changeIndex);
           }
-          changeAmount = 0;
           //无找零是很危险的事情，禁止大于1的费率
           let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
           let _feeb = fee / tx.toBuffer().length;
           if (_feeb > 1) {
             throw "unsupport feeb";
           }
+          changeAmount = 0;
         }
       }
 
-      let changeSatoshis = tx.outputs[tx.outputs.length - 1].satoshis;
       const routeCheckInputIndex = tokenInputLen + satoshiInputArray.length;
       for (let i = 0; i < tokenInputLen; i++) {
         const tokenInput = tokenInputArray[i];
@@ -923,9 +951,10 @@ export class FungibleToken {
             sighashType
           );
         } else {
-          //如果没有提供私钥就使用71字节的占位符
+          //如果没有提供私钥就使用72字节的占位符
           sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
         }
+        extraSigLen += 72 - sig.length;
 
         const preimage = getPreimage(
           tx,
@@ -995,6 +1024,7 @@ export class FungibleToken {
           0,
           1
         );
+
         let txContext = {
           tx,
           inputIndex: tokenInputIndex,
@@ -1027,7 +1057,7 @@ export class FungibleToken {
         new Bytes(toHex(inputTokenAddressArray)),
         new Bytes(toHex(inputTokenAmountArray)),
         new Bytes(toHex(outputSatoshiArray)),
-        changeSatoshis,
+        changeAmount,
         new Ripemd160(toHex(changeAddress.hashBuffer)),
         new Bytes(opreturnScriptHex)
       );
@@ -1054,5 +1084,21 @@ export class FungibleToken {
     }
 
     return tx;
+  }
+
+  _getPreimageSize(lockingScript) {
+    let n = lockingScript.toBuffer().length;
+    let prefix = 0;
+    if (n < 0xfd) {
+      prefix = 0 + 1;
+    } else if (n < 0x10000) {
+      prefix = 1 + 2;
+    } else if (n < 0x100000000) {
+      prefix = 1 + 4;
+    } else if (n < 0x10000000000000000) {
+      prefix = 1 + 8;
+    }
+    const preimageSize = 4 + 32 + 32 + 36 + prefix + n + 8 + 4 + 32 + 4 + 4;
+    return preimageSize;
   }
 }

@@ -8,6 +8,7 @@ import * as SizeHelper from "./SizeHelper";
 import * as TokenProto from "./tokenProto";
 import * as TokenUtil from "./tokenUtil";
 const $ = bsv.util.preconditions;
+const _ = bsv.deps._;
 const defaultSignerConfigs: SignerConfig[] = [
   {
     satotxApiPrefix: "https://api.satotx.com",
@@ -27,7 +28,7 @@ const defaultSignerConfigs: SignerConfig[] = [
 ];
 
 const SIZE_OF_GENESIS_TOKEN = 4074;
-const SIZE_OF_TOKEN = 7572;
+const SIZE_OF_TOKEN = 7164;
 const SIZE_OF_ROUTE_CHECK_TYPE_3To3 = 6362;
 const SIZE_OF_ROUTE_CHECK_TYPE_6To6 = 10499;
 const SIZE_OF_ROUTE_CHECK_TYPE_10To10 = 16015;
@@ -83,32 +84,26 @@ function checkParamNetwork(network) {
 }
 
 function checkParamGenesis(genesis) {
-  if (typeof genesis != "string" || genesis.length != 72) {
-    throw `GenesisFormatError:genesis should be a string with 72 length `;
-  }
+  $.checkArgument(
+    _.isString(genesis),
+    "Invalid Argument: genesis should be a string"
+  );
+  $.checkArgument(
+    genesis.length == 72,
+    `Invalid Argument: genesis.length must be 72`
+  );
 }
 
 function checkParamCodehash(codehash) {
-  if (typeof codehash != "string" || codehash.length != 40) {
-    throw `CodehashFormatError:codehash should be a string with 40 length `;
-  }
+  $.checkArgument(
+    _.isString(codehash),
+    "Invalid Argument: codehash should be a string"
+  );
+  $.checkArgument(
+    codehash.length == 40,
+    `Invalid Argument: codehash.length must be 40`
+  );
 }
-
-function checkParamTokenName(tokenName) {
-  let bufLength = Buffer.from(tokenName).length;
-  if (bufLength > 20) {
-    throw `TokenNameFormatError:Buffer.from(tokenName).length should be <= 20, but now is ${bufLength} `;
-  }
-}
-
-function checkParamTokenSymbol(tokenSymbol) {
-  let bufLength = Buffer.from(tokenSymbol).length;
-  if (bufLength > 10) {
-    throw `TokenSymbolFormatError:Buffer.from(tokenSymbol).length should be <= 10, but now is ${bufLength} `;
-  }
-}
-
-function checkParamDecimalNum(decimalNum) {}
 
 function checkParamReceivers(receivers) {
   const ErrorName = "ReceiversFormatError";
@@ -281,11 +276,33 @@ export class SensibleFT {
     txid: string;
     genesis: string;
     codehash: string;
+    tx: any;
   }> {
     //validate params
-    checkParamTokenName(tokenName);
-    checkParamTokenSymbol(tokenSymbol);
-    checkParamDecimalNum(decimalNum);
+    $.checkArgument(
+      _.isString(tokenName),
+      "Invalid Argument: tokenName should be a string"
+    );
+    $.checkArgument(
+      Buffer.from(tokenName).length <= 20,
+      `Invalid Argument: Buffer.from(tokenName).length must not be larger than 20`
+    );
+    $.checkArgument(
+      _.isString(tokenSymbol),
+      "Invalid Argument: tokenSymbol should be a string"
+    );
+    $.checkArgument(
+      Buffer.from(tokenSymbol).length <= 10,
+      `Invalid Argument:  Buffer.from(tokenSymbol).length must not be larger than 10`
+    );
+    $.checkArgument(
+      _.isNumber(decimalNum),
+      "Invalid Argument: decimalNum should be a number"
+    );
+    $.checkArgument(
+      decimalNum >= 0 && decimalNum <= 255,
+      `Invalid Argument:  decimalNum must be between 0 and 255`
+    );
     $.checkArgument(genesisWif, "genesisWif is required");
     let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
@@ -295,7 +312,7 @@ export class SensibleFT {
     }
     let genesisPrivateKey = new bsv.PrivateKey(genesisWif);
     let genesisPublicKey = genesisPrivateKey.toPublicKey();
-    let { txHex, codehash, genesis, tx } = await this._genesis({
+    let { codehash, genesis, tx } = await this._genesis({
       tokenName,
       tokenSymbol,
       decimalNum,
@@ -306,10 +323,11 @@ export class SensibleFT {
       genesisPublicKey,
     });
 
+    let txHex = tx.serialize(true);
     if (!noBroadcast && !this.mock) {
       await this.sensibleApi.broadcast(txHex);
     }
-    return { txHex, codehash, genesis, txid: tx.id };
+    return { txHex, txid: tx.id, tx, codehash, genesis };
   }
 
   /**
@@ -344,9 +362,30 @@ export class SensibleFT {
     sigHashList: SigHashInfo[];
   }> {
     //validate params
-    checkParamTokenName(tokenName);
-    checkParamTokenSymbol(tokenSymbol);
-    checkParamDecimalNum(decimalNum);
+    $.checkArgument(
+      _.isString(tokenName),
+      "Invalid Argument: tokenName should be a string"
+    );
+    $.checkArgument(
+      Buffer.from(tokenName).length <= 20,
+      `Invalid Argument: Buffer.from(tokenName).length must not be larger than 20`
+    );
+    $.checkArgument(
+      _.isString(tokenSymbol),
+      "Invalid Argument: tokenSymbol should be a string"
+    );
+    $.checkArgument(
+      Buffer.from(tokenSymbol).length <= 10,
+      `Invalid Argument:  Buffer.from(tokenSymbol).length must not be larger than 10`
+    );
+    $.checkArgument(
+      _.isNumber(decimalNum),
+      "Invalid Argument: decimalNum should be a number"
+    );
+    $.checkArgument(
+      decimalNum >= 0 && decimalNum <= 255,
+      `Invalid Argument:  decimalNum must be between 0 and 255`
+    );
     $.checkArgument(genesisPublicKey, "genesisPublicKey is required");
     let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
@@ -368,7 +407,6 @@ export class SensibleFT {
     let sigHashList: SigHashInfo[] = [];
     tx.inputs.forEach((input: any, inputIndex: number) => {
       let address = utxoInfo.utxos[inputIndex].address.toString();
-      console.log(address.toString());
       sigHashList.push({
         sighash: toHex(
           bsv.Transaction.sighash.sighash(
@@ -444,15 +482,16 @@ export class SensibleFT {
     }
 
     //check fee enough
-    let txHex = tx.serialize(true);
-    let needFee = (txHex.length / 2) * this.feeb;
-    let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
-    if (balance == 0) throw "Insufficient balance.";
-    if (balance < needFee) {
-      throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
+    const size = tx.toBuffer().length;
+    const feePaid = tx._getUnspentValue();
+    const feeRate = feePaid / size;
+    if (feeRate < this.feeb) {
+      throw `Insufficient balance.The fee rate should not be less than ${
+        this.feeb
+      }, but in the end it is ${feeRate.toFixed(4)}.`;
     }
 
-    return { tx, txHex, genesis, codehash };
+    return { tx, genesis, codehash };
   }
 
   /**
@@ -491,10 +530,10 @@ export class SensibleFT {
     changeAddress?: any;
     opreturnData?: any;
     noBroadcast?: boolean;
-  }): Promise<{ txHex: string; txid: string }> {
+  }): Promise<{ txHex: string; txid: string; tx: any }> {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
-    $.checkArgument(genesisWif, "genesisPublicKey is required");
+    $.checkArgument(genesisWif, "genesisWif is required");
     $.checkArgument(receiverAddress, "receiverAddress is required");
     $.checkArgument(tokenAmount, "tokenAmount is required");
 
@@ -508,7 +547,7 @@ export class SensibleFT {
     let genesisPublicKey = genesisPrivateKey.toPublicKey();
     receiverAddress = new bsv.Address(receiverAddress, this.network);
     tokenAmount = BigInt(tokenAmount);
-    let { txHex, tx } = await this._issue({
+    let { tx } = await this._issue({
       genesis,
       codehash,
       receiverAddress,
@@ -522,10 +561,11 @@ export class SensibleFT {
       genesisPublicKey,
     });
 
+    let txHex = tx.serialize(true);
     if (!noBroadcast && !this.mock) {
       await this.sensibleApi.broadcast(txHex);
     }
-    return { txHex, txid: tx.id };
+    return { txHex, txid: tx.id, tx };
   }
 
   /**
@@ -576,7 +616,7 @@ export class SensibleFT {
     genesisPublicKey = new bsv.PublicKey(genesisPublicKey);
     receiverAddress = new bsv.Address(receiverAddress, this.network);
     tokenAmount = BigInt(tokenAmount);
-    let { txHex, tx } = await this._issue({
+    let { tx } = await this._issue({
       genesis,
       codehash,
       receiverAddress,
@@ -746,12 +786,15 @@ export class SensibleFT {
     });
 
     //判断最终手续费是否充足
-    let txHex = tx.serialize(true);
-    let needFee = (txHex.length / 2) * this.feeb;
-    if (balance < needFee) {
-      throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
+    const size = tx.toBuffer().length;
+    const feePaid = tx._getUnspentValue();
+    const feeRate = feePaid / size;
+    if (feeRate < this.feeb) {
+      throw `Insufficient balance.The fee rate should not be less than ${
+        this.feeb
+      }, but in the end it is ${feeRate.toFixed(4)}.`;
     }
-    return { txHex, tx };
+    return { tx };
   }
 
   private async supplyFtUtxosInfo(ftUtxos) {
@@ -857,7 +900,13 @@ export class SensibleFT {
     isMerge?: boolean;
     opreturnData?: any;
     noBroadcast?: boolean;
-  }) {
+  }): Promise<{
+    tx: any;
+    txHex: string;
+    txid: string;
+    routeCheckTx: any;
+    routeCheckTxHex: string;
+  }> {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
     checkParamReceivers(receivers);
@@ -873,7 +922,7 @@ export class SensibleFT {
     const senderPrivateKey = bsv.PrivateKey.fromWIF(senderWif);
     const senderPublicKey = senderPrivateKey.toPublicKey();
 
-    let { routeCheckTxHex, txHex, tx } = await this._transfer({
+    let { tx, routeCheckTx } = await this._transfer({
       codehash,
       genesis,
       senderPrivateKey,
@@ -885,12 +934,15 @@ export class SensibleFT {
       opreturnData,
       isMerge,
     });
+    let routeCheckTxHex = routeCheckTx.serialize(true);
+    let txHex = tx.serialize(true);
+
     if (!noBroadcast && !this.mock) {
       await this.sensibleApi.broadcast(routeCheckTxHex);
       await this.sensibleApi.broadcast(txHex);
     }
 
-    return { routeCheckTxHex, txHex, txid: tx.id };
+    return { tx, txHex, routeCheckTx, routeCheckTxHex, txid: tx.id };
   }
 
   /**
@@ -1018,7 +1070,8 @@ export class SensibleFT {
     let ftUtxos = await this.sensibleApi.getFungibleTokenUnspents(
       codehash,
       genesis,
-      senderAddress.toString()
+      senderAddress.toString(),
+      20
     );
     ftUtxos.forEach((v) => (v.tokenAmount = BigInt(v.tokenAmount)));
 
@@ -1069,6 +1122,7 @@ export class SensibleFT {
       _ftUtxos = mergeUtxos;
       inputTokenAmountSum = mergeTokenAmountSum;
     }
+
     ftUtxos = _ftUtxos;
     //完善ftUtxo的信息
     await this.supplyFtUtxosInfo(ftUtxos);
@@ -1125,19 +1179,14 @@ export class SensibleFT {
       throw "Too many token-utxos, should merge them to continue.";
     }
 
-    let estimateSatoshis =
-      sizeOfRouteCheck * this.feeb +
-      Utils.getDustThreshold(sizeOfRouteCheck) +
-      BASE_UTXO_FEE +
-      (sizeOfRouteCheck +
-        SIZE_OF_TOKEN * inputLength +
-        SIZE_OF_TOKEN * inputLength * 2 +
-        SIZE_OF_TOKEN * outputLength) *
-        this.feeb +
-      Utils.getDustThreshold(SIZE_OF_TOKEN) * outputLength -
-      Utils.getDustThreshold(SIZE_OF_TOKEN) * inputLength -
-      Utils.getDustThreshold(sizeOfRouteCheck) +
-      BASE_UTXO_FEE;
+    let estimateSatoshis = this._calTransferSize({
+      p2pkhInputNum: utxos.length,
+      inputTokenNum: inputLength,
+      outputTokenNum: outputLength,
+      tokenLockingSize: SIZE_OF_TOKEN,
+      routeCheckLockingSize: sizeOfRouteCheck,
+      opreturnData,
+    });
     if (balance < estimateSatoshis) {
       throw `Insufficient balance.It take more than ${estimateSatoshis}, but only ${balance}.`;
     }
@@ -1307,14 +1356,16 @@ export class SensibleFT {
     }
     let tx = await this.ft.createTransferTx(transferPart2);
 
-    let routeCheckTxHex = routeCheckTx.serialize(true);
-    let txHex = tx.serialize(true);
-    let needFee = ((routeCheckTxHex.length + txHex.length) / 2) * this.feeb;
-    if (balance < needFee) {
-      throw `Insufficient balance.It take ${needFee}, but only ${balance}.`;
+    const size = tx.toBuffer().length;
+    const feePaid = tx._getUnspentValue();
+    const feeRate = feePaid / size;
+    if (feeRate < this.feeb) {
+      throw `Insufficient balance.The fee rate should not be less than ${
+        this.feeb
+      }, but in the end it is ${feeRate.toFixed(4)}.`;
     }
 
-    return { routeCheckTxHex, txHex, routeCheckTx, tx };
+    return { routeCheckTx, tx };
   }
 
   /**
@@ -1531,7 +1582,8 @@ export class SensibleFT {
   }
 
   /**
-   * 估算issue的费用
+   * 估算issue费用
+   * 在10个utxo输入的情况下所需要的最小费用
    * @param param0
    * @returns
    */
@@ -1552,7 +1604,11 @@ export class SensibleFT {
       1 +
       (allowIncreaseIssues ? 8 + 3 + sizeOfTokenGenesis : 0) +
       (8 + 3 + sizeOfToken) +
-      (opreturnData ? 8 + 3 + opreturnData.toString().length / 2 : 0) +
+      (opreturnData
+        ? 8 +
+          3 +
+          new bsv.Script.buildSafeDataOut(opreturnData).toBuffer().length
+        : 0) +
       p2pkhOutputNum * (8 + 1 + 25) +
       4;
     let dust = Utils.getDustThreshold(
@@ -1578,38 +1634,56 @@ export class SensibleFT {
     senderWif,
     receivers,
     opreturnData,
+    isMerge,
   }: {
     codehash: string;
     genesis: string;
     senderWif: string;
     receivers: any;
     opreturnData?: any;
+    isMerge?: boolean;
   }) {
-    checkParamGenesis(genesis);
-    checkParamCodehash(codehash);
-    checkParamReceivers(receivers);
+    let p2pkhInputNum = 1; //至少1输入
+    p2pkhInputNum = 10; //支持10输入的费用
 
     const senderPrivateKey = bsv.PrivateKey.fromWIF(senderWif);
-    const senderPublicKey = bsv.PublicKey.fromPrivateKey(senderPrivateKey);
-    const senderAddress = senderPrivateKey.toAddress(this.network);
+    const senderPublicKey = senderPrivateKey.toPublicKey();
 
-    //获取token
+    let senderAddress = senderPublicKey.toAddress(this.network);
+
+    //获取token的utxo
     let ftUtxos = await this.sensibleApi.getFungibleTokenUnspents(
       codehash,
       genesis,
-      senderAddress.toString()
+      senderAddress.toString(),
+      20
     );
     ftUtxos.forEach((v) => (v.tokenAmount = BigInt(v.tokenAmount)));
 
+    let mergeUtxos = [];
+    let mergeTokenAmountSum = BigInt(0);
+    if (isMerge) {
+      mergeUtxos = ftUtxos.slice(0, 20);
+      mergeTokenAmountSum = mergeUtxos.reduce(
+        (pre, cur) => pre + BigInt(cur.tokenAmount),
+        BigInt(0)
+      );
+      receivers = [
+        {
+          address: senderAddress.toString(),
+          amount: mergeTokenAmountSum,
+        },
+      ];
+    }
     //格式化接收者
     let tokenOutputArray = receivers.map((v) => ({
-      address: bsv.Address.fromString(v.address, this.network),
-      tokenAmount: v.amount,
+      address: new bsv.Address(v.address, this.network),
+      tokenAmount: BigInt(v.amount),
     }));
 
     //计算输出的总金额
     let outputTokenAmountSum = tokenOutputArray.reduce(
-      (pre, cur) => pre + BigInt(cur.tokenAmount),
+      (pre, cur) => pre + cur.tokenAmount,
       BigInt(0)
     );
 
@@ -1619,7 +1693,7 @@ export class SensibleFT {
     for (let i = 0; i < ftUtxos.length; i++) {
       let ftUtxo = ftUtxos[i];
       _ftUtxos.push(ftUtxo);
-      inputTokenAmountSum += BigInt(ftUtxo.tokenAmount);
+      inputTokenAmountSum += ftUtxo.tokenAmount;
       if (i == 9 && inputTokenAmountSum >= outputTokenAmountSum) {
         //尽量支持到10To10
         break;
@@ -1629,18 +1703,26 @@ export class SensibleFT {
       }
     }
 
+    if (isMerge) {
+      _ftUtxos = mergeUtxos;
+      inputTokenAmountSum = mergeTokenAmountSum;
+    }
+
+    ftUtxos = _ftUtxos;
+
     if (inputTokenAmountSum < outputTokenAmountSum) {
       throw `insufficent token.Need ${outputTokenAmountSum} But only ${inputTokenAmountSum}`;
     }
-    //找零
+    //判断是否需要token找零
     let changeTokenAmount = inputTokenAmountSum - outputTokenAmountSum;
     if (changeTokenAmount > BigInt(0)) {
       tokenOutputArray.push({
-        address: senderPrivateKey.toAddress(this.network),
+        address: senderPublicKey.toAddress(this.network),
         tokenAmount: changeTokenAmount,
       });
     }
 
+    //选择xTox的转账方案
     let routeCheckType: RouteCheckType;
     let inputLength = ftUtxos.length;
     let outputLength = tokenOutputArray.length;
@@ -1680,30 +1762,38 @@ export class SensibleFT {
       throw "Too many token-utxos, should merge them to continue.";
     }
 
-    let opreturnScriptHex = "";
-    if (opreturnData) {
-      let script = new bsv.Script.buildSafeDataOut(opreturnData);
-      opreturnScriptHex = script.toHex();
-    }
-
-    let estimateSatoshis =
-      sizeOfRouteCheck * this.feeb +
-      Utils.getDustThreshold(sizeOfRouteCheck) +
-      BASE_UTXO_FEE +
-      (sizeOfRouteCheck +
-        SIZE_OF_TOKEN * inputLength +
-        SIZE_OF_TOKEN * inputLength * 2 +
-        SIZE_OF_TOKEN * outputLength +
-        opreturnScriptHex.length / 2) *
-        this.feeb +
-      Utils.getDustThreshold(SIZE_OF_TOKEN) * outputLength -
-      Utils.getDustThreshold(SIZE_OF_TOKEN) * inputLength -
-      Utils.getDustThreshold(sizeOfRouteCheck) +
-      BASE_UTXO_FEE;
+    let estimateSatoshis = this._calTransferSize({
+      inputTokenNum: inputLength,
+      outputTokenNum: outputLength,
+      tokenLockingSize: SIZE_OF_TOKEN,
+      routeCheckLockingSize: sizeOfRouteCheck,
+      opreturnData,
+    });
 
     return estimateSatoshis;
   }
 
+  public async getMergeEstimateFee({
+    codehash,
+    genesis,
+    ownerWif,
+    opreturnData,
+  }: {
+    codehash: string;
+    genesis: string;
+    ownerWif: string;
+    opreturnData?: any;
+  }) {
+    $.checkArgument(ownerWif, "ownerWif is required");
+    return await this.getTransferEstimateFee({
+      codehash,
+      genesis,
+      senderWif: ownerWif,
+      opreturnData,
+      receivers: [],
+      isMerge: true,
+    });
+  }
   /**
    * 更新交易的解锁脚本
    * @param tx
@@ -1774,6 +1864,117 @@ export class SensibleFT {
     let codehash = Utils.getCodeHash(tokenContract.lockingScript);
 
     return { codehash, genesis };
+  }
+
+  private _calTransferSize({
+    p2pkhInputNum = 10,
+    inputTokenNum,
+    outputTokenNum,
+    tokenLockingSize,
+    routeCheckLockingSize,
+    opreturnData,
+  }) {
+    let sumFee = 0;
+
+    let tokenUnlockingSizeSum = 0;
+    for (let i = 0; i < inputTokenNum; i++) {
+      let preimageSize = 159 + tokenLockingSize;
+      let tokenInputIndexSize = 1;
+      let prevoutsSize = (inputTokenNum + 1 + 1) * 36;
+      let tokenRabinMsgSize = 96;
+      let tokenRabinPaddingArraySize = 2 * 2;
+      let tokenRabinSigArraySize = 128 * 2;
+      let rabinPubKeyIndexArraySize = 2;
+      let routeCheckInputIndexSize = 1;
+      let tokenOutputLenSize = 1;
+      let tokenAddressSize = 20;
+      let preTokenAmountSize = 8;
+      let senderPublicKeySize = 33;
+      let sigSize = 72;
+      let tokenUnlockingSize =
+        preimageSize +
+        tokenInputIndexSize +
+        prevoutsSize +
+        tokenRabinMsgSize +
+        tokenRabinPaddingArraySize +
+        tokenRabinSigArraySize +
+        rabinPubKeyIndexArraySize +
+        routeCheckInputIndexSize +
+        routeCheckLockingSize +
+        1 +
+        tokenOutputLenSize +
+        tokenAddressSize +
+        preTokenAmountSize +
+        senderPublicKeySize +
+        sigSize +
+        1 +
+        1 +
+        1 +
+        1;
+      tokenUnlockingSizeSum += tokenUnlockingSize;
+    }
+
+    let preimageSize = 159 + routeCheckLockingSize;
+    let prevoutsSize = (inputTokenNum + 1 + 1) * 36;
+    let checkRabinMsgArraySize = 64 * inputTokenNum;
+    let checkRabinPaddingArraySize = 8 * inputTokenNum;
+    let checkRabinSigArraySize = 256 * inputTokenNum;
+    let rabinPubKeyIndexArraySize = 2;
+    let inputTokenAddressArraySize = 20 * inputTokenNum;
+    let inputTokenAmountArray = 8 * inputTokenNum;
+    let outputSatoshiArraySize = 8 * outputTokenNum;
+    let changeAmountSize = 8;
+    let changeAddressSize = 20;
+    let opreturnSize = opreturnData
+      ? 8 + 3 + new bsv.Script.buildSafeDataOut(opreturnData).toBuffer().length
+      : 0;
+    let routeCheckUnlockingSize =
+      preimageSize +
+      tokenLockingSize +
+      prevoutsSize +
+      checkRabinMsgArraySize +
+      checkRabinPaddingArraySize +
+      checkRabinSigArraySize +
+      rabinPubKeyIndexArraySize +
+      inputTokenAddressArraySize +
+      inputTokenAmountArray +
+      outputSatoshiArraySize +
+      changeAmountSize +
+      changeAddressSize +
+      opreturnSize;
+
+    let p2pkhUnlockingSize = 32 + 4 + 1 + 107 + 4;
+    let p2pkhLockingSize = 8 + 1 + 25;
+
+    //routeCheck tx
+    sumFee +=
+      (p2pkhUnlockingSize * p2pkhInputNum +
+        routeCheckLockingSize +
+        p2pkhLockingSize) *
+        this.feeb +
+      Utils.getDustThreshold(routeCheckLockingSize);
+
+    //transfer tx
+    sumFee +=
+      (p2pkhUnlockingSize +
+        tokenUnlockingSizeSum +
+        routeCheckUnlockingSize +
+        tokenLockingSize * outputTokenNum +
+        p2pkhLockingSize) *
+        this.feeb +
+      Utils.getDustThreshold(tokenLockingSize) * outputTokenNum -
+      Utils.getDustThreshold(tokenLockingSize) * inputTokenNum -
+      Utils.getDustThreshold(routeCheckLockingSize);
+
+    return sumFee;
+  }
+
+  /**
+   * 打印交易
+   * @param tx
+   */
+  public dumpTx(tx) {
+    Utils.dumpTx(tx, this.network);
   }
 }
 
