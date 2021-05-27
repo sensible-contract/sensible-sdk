@@ -532,7 +532,8 @@ export class FungibleToken {
               (tx.toBuffer().length +
                 extraSigLen +
                 unlockSize +
-                Buffer.from(leftAmount.toString(16), "hex").length) *
+                Buffer.from(leftAmount.toString(16), "hex").length +
+                1) *
                 feeb
             )
           );
@@ -913,7 +914,8 @@ export class FungibleToken {
               (tx.toBuffer().length +
                 extraSigLen +
                 unlockSize +
-                Buffer.from(leftAmount.toString(16), "hex").length) *
+                Buffer.from(leftAmount.toString(16), "hex").length +
+                1) *
                 feeb
             )
           );
@@ -955,7 +957,6 @@ export class FungibleToken {
           sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
         }
         extraSigLen += 72 - sig.length;
-
         const preimage = getPreimage(
           tx,
           tokenInputLockingScript.toASM(),

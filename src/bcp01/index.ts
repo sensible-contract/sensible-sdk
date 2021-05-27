@@ -356,9 +356,7 @@ export class SensibleNFT {
     const feeRate = feePaid / size;
     if (feeRate < this.feeb) {
       throw new Error(
-        `Insufficient balance.The fee rate should not be less than ${
-          this.feeb
-        }, but in the end it is ${feeRate.toFixed(4)}.`
+        `Insufficient balance.The fee rate should not be less than ${this.feeb}, but in the end it is ${feeRate}.`
       );
     }
     return { tx, genesis, codehash };
@@ -605,9 +603,7 @@ export class SensibleNFT {
     const feeRate = feePaid / size;
     if (feeRate < this.feeb) {
       throw new Error(
-        `Insufficient balance.The fee rate should not be less than ${
-          this.feeb
-        }, but in the end it is ${feeRate.toFixed(4)}.`
+        `Insufficient balance.The fee rate should not be less than ${this.feeb}, but in the end it is ${feeRate}.`
       );
     }
     return { tx, tokenid };
@@ -852,9 +848,7 @@ export class SensibleNFT {
     const feeRate = feePaid / size;
     if (feeRate < this.feeb) {
       throw new Error(
-        `Insufficient balance.The fee rate should not be less than ${
-          this.feeb
-        }, but in the end it is ${feeRate.toFixed(4)}.`
+        `Insufficient balance.The fee rate should not be less than ${this.feeb}, but in the end it is ${feeRate}.`
       );
     }
     return { tx };

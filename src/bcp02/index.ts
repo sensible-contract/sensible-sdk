@@ -487,9 +487,7 @@ export class SensibleFT {
     const feeRate = feePaid / size;
     if (feeRate < this.feeb) {
       throw new Error(
-        `Insufficient balance.The fee rate should not be less than ${
-          this.feeb
-        }, but in the end it is ${feeRate.toFixed(4)}.`
+        `Insufficient balance.The fee rate should not be less than ${this.feeb}, but in the end it is ${feeRate}.`
       );
     }
 
@@ -725,25 +723,15 @@ export class SensibleFT {
 
     let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
     if (balance == 0) throw new Error("Insufficient balance.");
-    {
-      //检查余额是否充足
-      let inputSatoshis = Utils.getDustThreshold(SIZE_OF_GENESIS_TOKEN);
-      let outputSatoshis = SIZE_OF_P2PKH * this.feeb * utxos.length;
-      outputSatoshis +=
-        (SIZE_OF_GENESIS_TOKEN + SIZE_OF_TOKEN + 277) * this.feeb;
-      outputSatoshis +=
-        SIZE_OF_TOKEN * this.feeb + Utils.getDustThreshold(SIZE_OF_TOKEN);
-      if (allowIncreaseIssues) {
-        outputSatoshis +=
-          SIZE_OF_GENESIS_TOKEN * this.feeb +
-          Utils.getDustThreshold(SIZE_OF_GENESIS_TOKEN);
-      }
-      let estimateSatoshis = outputSatoshis - inputSatoshis;
-      if (balance < estimateSatoshis) {
-        throw new Error(
-          `Insufficient balance.It take more than ${estimateSatoshis}, but only ${balance}.`
-        );
-      }
+
+    let estimateSatoshis = this.getIssueEstimateFee({
+      opreturnData,
+      allowIncreaseIssues,
+    });
+    if (balance < estimateSatoshis) {
+      throw new Error(
+        `Insufficient balance.It take more than ${estimateSatoshis}, but only ${balance}.`
+      );
     }
 
     //构造token合约
@@ -795,9 +783,7 @@ export class SensibleFT {
     const feeRate = feePaid / size;
     if (feeRate < this.feeb) {
       throw new Error(
-        `Insufficient balance.The fee rate should not be less than ${
-          this.feeb
-        }, but in the end it is ${feeRate.toFixed(4)}.`
+        `Insufficient balance.The fee rate should not be less than ${this.feeb}, but in the end it is ${feeRate}.`
       );
     }
     return { tx };
@@ -1127,6 +1113,9 @@ export class SensibleFT {
     if (isMerge) {
       _ftUtxos = mergeUtxos;
       inputTokenAmountSum = mergeTokenAmountSum;
+      if (mergeTokenAmountSum == BigInt(0)) {
+        throw new Error("No utxos to merge.");
+      }
     }
 
     ftUtxos = _ftUtxos;
@@ -1379,9 +1368,7 @@ export class SensibleFT {
     const feeRate = feePaid / size;
     if (feeRate < this.feeb) {
       throw new Error(
-        `Insufficient balance.The fee rate should not be less than ${
-          this.feeb
-        }, but in the end it is ${feeRate.toFixed(4)}.`
+        `Insufficient balance.The fee rate should not be less than ${this.feeb}, but in the end it is ${feeRate}.`
       );
     }
 
@@ -1598,7 +1585,7 @@ export class SensibleFT {
 
     let dust = Utils.getDustThreshold(sizeOfTokenGenesis);
     let fee = Math.ceil(size * this.feeb) + dust;
-    return fee;
+    return Math.ceil(fee);
   }
 
   /**
@@ -1611,32 +1598,59 @@ export class SensibleFT {
     opreturnData,
     allowIncreaseIssues = true,
   }) {
+    let p2pkhUnlockingSize = 32 + 4 + 1 + 107 + 4;
+    let p2pkhLockingSize = 8 + 1 + 25;
+
     let p2pkhInputNum = 1; //至少1输入
     let p2pkhOutputNum = 1; //最多1找零
     p2pkhInputNum = 10; //支持10输入的费用
-    const sizeOfTokenGenesis = SizeHelper.getSizeOfTokenGenesis();
-    const sizeOfToken = SizeHelper.getSizeOfToken();
-    let size =
-      4 +
-      1 +
-      p2pkhInputNum * (32 + 4 + 1 + 107 + 4) +
-      (32 + 4 + 3 + sizeOfTokenGenesis + sizeOfToken + 100 + 4) +
-      1 +
-      (allowIncreaseIssues ? 8 + 3 + sizeOfTokenGenesis : 0) +
-      (8 + 3 + sizeOfToken) +
-      (opreturnData
-        ? 8 +
-          3 +
-          new bsv.Script.buildSafeDataOut(opreturnData).toBuffer().length
-        : 0) +
-      p2pkhOutputNum * (8 + 1 + 25) +
-      4;
-    let dust = Utils.getDustThreshold(
-      allowIncreaseIssues ? sizeOfTokenGenesis : 0 + sizeOfToken
-    );
-    let fee = Math.ceil(size * this.feeb) + dust;
 
-    return fee;
+    const tokenGenesisLockingSize = SizeHelper.getSizeOfTokenGenesis();
+    const tokenLockingSize = SIZE_OF_TOKEN;
+    const preimageSize = 159 + tokenGenesisLockingSize;
+    const sigSize = 72;
+    const rabinMsgSize = 96;
+    const rabinPaddingArraySize = 2 * 2;
+    const rabinSigArraySize = 128 * 2;
+    const rabinPubKeyIndexArraySize = 2;
+    const genesisContractSatoshisSize = 8;
+    const tokenContractSatoshisSize = 8;
+    const changeAddressSize = 20;
+    const changeAmountSize = 8;
+    const opreturnSize = opreturnData
+      ? 8 + 3 + new bsv.Script.buildSafeDataOut(opreturnData).toBuffer().length
+      : 0;
+    let tokenGenesisUnlockingSize =
+      preimageSize +
+      sigSize +
+      rabinMsgSize +
+      rabinPaddingArraySize +
+      rabinSigArraySize +
+      rabinPubKeyIndexArraySize +
+      genesisContractSatoshisSize +
+      tokenLockingSize +
+      tokenContractSatoshisSize +
+      changeAddressSize +
+      changeAmountSize +
+      opreturnSize;
+
+    let sumSize =
+      p2pkhInputNum * p2pkhUnlockingSize + tokenGenesisUnlockingSize;
+    if (allowIncreaseIssues) {
+      sumSize += tokenGenesisLockingSize;
+    }
+    sumSize += tokenLockingSize;
+    sumSize += p2pkhLockingSize;
+
+    let fee = 0;
+    fee = sumSize * this.feeb;
+    if (allowIncreaseIssues) {
+      fee += Utils.getDustThreshold(tokenGenesisLockingSize);
+    }
+    fee += Utils.getDustThreshold(tokenLockingSize);
+    fee -= Utils.getDustThreshold(tokenGenesisLockingSize);
+
+    return Math.ceil(fee);
   }
 
   /**
@@ -1996,7 +2010,7 @@ export class SensibleFT {
       Utils.getDustThreshold(tokenLockingSize) * inputTokenNum -
       Utils.getDustThreshold(routeCheckLockingSize);
 
-    return sumFee;
+    return Math.ceil(sumFee);
   }
 
   /**

@@ -252,7 +252,8 @@ export class NonFungibleToken {
               (tx.toBuffer().length +
                 extraSigLen +
                 unlockSize +
-                Buffer.from(leftAmount.toString(16), "hex").length) *
+                Buffer.from(leftAmount.toString(16), "hex").length +
+                1) *
                 feeb
             )
           );
@@ -460,7 +461,8 @@ export class NonFungibleToken {
               (tx.toBuffer().length +
                 extraSigLen +
                 unlockSize +
-                Buffer.from(leftAmount.toString(16), "hex").length) *
+                Buffer.from(leftAmount.toString(16), "hex").length +
+                1) *
                 feeb
             )
           );
