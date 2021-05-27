@@ -1,6 +1,6 @@
 {
   "name": "sensible-sdk",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Sensible-SDK",
   "main": "dist/index.js",
   "browser": "dist/index.browser.js",
