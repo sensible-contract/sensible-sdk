@@ -532,7 +532,7 @@ export class FungibleToken {
               (tx.toBuffer().length +
                 extraSigLen +
                 unlockSize +
-                Buffer.from(leftAmount.toString(16), "hex").length +
+                Utils.numberToBuffer(leftAmount).length +
                 1) *
                 feeb
             )
@@ -914,7 +914,7 @@ export class FungibleToken {
               (tx.toBuffer().length +
                 extraSigLen +
                 unlockSize +
-                Buffer.from(leftAmount.toString(16), "hex").length +
+                Utils.numberToBuffer(leftAmount).length +
                 1) *
                 feeb
             )

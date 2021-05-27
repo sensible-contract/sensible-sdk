@@ -252,7 +252,7 @@ export class NonFungibleToken {
               (tx.toBuffer().length +
                 extraSigLen +
                 unlockSize +
-                Buffer.from(leftAmount.toString(16), "hex").length +
+                Utils.numberToBuffer(leftAmount).length +
                 1) *
                 feeb
             )
@@ -461,7 +461,7 @@ export class NonFungibleToken {
               (tx.toBuffer().length +
                 extraSigLen +
                 unlockSize +
-                Buffer.from(leftAmount.toString(16), "hex").length +
+                Utils.numberToBuffer(leftAmount).length +
                 1) *
                 feeb
             )
@@ -571,6 +571,9 @@ export class NonFungibleToken {
     let genesisPart = parts[1];
     let dataPart = parts[2];
     if (!dataPart) return "";
-    return dataPart.len.toString(16) + dataPart.buf.toString("hex");
+    return Buffer.concat([
+      Utils.numberToBuffer(dataPart.len),
+      dataPart.buf,
+    ]).toString("hex");
   }
 }

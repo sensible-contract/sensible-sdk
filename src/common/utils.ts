@@ -103,6 +103,14 @@ export const SIG_PLACE_HOLDER =
   "41682c2074686973206973206120706c61636520686f6c64657220616e642077696c6c206265207265706c6163656420696e207468652066696e616c207369676e61747572652e00";
 export const P2PKH_UNLOCK_SIZE = 1 + 1 + 72 + 1 + 33;
 
+export function numberToBuffer(n: number) {
+  let str = n.toString(16);
+  if (str.length % 2 == 1) {
+    str = "0" + str;
+  }
+  return Buffer.from(str, "hex");
+}
+
 export function sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
   sigHashList.forEach(({ inputIndex, isP2PKH, sighashType }, index) => {
     let input = tx.inputs[inputIndex];
@@ -129,8 +137,9 @@ export function sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
         Buffer.from("47", "hex"),
         Buffer.from(SIG_PLACE_HOLDER, "hex"),
       ]).toString("hex");
+
       let newSigHex = Buffer.concat([
-        Buffer.from(_sig.length.toString(16), "hex"),
+        numberToBuffer(_sig.length),
         _sig,
       ]).toString("hex");
       input.setScript(input.script.toHex().replace(oldSigHex, newSigHex));
