@@ -156,7 +156,12 @@ export class SensibleApi {
     codehash: string,
     genesis: string,
     address: string
-  ): Promise<{ balance: number; pendingBalance: number; utxoCount: number }> {
+  ): Promise<{
+    balance: number;
+    pendingBalance: number;
+    utxoCount: number;
+    decimal: number;
+  }> {
     let url = `${this.serverBase}/ft/balance/${codehash}/${genesis}/${address}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -278,6 +283,7 @@ export class SensibleApi {
     pendingBalance: number;
     balance: number;
     symbol: string;
+    decimal: number;
   }> {
     let url = `${this.serverBase}/ft/summary/${address}`;
     let _res = await Net.httpGet(url, {});
