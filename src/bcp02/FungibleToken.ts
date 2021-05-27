@@ -47,8 +47,8 @@ const RouteCheckContractClass_20To3 = buildContractClass(
   require("./contract-desc/tokenRouteCheck_20To3_desc.json")
 );
 
-const UnlockContractCheckContractClass_1To5 = buildContractClass(
-  require("./contract-desc/tokenUnlockContractCheck_1To5_desc.json")
+const UnlockContractCheckContractClass_2To5 = buildContractClass(
+  require("./contract-desc/tokenUnlockContractCheck_2To5_desc.json")
 );
 
 const UnlockContractCheckContractClass_4To8 = buildContractClass(
@@ -138,7 +138,7 @@ export class FungibleToken {
       new Bytes(
         Buffer.from(
           bsv.crypto.Hash.sha256ripemd160(
-            new UnlockContractCheckContractClass_1To5(
+            new UnlockContractCheckContractClass_2To5(
               this.rabinPubKeyArray
             ).lockingScript.toBuffer()
           )
