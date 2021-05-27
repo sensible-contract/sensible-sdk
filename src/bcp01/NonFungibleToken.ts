@@ -265,7 +265,7 @@ export class NonFungibleToken {
           let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
           let _feeb = fee / tx.toBuffer().length;
           if (_feeb > 1) {
-            throw "unsupport feeb";
+            throw new Error("unsupport feeb");
           }
           changeAmount = 0;
         }
@@ -303,7 +303,7 @@ export class NonFungibleToken {
           console.log(this.nftContract.lockingScript.toASM());
           console.log(curInputLockingScript.toASM());
         }
-        throw "nftContract lockingScript unmatch ";
+        throw new Error("nftContract lockingScript unmatch ");
       }
 
       let contractObj = this.nftContract.issue(
@@ -473,7 +473,7 @@ export class NonFungibleToken {
           let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
           let _feeb = fee / tx.toBuffer().length;
           if (_feeb > 1) {
-            throw "unsupport feeb";
+            throw new Error("unsupport feeb");
           }
           changeAmount = 0;
         }

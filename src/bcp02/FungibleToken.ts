@@ -504,7 +504,7 @@ export class FungibleToken {
         console.log(genesisContract.lockingScript.toASM());
         console.log(genesisInputLockingScript.toASM());
       }
-      throw "genesisContract lockingScript unmatch ";
+      throw new Error("genesisContract lockingScript unmatch ");
     }
 
     //第一轮运算获取最终交易准确的大小，然后重新找零
@@ -545,7 +545,7 @@ export class FungibleToken {
           let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
           let _feeb = fee / tx.toBuffer().length;
           if (_feeb > 1) {
-            throw "unsupport feeb";
+            throw new Error("unsupport feeb");
           }
           changeAmount = 0;
         }
@@ -926,7 +926,7 @@ export class FungibleToken {
           let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
           let _feeb = fee / tx.toBuffer().length;
           if (_feeb > 1) {
-            throw "unsupport feeb";
+            throw new Error("unsupport feeb");
           }
           changeAmount = 0;
         }
@@ -1000,7 +1000,7 @@ export class FungibleToken {
             console.log(tokenContract.lockingScript.toASM());
             console.log(tokenInputLockingScript.toASM());
           }
-          throw "tokenContract lockingScript unmatch ";
+          throw new Error("tokenContract lockingScript unmatch ");
         }
 
         const unlockingContract = tokenContract.unlock(
