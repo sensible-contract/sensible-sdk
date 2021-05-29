@@ -3,7 +3,13 @@ import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import * as Utils from "../common/utils";
 import { SigHashInfo, SigInfo } from "../common/utils";
 import { API_NET, SensibleApi } from "../sensible-api";
-import { FungibleToken, RouteCheckType, sighashType } from "./FungibleToken";
+import {
+  FtUtxo,
+  FungibleToken,
+  RouteCheckType,
+  sighashType,
+  Utxo,
+} from "./FungibleToken";
 import * as SizeHelper from "./SizeHelper";
 import * as TokenProto from "./tokenProto";
 import * as TokenUtil from "./tokenUtil";
@@ -44,6 +50,22 @@ type ParamUtxo = {
   satoshis: number;
   wif?: string;
   address?: any;
+};
+
+type ParamFtUtxo = {
+  txId: string;
+  satoshis: number;
+  outputIndex: number;
+  lockingScript: string;
+  tokenAddress: string;
+  tokenAmount: any;
+  wif?: string;
+  publicKey?: any;
+};
+
+type Purse = {
+  privateKey: any;
+  address: any;
 };
 
 function checkParamUtxoFormat(utxo) {
@@ -162,9 +184,9 @@ export class SensibleFT {
   private feeb: number;
   private network: API_NET;
   private mock: boolean;
-  private purse: string;
+  private purse: Purse;
   private sensibleApi: SensibleApi;
-  private zeroAddress: string;
+  private zeroAddress: any;
   private ft: FungibleToken;
   private debug: boolean;
   private transferPart2?: any;
@@ -202,13 +224,12 @@ export class SensibleFT {
     this.network = network;
     this.mock = mock;
     this.sensibleApi = new SensibleApi(network);
-    this.purse = purse;
     this.debug = debug;
 
     if (network == "mainnet") {
-      this.zeroAddress = "1111111111111111111114oLvT2";
+      this.zeroAddress = new bsv.Address("1111111111111111111114oLvT2");
     } else {
-      this.zeroAddress = "mfWxJ45yp2SFn7UciZyNpvDKrzbhyfKrY8";
+      this.zeroAddress = new bsv.Address("mfWxJ45yp2SFn7UciZyNpvDKrzbhyfKrY8");
     }
 
     this.ft = new FungibleToken(
@@ -216,30 +237,116 @@ export class SensibleFT {
       BigInt("0x" + signers[1].satotxPubKey),
       BigInt("0x" + signers[2].satotxPubKey)
     );
+
+    if (purse) {
+      const privateKey = bsv.PrivateKey.fromWIF(purse);
+      const address = privateKey.toAddress(this.network);
+      this.purse = {
+        privateKey,
+        address,
+      };
+    }
   }
 
-  private async _pretreatUtxos(utxos: ParamUtxo[]) {
+  private async _pretreatUtxos(
+    paramUtxos: ParamUtxo[]
+  ): Promise<{ utxos: Utxo[]; utxoPrivateKeys: any[] }> {
     let utxoPrivateKeys = [];
-    if (utxos) {
-      utxos.forEach((v) => {
-        if (v.wif) {
-          let privateKey = bsv.PrivateKey.fromWIF(v.wif);
-          v.address = privateKey.toAddress(this.network);
-          utxoPrivateKeys.push(privateKey);
-        }
+    let utxos: Utxo[] = [];
+
+    //如果没有传utxos，则由purse提供
+    if (!paramUtxos) {
+      if (!this.purse) throw new Error("Utxos or Purse must be provided.");
+      paramUtxos = await this.sensibleApi.getUnspents(
+        this.purse.address.toString()
+      );
+      paramUtxos.forEach((v) => {
+        utxoPrivateKeys.push(this.purse.privateKey);
       });
     } else {
-      const utxoPrivateKey = bsv.PrivateKey.fromWIF(this.purse);
-      const utxoAddress = utxoPrivateKey.toAddress(this.network);
-      utxos = await this.sensibleApi.getUnspents(utxoAddress.toString());
-      utxos.forEach((utxo) => {
-        utxo.address = utxoAddress;
+      paramUtxos.forEach((v) => {
+        if (v.wif) {
+          let privateKey = new bsv.PrivateKey(v.wif);
+          utxoPrivateKeys.push(privateKey);
+          v.address = privateKey.toAddress(this.network).toString(); //兼容旧版本只提供wif没提供address
+        }
       });
-      utxoPrivateKeys = utxos.map((v) => utxoPrivateKey).filter((v) => v);
     }
+    paramUtxos.forEach((v) => {
+      utxos.push({
+        txId: v.txId,
+        outputIndex: v.outputIndex,
+        satoshis: v.satoshis,
+        address: new bsv.Address(v.address, this.network),
+      });
+    });
+
     if (utxos.length == 0) throw new Error("Insufficient balance.");
     return { utxos, utxoPrivateKeys };
   }
+
+  private async _pretreatFtUtxos(
+    paramFtUtxos: ParamFtUtxo[],
+    codehash?: string,
+    genesis?: string,
+    senderPrivateKey?: any,
+    senderPublicKey?: any
+  ): Promise<{ ftUtxos: FtUtxo[]; ftUtxoPrivateKeys: any[] }> {
+    let ftUtxos: FtUtxo[] = [];
+    let ftUtxoPrivateKeys = [];
+
+    if (!paramFtUtxos) {
+      if (senderPrivateKey) {
+        senderPublicKey = senderPrivateKey.toPublicKey();
+      }
+      if (!senderPublicKey)
+        throw new Error(
+          "ftUtxos or senderPublicKey or senderPrivateKey must be provided."
+        );
+
+      paramFtUtxos = await this.sensibleApi.getFungibleTokenUnspents(
+        codehash,
+        genesis,
+        senderPublicKey.toAddress(this.network).toString(),
+        20
+      );
+
+      paramFtUtxos.forEach((v) => {
+        if (senderPrivateKey) {
+          ftUtxoPrivateKeys.push(senderPrivateKey);
+        }
+        v.publicKey = senderPublicKey;
+      });
+    } else {
+      paramFtUtxos.forEach((v) => {
+        if (v.wif) {
+          let privateKey = new bsv.PrivateKey(v.wif);
+          ftUtxoPrivateKeys.push(privateKey);
+          v.publicKey = privateKey.toPublicKey();
+        } else {
+          if (!v.publicKey) {
+            throw new Error("publicKey or wif must be provided in ftUtxos.");
+          }
+        }
+      });
+    }
+
+    paramFtUtxos.forEach((v) => {
+      ftUtxos.push({
+        txId: v.txId,
+        outputIndex: v.outputIndex,
+        satoshis: v.satoshis,
+        tokenAddress: new bsv.Address(v.tokenAddress, this.network),
+        tokenAmount: BigInt(v.tokenAmount),
+        publicKey: v.publicKey,
+      });
+    });
+
+    if (ftUtxos.length == 0) throw new Error("Insufficient token.");
+    return { ftUtxos, ftUtxoPrivateKeys };
+  }
+
+  private _selectFtUtxos() {}
 
   /**
    * 构造一笔的genesis交易,并广播
@@ -699,7 +806,7 @@ export class SensibleFT {
     let issueUtxos = await this.sensibleApi.getFungibleTokenUnspents(
       genesisContractCodehash,
       genesis,
-      this.zeroAddress
+      this.zeroAddress.toString()
     );
     if (issueUtxos.length > 0) {
       //非首次发行
@@ -789,12 +896,15 @@ export class SensibleFT {
     return { tx };
   }
 
-  private async supplyFtUtxosInfo(ftUtxos) {
-    ftUtxos.forEach((v) => {
-      v.tokenAmount = BigInt(v.tokenAmount);
-    });
-
-    let cachedHexs = {};
+  /**
+   * 仅在决定使用哪些ftUtxo后才去请求txHex，避免没必要的网络请求
+   * @param ftUtxos
+   * @returns
+   */
+  private async supplyFtUtxosInfo(ftUtxos: FtUtxo[]) {
+    let cachedHexs: {
+      [txid: string]: { waitingRes?: Promise<string>; hex?: string };
+    } = {};
     //获取当前花费的tx raw
     for (let i = 0; i < ftUtxos.length; i++) {
       let ftUtxo = ftUtxos[i];
@@ -850,7 +960,7 @@ export class SensibleFT {
         v.preTokenAddress = bsv.Address.fromPublicKeyHash(
           Buffer.from(dataPartObj.tokenAddress, "hex"),
           this.network
-        ).toString();
+        );
       }
     });
     ftUtxos.forEach((v) => {
@@ -875,8 +985,14 @@ export class SensibleFT {
   public async transfer({
     codehash,
     genesis,
-    senderWif,
     receivers,
+
+    senderWif,
+    senderPrivateKey,
+    senderPublicKey,
+    ftUtxos,
+    ftChangeAddress,
+
     utxos,
     changeAddress,
     isMerge,
@@ -885,9 +1001,14 @@ export class SensibleFT {
   }: {
     codehash: string;
     genesis: string;
-    senderWif: string;
     receivers?: any[];
-    utxos?: any[];
+
+    senderWif?: string;
+    senderPrivateKey?: any;
+    senderPublicKey?: any;
+    ftUtxos?: ParamFtUtxo[];
+    ftChangeAddress?: any;
+    utxos?: ParamUtxo[];
     changeAddress?: any;
     isMerge?: boolean;
     opreturnData?: any;
@@ -902,7 +1023,10 @@ export class SensibleFT {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
     checkParamReceivers(receivers);
-    $.checkArgument(senderWif, "senderWif is required");
+
+    if (senderWif) {
+      senderPrivateKey = new bsv.PrivateKey(senderWif);
+    }
 
     let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
@@ -911,15 +1035,26 @@ export class SensibleFT {
       changeAddress = utxoInfo.utxos[0].address;
     }
 
-    const senderPrivateKey = bsv.PrivateKey.fromWIF(senderWif);
-    const senderPublicKey = senderPrivateKey.toPublicKey();
+    let ftUtxoInfo = await this._pretreatFtUtxos(
+      ftUtxos,
+      codehash,
+      genesis,
+      senderPrivateKey,
+      senderPublicKey
+    );
+    if (ftChangeAddress) {
+      ftChangeAddress = new bsv.Address(ftChangeAddress, this.network);
+    } else {
+      ftChangeAddress = ftUtxoInfo.ftUtxos[0].tokenAddress;
+    }
 
     let { tx, routeCheckTx } = await this._transfer({
       codehash,
       genesis,
-      senderPrivateKey,
-      senderPublicKey,
       receivers,
+      ftUtxos: ftUtxoInfo.ftUtxos,
+      ftPrivateKeys: ftUtxoInfo.ftUtxoPrivateKeys,
+      ftChangeAddress,
       utxos: utxoInfo.utxos,
       utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
       changeAddress,
@@ -951,8 +1086,12 @@ export class SensibleFT {
   public async unsignPreTransfer({
     codehash,
     genesis,
-    senderPublicKey,
     receivers,
+
+    senderPublicKey,
+    ftUtxos,
+    ftChangeAddress,
+
     utxos,
     changeAddress,
     isMerge,
@@ -960,10 +1099,13 @@ export class SensibleFT {
   }: {
     codehash: string;
     genesis: string;
-    senderPublicKey: any;
     receivers?: any[];
+
+    senderPublicKey?: any;
+    ftUtxos: any[];
+    ftChangeAddress?: string;
     utxos: any[];
-    changeAddress: any;
+    changeAddress?: string;
     isMerge?: boolean;
     opreturnData?: any;
   }): Promise<{
@@ -973,8 +1115,6 @@ export class SensibleFT {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
     checkParamReceivers(receivers);
-    $.checkArgument(senderPublicKey, "senderPublicKey is required");
-
     let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
@@ -982,13 +1122,26 @@ export class SensibleFT {
       changeAddress = utxoInfo.utxos[0].address;
     }
 
-    senderPublicKey = new bsv.PublicKey(senderPublicKey);
+    let ftUtxoInfo = await this._pretreatFtUtxos(
+      ftUtxos,
+      codehash,
+      genesis,
+      null,
+      senderPublicKey
+    );
+    if (ftChangeAddress) {
+      ftChangeAddress = new bsv.Address(ftChangeAddress, this.network);
+    } else {
+      ftChangeAddress = ftUtxoInfo.ftUtxos[0].tokenAddress;
+    }
 
     let { routeCheckTx } = await this._transfer({
       codehash,
       genesis,
-      senderPublicKey,
       receivers,
+      ftUtxos: ftUtxoInfo.ftUtxos,
+      ftPrivateKeys: ftUtxoInfo.ftUtxoPrivateKeys,
+      ftChangeAddress,
       utxos: utxoInfo.utxos,
       utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
       changeAddress,
@@ -1026,58 +1179,51 @@ export class SensibleFT {
   private async _transfer({
     codehash,
     genesis,
-    senderPrivateKey,
-    senderPublicKey,
+
     receivers,
+
+    ftUtxos,
+    ftPrivateKeys,
+    ftChangeAddress,
+
     utxos,
     utxoPrivateKeys,
     changeAddress,
+
     isMerge,
     opreturnData,
   }: {
     codehash: string;
     genesis: string;
-    senderPrivateKey?: any;
-    senderPublicKey?: any;
+
     receivers?: any[];
-    utxos: any[];
+
+    ftUtxos: FtUtxo[];
+    ftPrivateKeys: any[];
+    ftChangeAddress: any;
+
+    utxos: Utxo[];
     utxoPrivateKeys: any[];
     changeAddress: any;
+
     isMerge?: boolean;
     opreturnData?: any;
   }) {
-    let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
-    if (balance == 0) {
-      //检查余额
-      throw new Error("Insufficient balance.");
-    }
-
-    let senderAddress = senderPublicKey.toAddress(this.network);
-
     //将routeCheck的找零utxo作为transfer的输入utxo
     let changeAddress0 = utxos[0].address;
     let utxoPrivateKey0 = utxoPrivateKeys[0];
 
-    //获取token的utxo
-    let ftUtxos = await this.sensibleApi.getFungibleTokenUnspents(
-      codehash,
-      genesis,
-      senderAddress.toString(),
-      20
-    );
-    ftUtxos.forEach((v) => (v.tokenAmount = BigInt(v.tokenAmount)));
-
-    let mergeUtxos = [];
-    let mergeTokenAmountSum = BigInt(0);
+    let mergeUtxos: FtUtxo[] = [];
+    let mergeTokenAmountSum: bigint = BigInt(0);
     if (isMerge) {
       mergeUtxos = ftUtxos.slice(0, 20);
       mergeTokenAmountSum = mergeUtxos.reduce(
-        (pre, cur) => pre + BigInt(cur.tokenAmount),
+        (pre, cur) => pre + cur.tokenAmount,
         BigInt(0)
       );
       receivers = [
         {
-          address: senderAddress.toString(),
+          address: ftChangeAddress.toString(),
           amount: mergeTokenAmountSum,
         },
       ];
@@ -1124,14 +1270,14 @@ export class SensibleFT {
 
     if (inputTokenAmountSum < outputTokenAmountSum) {
       throw new Error(
-        `insufficent token.Need ${outputTokenAmountSum} But only ${inputTokenAmountSum}`
+        `Insufficent token. Need ${outputTokenAmountSum} But only ${inputTokenAmountSum}`
       );
     }
     //判断是否需要token找零
     let changeTokenAmount = inputTokenAmountSum - outputTokenAmountSum;
     if (changeTokenAmount > BigInt(0)) {
       tokenOutputArray.push({
-        address: senderPublicKey.toAddress(this.network),
+        address: ftChangeAddress,
         tokenAmount: changeTokenAmount,
       });
     }
@@ -1192,6 +1338,7 @@ export class SensibleFT {
       routeCheckLockingSize: sizeOfRouteCheck,
       opreturnData,
     });
+    const balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
     if (balance < estimateSatoshis) {
       throw new Error(
         `Insufficient balance.It take more than ${estimateSatoshis}, but only ${balance}.`
@@ -1231,38 +1378,12 @@ export class SensibleFT {
         satoshis:
           routeCheckTx.outputs[routeCheckTx.outputs.length - 1].satoshis,
         outputIndex: routeCheckTx.outputs.length - 1,
+        address: changeAddress0,
       },
     ];
-    utxos.forEach((utxo) => {
-      utxo.address = changeAddress0;
-    });
     utxoPrivateKeys = utxos.map((v) => utxoPrivateKey0).filter((v) => v);
+
     const signerSelecteds = [0, 1];
-
-    const tokenInputArray = ftUtxos.map((v) => {
-      const preTx = new bsv.Transaction(v.preTxHex);
-      const preLockingScript = preTx.outputs[v.preOutputIndex].script;
-      const tx = new bsv.Transaction(v.txHex);
-      const lockingScript = tx.outputs[v.outputIndex].script;
-      return {
-        satoshis: v.satoshis,
-        txId: v.txId,
-        outputIndex: v.outputIndex,
-        lockingScript,
-        preTxId: v.preTxId,
-        preOutputIndex: v.preOutputIndex,
-        preLockingScript,
-        preTokenAddress: new bsv.Address(v.preTokenAddress, this.network),
-        preTokenAmount: v.preTokenAmount,
-      };
-    });
-
-    const satoshiInputArray = utxos.map((v) => ({
-      lockingScript: bsv.Script.buildPublicKeyHashOut(v.address).toHex(),
-      satoshis: v.satoshis,
-      txId: v.txId,
-      outputIndex: v.outputIndex,
-    }));
 
     let checkRabinMsgArray = Buffer.alloc(0);
     let checkRabinPaddingArray = Buffer.alloc(0);
@@ -1337,8 +1458,8 @@ export class SensibleFT {
 
     let transferPart2 = {
       routeCheckTx,
-      tokenInputArray,
-      satoshiInputArray,
+      ftUtxos,
+      utxos,
       rabinPubKeyIndexArray,
       checkRabinMsgArray,
       checkRabinPaddingArray,
@@ -1346,8 +1467,7 @@ export class SensibleFT {
       tokenOutputArray,
       tokenRabinDatas,
       routeCheckContract,
-      senderPrivateKey,
-      senderPublicKey,
+      ftPrivateKeys,
       changeAddress,
       utxoPrivateKeys,
       feeb: this.feeb,
@@ -1356,7 +1476,7 @@ export class SensibleFT {
       changeAddress0,
     };
 
-    if (!senderPrivateKey) {
+    if (!ftPrivateKeys) {
       delete transferPart2.routeCheckTx;
       this.transferPart2 = transferPart2;
       return { routeCheckTx };
@@ -1479,6 +1599,8 @@ export class SensibleFT {
     codehash,
     genesis,
     ownerPublicKey,
+    ftUtxos,
+    ftChangeAddress,
     utxos,
     changeAddress,
     opreturnData,
@@ -1486,6 +1608,8 @@ export class SensibleFT {
     codehash: string;
     genesis: string;
     ownerPublicKey: string;
+    ftUtxos?: any;
+    ftChangeAddress?: any;
     utxos?: any;
     changeAddress?: any;
     opreturnData?: any;
@@ -1494,6 +1618,8 @@ export class SensibleFT {
       codehash,
       genesis,
       senderPublicKey: ownerPublicKey,
+      ftUtxos,
+      ftChangeAddress,
       utxos,
       changeAddress,
       isMerge: true,
@@ -1875,7 +2001,7 @@ export class SensibleFT {
       genesisOutputIndex,
       genesisTx.outputs[genesisOutputIndex].script,
       {
-        receiverAddress: new bsv.Address(this.zeroAddress), //dummy address
+        receiverAddress: this.zeroAddress, //dummy address
         tokenAmount: BigInt(0),
       }
     );
@@ -1901,7 +2027,7 @@ export class SensibleFT {
       genesisOutputIndex,
       genesisTx.outputs[genesisOutputIndex].script,
       {
-        receiverAddress: new bsv.Address(this.zeroAddress), //dummy address
+        receiverAddress: this.zeroAddress, //dummy address
         tokenAmount: BigInt(0),
       }
     );
@@ -2019,6 +2145,20 @@ export class SensibleFT {
    */
   public dumpTx(tx) {
     Utils.dumpTx(tx, this.network);
+  }
+
+  public async getFtUtxos(
+    codehash: string,
+    genesis: string,
+    address: string,
+    count: number = 20
+  ) {
+    return await this.sensibleApi.getFungibleTokenUnspents(
+      codehash,
+      genesis,
+      address,
+      count
+    );
   }
 }
 

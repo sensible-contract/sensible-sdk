@@ -57,7 +57,7 @@ export function getSizeOfRouteCheck(
     tokenInputArray,
     tokenOutputArray,
     TokenProto.newTokenID(dummyTxId, 0),
-    "0000000000000000000000000000000000000000"
+    Buffer.from("0000000000000000000000000000000000000000", "hex")
   );
   return routeCheckContract.lockingScript.toBuffer().length;
 }

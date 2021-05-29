@@ -75,6 +75,31 @@ export enum RouteCheckType {
   from3To100 = "3To100",
   from20To3 = "20To3",
 }
+
+export type Utxo = {
+  txId: string;
+  outputIndex: number;
+  satoshis: number;
+  address: any;
+};
+
+export type FtUtxo = {
+  txId: string;
+  outputIndex: number;
+  txHex?: string;
+  tokenAddress: any;
+  tokenAmount: bigint;
+  satoshis: number;
+
+  preTxId?: string;
+  preOutputIndex?: number;
+  preTxHex?: string;
+  preTokenAddress?: any;
+  preTokenAmount?: bigint;
+
+  publicKey: any;
+};
+
 export class FungibleToken {
   rabinPubKeyArray: bigint[];
   routeCheckCodeHashArray: Bytes[];
@@ -620,10 +645,10 @@ export class FungibleToken {
 
   createRouteCheckContract(
     routeCheckType: RouteCheckType,
-    tokenInputArray,
-    tokenOutputArray,
-    tokenID,
-    tokenCodeHash
+    tokenInputArray: any[],
+    tokenOutputArray: any[],
+    tokenID: Buffer,
+    tokenCodeHash: Buffer
   ) {
     let recervierArray = Buffer.alloc(0, 0);
     let receiverTokenAmountArray = Buffer.alloc(0, 0);
@@ -733,8 +758,8 @@ export class FungibleToken {
 
   createTransferTx({
     routeCheckTx,
-    tokenInputArray,
-    satoshiInputArray,
+    ftUtxos,
+    utxos,
     rabinPubKeyIndexArray,
     checkRabinMsgArray,
     checkRabinPaddingArray,
@@ -742,15 +767,57 @@ export class FungibleToken {
     tokenOutputArray,
     tokenRabinDatas,
     routeCheckContract,
-    senderPrivateKey,
-    senderPublicKey,
+    ftPrivateKeys,
     utxoPrivateKeys,
     changeAddress,
     feeb,
     opreturnData,
     debug,
+  }: {
+    routeCheckTx: any;
+    ftUtxos: FtUtxo[];
+    utxos: Utxo[];
+    rabinPubKeyIndexArray: number[];
+    checkRabinMsgArray: Buffer;
+    checkRabinPaddingArray: Buffer;
+    checkRabinSigArray: Buffer;
+    tokenOutputArray: any[];
+    tokenRabinDatas: any;
+    routeCheckContract: any;
+    ftPrivateKeys: any[];
+    utxoPrivateKeys: any[];
+    changeAddress: any;
+    feeb: number;
+    opreturnData?: any;
+    debug?: boolean;
   }) {
     const tx = new bsv.Transaction();
+
+    const tokenInputArray = ftUtxos.map((v) => {
+      const preTx = new bsv.Transaction(v.preTxHex);
+      const preLockingScript = preTx.outputs[v.preOutputIndex].script;
+      const tx = new bsv.Transaction(v.txHex);
+      const lockingScript = tx.outputs[v.outputIndex].script;
+      return {
+        satoshis: v.satoshis,
+        txId: v.txId,
+        outputIndex: v.outputIndex,
+        lockingScript,
+        preTxId: v.preTxId,
+        preOutputIndex: v.preOutputIndex,
+        preLockingScript,
+        preTokenAddress: v.preTokenAddress,
+        preTokenAmount: v.preTokenAmount,
+        publicKey: v.publicKey,
+      };
+    });
+
+    const satoshiInputArray = utxos.map((v) => ({
+      lockingScript: bsv.Script.buildPublicKeyHashOut(v.address).toHex(),
+      satoshis: v.satoshis,
+      txId: v.txId,
+      outputIndex: v.outputIndex,
+    }));
 
     //首先添加token作为输入
     let prevouts = Buffer.alloc(0);
@@ -940,7 +1007,7 @@ export class FungibleToken {
         const tokenInputLockingScript = tokenInput.lockingScript;
         const tokenInputSatoshis = tokenInput.satoshis;
         const tokenInputIndex = i;
-
+        const senderPrivateKey = ftPrivateKeys[i];
         let sig: Buffer;
         if (senderPrivateKey) {
           //如果提供了私钥就进行签名
@@ -1018,7 +1085,7 @@ export class FungibleToken {
           tokenOutputLen,
           new Bytes(toHex(tokenInput.preTokenAddress.hashBuffer)),
           tokenInput.preTokenAmount,
-          new PubKey(toHex(senderPublicKey)),
+          new PubKey(toHex(tokenInput.publicKey)),
           new Sig(toHex(sig)),
           0,
           new Bytes("00"),
