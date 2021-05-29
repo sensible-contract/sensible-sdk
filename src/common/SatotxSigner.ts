@@ -9,6 +9,12 @@ export type SignerConfig = {
   satotxApiPrefix: string;
   satotxPubKey: string;
 };
+
+/**
+ * 签名器API
+ * https://github.com/sensible-contract/satotx
+ */
+
 export class SatotxSigner {
   satotxApiPrefix: string;
   satotxPubKey: string;
@@ -37,7 +43,16 @@ export class SatotxSigner {
     txHex: string;
     byTxId: string;
     byTxHex: string;
-  }) {
+  }): Promise<{
+    txId: string;
+    index: number;
+    byTxId: string;
+    sigBE: string;
+    sigLE: string;
+    padding: string;
+    payload: string;
+    script: string;
+  }> {
     let _res = await Net.httpPost(
       `${this.satotxApiPrefix}/utxo-spend-by/${txId}/${index}/${byTxId}`,
       {
@@ -67,7 +82,16 @@ export class SatotxSigner {
     index: number;
     txId: string;
     txHex: string;
-  }) {
+  }): Promise<{
+    txId: string;
+    index: number;
+    byTxId: string;
+    sigBE: string;
+    sigLE: string;
+    padding: string;
+    payload: string;
+    script: string;
+  }> {
     let _res = await Net.httpPost(
       `${this.satotxApiPrefix}/utxo/${txId}/${index}`,
       {
@@ -95,7 +119,22 @@ export class SatotxSigner {
     byTxIndex: number;
     byTxId: string;
     byTxHex: string;
-  }) {
+  }): Promise<{
+    txId: string;
+    index: number;
+    sigBE: string;
+    sigLE: string;
+    padding: string;
+    payload: string;
+    script: string;
+    byTxId: string;
+    byTxIndex: number;
+    byTxSigBE: string;
+    byTxSigLE: string;
+    byTxPadding: string;
+    byTxPayload: string;
+    byTxScript: string;
+  }> {
     let _res = await Net.httpPost(
       `${this.satotxApiPrefix}/utxo-spend-by-utxo/${txId}/${index}/${byTxId}/${byTxIndex}`,
       {

@@ -22,7 +22,7 @@ type ParamUtxo = {
   txId: string;
   outputIndex: number;
   satoshis: number;
-  wif: string;
+  wif?: string;
   address?: any;
 };
 const defaultSignerConfigs: SignerConfig[] = [

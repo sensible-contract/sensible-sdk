@@ -32,7 +32,6 @@ type NonFungibleTokenUnspent = {
   txId: string;
   satoshis: number;
   outputIndex: number;
-  rootHeight: number;
   lockingScript: string;
   tokenAddress: string;
   tokenId: number;
@@ -43,7 +42,6 @@ type FungibleTokenUnspent = {
   txId: string;
   satoshis: number;
   outputIndex: number;
-  rootHeight: number;
   lockingScript: string;
   tokenAddress: string;
   tokenAmount: bigint;
@@ -61,7 +59,16 @@ export class SensibleApi {
   /**
    * @param {string} address
    */
-  async getUnspents(address: string) {
+  async getUnspents(
+    address: string
+  ): Promise<
+    {
+      txId: string;
+      outputIndex: number;
+      satoshis: number;
+      address: string;
+    }[]
+  > {
     let url = `${this.serverBase}/address/${address}/utxo`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -70,8 +77,9 @@ export class SensibleApi {
     }
     let ret = data.map((v: SensibleQueryUtxo) => ({
       txId: v.txid,
-      satoshis: v.satoshi,
       outputIndex: v.vout,
+      satoshis: v.satoshi,
+      address: address,
     }));
     return ret;
   }
@@ -139,9 +147,8 @@ export class SensibleApi {
     if (!data) return [];
     let ret: FungibleTokenUnspent[] = data.map((v: SensibleQueryUtxo) => ({
       txId: v.txid,
-      satoshis: v.satoshi,
       outputIndex: v.vout,
-      rootHeight: 0,
+      satoshis: v.satoshi,
       lockingScript: v.scriptPk,
       tokenAddress: address,
       tokenAmount: v.tokenAmount,
@@ -187,7 +194,6 @@ export class SensibleApi {
       txId: data.txid,
       satoshis: data.satoshi,
       outputIndex: data.vout,
-      rootHeight: 0,
       lockingScript: data.scriptPk,
       tokenAddress: data.address,
       tokenAmount: data.tokenAmount,
@@ -215,7 +221,6 @@ export class SensibleApi {
       txId: v.txid,
       satoshis: v.satoshi,
       outputIndex: v.vout,
-      rootHeight: 0,
       lockingScript: v.scriptPk,
       tokenAddress: address,
       tokenId: v.tokenId,
@@ -243,7 +248,6 @@ export class SensibleApi {
       txId: v.txid,
       satoshis: v.satoshi,
       outputIndex: v.vout,
-      rootHeight: 0,
       lockingScript: v.scriptPk,
       tokenAddress: v.address,
       tokenId: v.tokenId,
@@ -264,7 +268,6 @@ export class SensibleApi {
       txId: data.txid,
       satoshis: data.satoshi,
       outputIndex: data.vout,
-      rootHeight: 0,
       lockingScript: data.scriptPk,
       tokenAddress: data.address,
       tokenId: data.tokenId,
