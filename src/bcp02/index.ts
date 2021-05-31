@@ -1515,7 +1515,7 @@ export class SensibleFT {
         address = transferPart2.changeAddress0.toString();
         isP2PKH = true;
       } else {
-        address = transferPart2.ftUtxos[inputIndex].tokenAddress;
+        address = transferPart2.ftUtxos[inputIndex].tokenAddress.toString();
         isP2PKH = false;
       }
       sigHashList.push({
