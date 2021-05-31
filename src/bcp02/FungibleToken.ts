@@ -11,7 +11,7 @@ import {
   toHex,
 } from "scryptlib";
 import * as Utils from "../common/utils";
-import { SIG_PLACE_HOLDER } from "../common/utils";
+import { PUBKEY_PLACE_HOLDER, SIG_PLACE_HOLDER } from "../common/utils";
 import * as TokenProto from "./tokenProto";
 import * as TokenUtil from "./tokenUtil";
 const Signature = bsv.crypto.Signature;
@@ -1023,6 +1023,14 @@ export class FungibleToken {
           //如果没有提供私钥就使用72字节的占位符
           sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
         }
+
+        let pubkey: Buffer;
+        if (tokenInput.publicKey) {
+          pubkey = tokenInput.publicKey;
+        } else {
+          pubkey = Buffer.from(PUBKEY_PLACE_HOLDER, "hex");
+        }
+
         extraSigLen += 72 - sig.length;
         const preimage = getPreimage(
           tx,
@@ -1085,7 +1093,7 @@ export class FungibleToken {
           tokenOutputLen,
           new Bytes(toHex(tokenInput.preTokenAddress.hashBuffer)),
           tokenInput.preTokenAmount,
-          new PubKey(toHex(tokenInput.publicKey)),
+          new PubKey(toHex(pubkey)),
           new Sig(toHex(sig)),
           0,
           new Bytes("00"),

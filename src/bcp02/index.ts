@@ -60,7 +60,6 @@ type ParamFtUtxo = {
   tokenAddress: string;
   tokenAmount: any;
   wif?: string;
-  publicKey?: any;
 };
 
 type Purse = {
@@ -295,6 +294,7 @@ export class SensibleFT {
     let ftUtxos: FtUtxo[] = [];
     let ftUtxoPrivateKeys = [];
 
+    let publicKeys = [];
     if (!paramFtUtxos) {
       if (senderPrivateKey) {
         senderPublicKey = senderPrivateKey.toPublicKey();
@@ -315,30 +315,26 @@ export class SensibleFT {
         if (senderPrivateKey) {
           ftUtxoPrivateKeys.push(senderPrivateKey);
         }
-        v.publicKey = senderPublicKey;
+        publicKeys.push(senderPublicKey);
       });
     } else {
       paramFtUtxos.forEach((v) => {
         if (v.wif) {
           let privateKey = new bsv.PrivateKey(v.wif);
           ftUtxoPrivateKeys.push(privateKey);
-          v.publicKey = privateKey.toPublicKey();
-        } else {
-          if (!v.publicKey) {
-            throw new Error("publicKey or wif must be provided in ftUtxos.");
-          }
+          publicKeys.push(privateKey.toPublicKey());
         }
       });
     }
 
-    paramFtUtxos.forEach((v) => {
+    paramFtUtxos.forEach((v, index) => {
       ftUtxos.push({
         txId: v.txId,
         outputIndex: v.outputIndex,
         satoshis: v.satoshis,
         tokenAddress: new bsv.Address(v.tokenAddress, this.network),
         tokenAmount: BigInt(v.tokenAmount),
-        publicKey: v.publicKey,
+        publicKey: publicKeys[index],
       });
     });
 
@@ -1519,9 +1515,7 @@ export class SensibleFT {
         address = transferPart2.changeAddress0.toString();
         isP2PKH = true;
       } else {
-        address = transferPart2.ftUtxos[inputIndex].publicKey
-          .toAddress(this.network)
-          .toString();
+        address = transferPart2.ftUtxos[inputIndex].tokenAddress;
         isP2PKH = false;
       }
       sigHashList.push({
