@@ -96,7 +96,7 @@ export type SigHashInfo = {
 };
 
 export type SigInfo = {
-  sig: any;
+  sig: string;
   publicKey: any;
 };
 export const SIG_PLACE_HOLDER =
@@ -117,13 +117,16 @@ export function sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
   sigHashList.forEach(({ inputIndex, isP2PKH, sighashType }, index) => {
     let input = tx.inputs[inputIndex];
     let { publicKey, sig } = sigList[index];
+    publicKey = new bsv.PublicKey(publicKey);
+    let _sig = new bsv.crypto.Signature.fromString(sig);
+    _sig.nhashtype = sighashType;
     if (isP2PKH) {
       const signature = new bsv.Transaction.Signature({
         publicKey,
         prevTxId: input.prevTxId,
         outputIndex: input.outputIndex,
         inputIndex: inputIndex,
-        signature: sig,
+        signature: _sig,
         sigtype: sighashType,
       });
       input.setScript(
@@ -134,15 +137,15 @@ export function sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
         )
       );
     } else {
-      let _sig = sig.toTxFormat();
+      let _sig2 = _sig.toTxFormat();
       let oldSigHex = Buffer.concat([
         numberToBuffer(SIG_PLACE_HOLDER.length / 2),
         Buffer.from(SIG_PLACE_HOLDER, "hex"),
       ]).toString("hex");
 
       let newSigHex = Buffer.concat([
-        numberToBuffer(_sig.length),
-        _sig,
+        numberToBuffer(_sig2.length),
+        _sig2,
       ]).toString("hex");
 
       let oldPubKeyHex = Buffer.concat([
