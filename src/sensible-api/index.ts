@@ -38,7 +38,7 @@ type NonFungibleTokenUnspent = {
   metaTxId: string;
 };
 
-type FungibleTokenUnspent = {
+export type FungibleTokenUnspent = {
   txId: string;
   satoshis: number;
   outputIndex: number;
@@ -137,7 +137,7 @@ export class SensibleApi {
     genesis: string,
     address: string,
     size: number = 10
-  ): Promise<any[]> {
+  ): Promise<FungibleTokenUnspent[]> {
     let url = `${this.serverBase}/ft/utxo/${codehash}/${genesis}/${address}?size=${size}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;

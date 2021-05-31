@@ -2,7 +2,7 @@ import { bsv, Bytes, toHex } from "scryptlib";
 import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import * as Utils from "../common/utils";
 import { SigHashInfo, SigInfo } from "../common/utils";
-import { API_NET, SensibleApi } from "../sensible-api";
+import { API_NET, FungibleTokenUnspent, SensibleApi } from "../sensible-api";
 import {
   FtUtxo,
   FungibleToken,
@@ -1476,7 +1476,7 @@ export class SensibleFT {
       changeAddress0,
     };
 
-    if (!ftPrivateKeys) {
+    if (ftPrivateKeys.length == 0) {
       delete transferPart2.routeCheckTx;
       this.transferPart2 = transferPart2;
       return { routeCheckTx };
@@ -1503,7 +1503,7 @@ export class SensibleFT {
   public async unsignTransfer(routeCheckTx: any) {
     let transferPart2 = this.transferPart2;
     transferPart2.routeCheckTx = routeCheckTx;
-    transferPart2.satoshiInputArray.forEach((v) => {
+    transferPart2.utxos.forEach((v) => {
       v.txId = routeCheckTx.id;
     });
     let tx = await this.ft.createTransferTx(transferPart2);
@@ -1519,7 +1519,7 @@ export class SensibleFT {
         address = transferPart2.changeAddress0.toString();
         isP2PKH = true;
       } else {
-        address = transferPart2.senderPublicKey
+        address = transferPart2.ftUtxos[inputIndex].publicKey
           .toAddress(this.network)
           .toString();
         isP2PKH = false;
@@ -2152,7 +2152,7 @@ export class SensibleFT {
     genesis: string,
     address: string,
     count: number = 20
-  ) {
+  ): Promise<FungibleTokenUnspent[]> {
     return await this.sensibleApi.getFungibleTokenUnspents(
       codehash,
       genesis,

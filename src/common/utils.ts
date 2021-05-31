@@ -134,7 +134,7 @@ export function sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
     } else {
       let _sig = sig.toTxFormat();
       let oldSigHex = Buffer.concat([
-        Buffer.from("47", "hex"),
+        numberToBuffer(SIG_PLACE_HOLDER.length / 2),
         Buffer.from(SIG_PLACE_HOLDER, "hex"),
       ]).toString("hex");
 
