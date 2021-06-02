@@ -59,7 +59,7 @@ export class SensibleApi {
   /**
    * @param {string} address
    */
-  async getUnspents(
+  public async getUnspents(
     address: string
   ): Promise<
     {
@@ -87,7 +87,7 @@ export class SensibleApi {
   /**
    * @param {string} hex
    */
-  async broadcast(
+  public async broadcast(
     txHex: string,
     apiTarget: string = "sensible"
   ): Promise<string> {
@@ -116,7 +116,7 @@ export class SensibleApi {
   /**
    * @param {string} txid
    */
-  async getRawTxData(txid: string): Promise<string> {
+  public async getRawTxData(txid: string): Promise<string> {
     let url = `${this.serverBase}/rawtx/${txid}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -132,7 +132,7 @@ export class SensibleApi {
   /**
    * 通过FT合约CodeHash+溯源genesis获取某地址的utxo列表
    */
-  async getFungibleTokenUnspents(
+  public async getFungibleTokenUnspents(
     codehash: string,
     genesis: string,
     address: string,
@@ -159,7 +159,7 @@ export class SensibleApi {
   /**
    * 查询某人持有的某FT的余额
    */
-  async getFungibleTokenBalance(
+  public async getFungibleTokenBalance(
     codehash: string,
     genesis: string,
     address: string
@@ -182,7 +182,7 @@ export class SensibleApi {
   /**
    * 获取指定交易的FT输出信息
    */
-  async getOutputFungibleToken(txid: string, index: number) {
+  public async getOutputFungibleToken(txid: string, index: number) {
     let url = `${this.serverBase}/tx/${txid}/out/${index}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -204,7 +204,7 @@ export class SensibleApi {
   /**
    * 通过NFT合约CodeHash+溯源genesis获取某地址的utxo列表
    */
-  async getNonFungibleTokenUnspents(
+  public async getNonFungibleTokenUnspents(
     codehash: string,
     genesis: string,
     address: string
@@ -232,7 +232,7 @@ export class SensibleApi {
   /**
    * 查询某人持有的某FT的UTXO
    */
-  async getNonFungibleTokenUnspentDetail(
+  public async getNonFungibleTokenUnspentDetail(
     codehash: string,
     genesis: string,
     tokenid: string
@@ -256,7 +256,7 @@ export class SensibleApi {
     return ret;
   }
 
-  async getOutputNonFungibleToken(txid: string, index: number) {
+  public async getOutputNonFungibleToken(txid: string, index: number) {
     let url = `${this.serverBase}/tx/${txid}/out/${index}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -278,7 +278,7 @@ export class SensibleApi {
   /**
    * 查询某人持有的FT Token列表。获得每个token的余额
    */
-  async getFungibleTokenSummary(
+  public async getFungibleTokenSummary(
     address: string
   ): Promise<{
     codehash: string;
@@ -303,7 +303,7 @@ export class SensibleApi {
    * @param {String} address
    * @returns
    */
-  async getNonFungibleTokenSummary(
+  public async getNonFungibleTokenSummary(
     address: string
   ): Promise<{
     codehash: string;
