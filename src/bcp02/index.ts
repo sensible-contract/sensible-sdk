@@ -1362,7 +1362,7 @@ export class SensibleFT {
     //create routeCheck tx
     let routeCheckTx = this.ft.createRouteCheckTx({
       utxos,
-      changeAddress,
+      changeAddress: changeAddress0,
       feeb: this.feeb,
       routeCheckContract,
       utxoPrivateKeys,
