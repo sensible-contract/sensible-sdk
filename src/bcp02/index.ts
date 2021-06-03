@@ -1188,6 +1188,7 @@ export class SensibleFT {
 
     isMerge,
     opreturnData,
+    isEstimateSatoshis,
   }: {
     codehash: string;
     genesis: string;
@@ -1204,6 +1205,7 @@ export class SensibleFT {
 
     isMerge?: boolean;
     opreturnData?: any;
+    isEstimateSatoshis?: boolean;
   }) {
     //将routeCheck的找零utxo作为transfer的输入utxo
     let changeAddress0 = utxos[0].address;
@@ -1334,6 +1336,11 @@ export class SensibleFT {
       routeCheckLockingSize: sizeOfRouteCheck,
       opreturnData,
     });
+
+    if (isEstimateSatoshis) {
+      return { estimateSatoshis };
+    }
+
     const balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
     if (balance < estimateSatoshis) {
       throw new Error(
@@ -1785,155 +1792,77 @@ export class SensibleFT {
   public async getTransferEstimateFee({
     codehash,
     genesis,
-    senderWif,
     receivers,
-    opreturnData,
+
+    senderWif,
+    senderPrivateKey,
+    senderPublicKey,
+    ftUtxos,
+    ftChangeAddress,
     isMerge,
+    opreturnData,
   }: {
     codehash: string;
     genesis: string;
+    receivers?: any[];
+
     senderWif: string;
-    receivers: any;
-    opreturnData?: any;
+    senderPrivateKey?: any;
+    senderPublicKey?: any;
+    ftUtxos?: ParamFtUtxo[];
+    ftChangeAddress?: any;
     isMerge?: boolean;
+    opreturnData?: any;
   }) {
     let p2pkhInputNum = 1; //至少1输入
     p2pkhInputNum = 10; //支持10输入的费用
 
-    const senderPrivateKey = bsv.PrivateKey.fromWIF(senderWif);
-    const senderPublicKey = senderPrivateKey.toPublicKey();
-
-    let senderAddress = senderPublicKey.toAddress(this.network);
-
-    //获取token的utxo
-    let ftUtxos = await this.sensibleApi.getFungibleTokenUnspents(
-      codehash,
-      genesis,
-      senderAddress.toString(),
-      20
-    );
-    ftUtxos.forEach((v) => (v.tokenAmount = BigInt(v.tokenAmount)));
-
-    let mergeUtxos = [];
-    let mergeTokenAmountSum = BigInt(0);
-    if (isMerge) {
-      mergeUtxos = ftUtxos.slice(0, 20);
-      mergeTokenAmountSum = mergeUtxos.reduce(
-        (pre, cur) => pre + BigInt(cur.tokenAmount),
-        BigInt(0)
-      );
-      receivers = [
-        {
-          address: senderAddress.toString(),
-          amount: mergeTokenAmountSum,
-        },
-      ];
-    }
-    //格式化接收者
-    let tokenOutputArray = receivers.map((v) => ({
-      address: new bsv.Address(v.address, this.network),
-      tokenAmount: BigInt(v.amount),
-    }));
-
-    //计算输出的总金额
-    let outputTokenAmountSum = tokenOutputArray.reduce(
-      (pre, cur) => pre + cur.tokenAmount,
-      BigInt(0)
-    );
-
-    //token的选择策略
-    let inputTokenAmountSum = BigInt(0);
-    let _ftUtxos = [];
-    for (let i = 0; i < ftUtxos.length; i++) {
-      let ftUtxo = ftUtxos[i];
-      _ftUtxos.push(ftUtxo);
-      inputTokenAmountSum += ftUtxo.tokenAmount;
-      if (i == 9 && inputTokenAmountSum >= outputTokenAmountSum) {
-        //尽量支持到10To10
-        break;
-      }
-      if (inputTokenAmountSum >= outputTokenAmountSum) {
-        break;
-      }
+    if (senderWif) {
+      senderPrivateKey = bsv.PrivateKey.fromWIF(senderWif);
+      senderPublicKey = senderPrivateKey.toPublicKey();
     }
 
-    if (isMerge) {
-      _ftUtxos = mergeUtxos;
-      inputTokenAmountSum = mergeTokenAmountSum;
-    }
-
-    ftUtxos = _ftUtxos;
-
-    if (inputTokenAmountSum < outputTokenAmountSum) {
-      throw new Error(
-        `insufficent token.Need ${outputTokenAmountSum} But only ${inputTokenAmountSum}`
-      );
-    }
-    //判断是否需要token找零
-    let changeTokenAmount = inputTokenAmountSum - outputTokenAmountSum;
-    if (changeTokenAmount > BigInt(0)) {
-      tokenOutputArray.push({
-        address: senderPublicKey.toAddress(this.network),
-        tokenAmount: changeTokenAmount,
+    let utxos: Utxo[] = [];
+    for (let i = 0; i < p2pkhInputNum; i++) {
+      utxos.push({
+        txId:
+          "85f583e7a8e8b9cf86e265c2594c1e4eb45db389f6781c3b1ec9aa8e48976caa", //dummy
+        outputIndex: i,
+        satoshis: 1000,
+        address: this.zeroAddress,
       });
     }
+    let utxoPrivateKeys = [];
+    let changeAddress = utxos[0].address;
 
-    //选择xTox的转账方案
-    let routeCheckType: RouteCheckType;
-    let inputLength = ftUtxos.length;
-    let outputLength = tokenOutputArray.length;
-    let sizeOfRouteCheck = 0;
-    if (inputLength <= 3) {
-      if (outputLength <= 3) {
-        routeCheckType = RouteCheckType.from3To3;
-        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_3To3;
-      } else if (outputLength <= 100) {
-        routeCheckType = RouteCheckType.from3To100;
-        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_3To100;
-      } else {
-        throw new Error(
-          `unsupport transfer from inputs(${inputLength}) to outputs(${outputLength})`
-        );
-      }
-    } else if (inputLength <= 6) {
-      if (outputLength <= 6) {
-        routeCheckType = RouteCheckType.from6To6;
-        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_6To6;
-      } else {
-        throw new Error(
-          `unsupport transfer from inputs(${inputLength}) to outputs(${outputLength})`
-        );
-      }
-    } else if (inputLength <= 10) {
-      if (outputLength <= 10) {
-        routeCheckType = RouteCheckType.from10To10;
-        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_10To10;
-      } else {
-        throw new Error(
-          `unsupport transfer from inputs(${inputLength}) to outputs(${outputLength})`
-        );
-      }
-    } else if (inputLength <= 20) {
-      if (outputLength <= 3) {
-        routeCheckType = RouteCheckType.from20To3;
-        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_20To3;
-      } else {
-        throw new Error(
-          `unsupport transfer from inputs(${inputLength}) to outputs(${outputLength})`
-        );
-      }
+    //获取token的utxo
+    let ftUtxoInfo = await this._pretreatFtUtxos(
+      ftUtxos,
+      codehash,
+      genesis,
+      senderPrivateKey,
+      senderPublicKey
+    );
+    if (ftChangeAddress) {
+      ftChangeAddress = new bsv.Address(ftChangeAddress, this.network);
     } else {
-      throw new Error("Too many token-utxos, should merge them to continue.");
+      ftChangeAddress = ftUtxoInfo.ftUtxos[0].tokenAddress;
     }
 
-    let estimateSatoshis = this._calTransferSize({
-      inputTokenNum: inputLength,
-      outputTokenNum: outputLength,
-      tokenLockingSize: SIZE_OF_TOKEN,
-      routeCheckLockingSize: sizeOfRouteCheck,
+    let { estimateSatoshis } = await this._transfer({
+      codehash,
+      genesis,
+      receivers,
+      ftUtxos: ftUtxoInfo.ftUtxos,
+      ftPrivateKeys: ftUtxoInfo.ftUtxoPrivateKeys,
+      ftChangeAddress,
+      utxos: utxos,
+      utxoPrivateKeys: utxoPrivateKeys,
+      changeAddress,
       opreturnData,
+      isMerge,
+      isEstimateSatoshis: true,
     });
-
     return estimateSatoshis;
   }
 
@@ -1941,18 +1870,26 @@ export class SensibleFT {
     codehash,
     genesis,
     ownerWif,
+    ownerPublicKey,
+    ftUtxos,
+    ftChangeAddress,
     opreturnData,
   }: {
     codehash: string;
     genesis: string;
-    ownerWif: string;
+    ownerWif?: string;
+    ownerPublicKey?: any;
+    ftUtxos?: ParamFtUtxo[];
+    ftChangeAddress?: any;
     opreturnData?: any;
   }) {
-    $.checkArgument(ownerWif, "ownerWif is required");
     return await this.getTransferEstimateFee({
       codehash,
       genesis,
       senderWif: ownerWif,
+      senderPublicKey: ownerPublicKey,
+      ftUtxos,
+      ftChangeAddress,
       opreturnData,
       receivers: [],
       isMerge: true,
