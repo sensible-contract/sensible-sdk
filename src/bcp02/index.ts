@@ -991,6 +991,10 @@ export class SensibleFT {
 
     utxos,
     changeAddress,
+
+    middleChangeAddress,
+    middlePrivateKey,
+
     isMerge,
     opreturnData,
     noBroadcast = false,
@@ -1004,8 +1008,13 @@ export class SensibleFT {
     senderPublicKey?: any;
     ftUtxos?: ParamFtUtxo[];
     ftChangeAddress?: any;
+
     utxos?: ParamUtxo[];
     changeAddress?: any;
+
+    middleChangeAddress?: any;
+    middlePrivateKey?: any;
+
     isMerge?: boolean;
     opreturnData?: any;
     noBroadcast?: boolean;
@@ -1029,6 +1038,14 @@ export class SensibleFT {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
       changeAddress = utxoInfo.utxos[0].address;
+    }
+
+    if (middleChangeAddress) {
+      middleChangeAddress = new bsv.Address(middleChangeAddress, this.network);
+      middlePrivateKey = new bsv.PrivateKey(middlePrivateKey);
+    } else {
+      middleChangeAddress = utxoInfo.utxos[0].address;
+      middlePrivateKey = utxoInfo.utxoPrivateKeys[0];
     }
 
     let ftUtxoInfo = await this._pretreatFtUtxos(
@@ -1056,6 +1073,8 @@ export class SensibleFT {
       changeAddress,
       opreturnData,
       isMerge,
+      middleChangeAddress,
+      middlePrivateKey,
     });
     let routeCheckTxHex = routeCheckTx.serialize(true);
     let txHex = tx.serialize(true);
@@ -1092,6 +1111,7 @@ export class SensibleFT {
     changeAddress,
     isMerge,
     opreturnData,
+    middleChangeAddress,
   }: {
     codehash: string;
     genesis: string;
@@ -1104,6 +1124,7 @@ export class SensibleFT {
     changeAddress?: string;
     isMerge?: boolean;
     opreturnData?: any;
+    middleChangeAddress?: any;
   }): Promise<{
     routeCheckTx: any;
     routeCheckSigHashList: SigHashInfo[];
@@ -1116,6 +1137,12 @@ export class SensibleFT {
       changeAddress = new bsv.Address(changeAddress, this.network);
     } else {
       changeAddress = utxoInfo.utxos[0].address;
+    }
+
+    if (middleChangeAddress) {
+      middleChangeAddress = new bsv.Address(middleChangeAddress, this.network);
+    } else {
+      middleChangeAddress = utxoInfo.utxos[0].address;
     }
 
     let ftUtxoInfo = await this._pretreatFtUtxos(
@@ -1141,6 +1168,7 @@ export class SensibleFT {
       utxos: utxoInfo.utxos,
       utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
       changeAddress,
+      middleChangeAddress,
       opreturnData,
       isMerge,
     });
@@ -1186,6 +1214,9 @@ export class SensibleFT {
     utxoPrivateKeys,
     changeAddress,
 
+    middlePrivateKey,
+    middleChangeAddress,
+
     isMerge,
     opreturnData,
     isEstimateSatoshis,
@@ -1203,13 +1234,18 @@ export class SensibleFT {
     utxoPrivateKeys: any[];
     changeAddress: any;
 
+    middlePrivateKey?: any;
+    middleChangeAddress: any;
+
     isMerge?: boolean;
     opreturnData?: any;
     isEstimateSatoshis?: boolean;
   }) {
     //将routeCheck的找零utxo作为transfer的输入utxo
-    let changeAddress0 = utxos[0].address;
-    let utxoPrivateKey0 = utxoPrivateKeys[0];
+    if (!middleChangeAddress) {
+      middleChangeAddress = utxos[0].address;
+      middlePrivateKey = utxoPrivateKeys[0];
+    }
 
     let mergeUtxos: FtUtxo[] = [];
     let mergeTokenAmountSum: bigint = BigInt(0);
@@ -1369,7 +1405,7 @@ export class SensibleFT {
     //create routeCheck tx
     let routeCheckTx = this.ft.createRouteCheckTx({
       utxos,
-      changeAddress: changeAddress0,
+      changeAddress: middleChangeAddress,
       feeb: this.feeb,
       routeCheckContract,
       utxoPrivateKeys,
@@ -1381,10 +1417,10 @@ export class SensibleFT {
         satoshis:
           routeCheckTx.outputs[routeCheckTx.outputs.length - 1].satoshis,
         outputIndex: routeCheckTx.outputs.length - 1,
-        address: changeAddress0,
+        address: middleChangeAddress,
       },
     ];
-    utxoPrivateKeys = utxos.map((v) => utxoPrivateKey0).filter((v) => v);
+    utxoPrivateKeys = utxos.map((v) => middlePrivateKey).filter((v) => v);
 
     const signerSelecteds = [0, 1];
 
@@ -1476,7 +1512,7 @@ export class SensibleFT {
       feeb: this.feeb,
       opreturnData,
       debug: this.debug,
-      changeAddress0,
+      middleChangeAddress,
     };
 
     if (ftPrivateKeys.length == 0) {
@@ -1519,7 +1555,7 @@ export class SensibleFT {
         //routeCheck不需要签名
         return;
       } else if (inputIndex == tx.inputs.length - 2) {
-        address = transferPart2.changeAddress0.toString();
+        address = transferPart2.middleChangeAddress.toString();
         isP2PKH = true;
       } else {
         address = transferPart2.ftUtxos[inputIndex].tokenAddress.toString();
@@ -1849,6 +1885,8 @@ export class SensibleFT {
       ftChangeAddress = ftUtxoInfo.ftUtxos[0].tokenAddress;
     }
 
+    let middleChangeAddress = changeAddress;
+
     let { estimateSatoshis } = await this._transfer({
       codehash,
       genesis,
@@ -1862,6 +1900,7 @@ export class SensibleFT {
       opreturnData,
       isMerge,
       isEstimateSatoshis: true,
+      middleChangeAddress,
     });
     return estimateSatoshis;
   }
