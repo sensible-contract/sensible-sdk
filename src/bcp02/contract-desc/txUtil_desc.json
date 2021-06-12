@@ -1,8 +1,8 @@
 {
-    "version": 3,
-    "compilerVersion": "0.4.3+commit.fc7414b",
+    "version": 4,
+    "compilerVersion": "1.0.0+commit.65eb397",
     "contract": "TxUtil",
-    "md5": "69162c5b1e0e6f52fe6ef6416ffb0e54",
+    "md5": "322f613d634ebcf246a62ee508e12523",
     "structs": [],
     "alias": [],
     "abi": [
@@ -11,6 +11,7 @@
             "params": []
         }
     ],
+    "buildType": "debug",
     "file": "",
     "asm": "",
     "sources": [],

@@ -1,6 +1,6 @@
 {
-    "version": 3,
-    "compilerVersion": "0.4.3+commit.fc7414b",
+    "version": 4,
+    "compilerVersion": "1.0.0+commit.65eb397",
     "contract": "Util",
     "md5": "cf7fdac031d3d3a708ad348a2eae191a",
     "structs": [],
@@ -11,6 +11,7 @@
             "params": []
         }
     ],
+    "buildType": "debug",
     "file": "",
     "asm": "",
     "sources": [],
