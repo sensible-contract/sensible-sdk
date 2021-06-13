@@ -1,4 +1,3 @@
-require("./fix_bsv_in_scrypt");
 import { bsv, toHex } from "scryptlib";
 // Helper functions
 export function checkIfValidHexString(hexString: string): boolean {

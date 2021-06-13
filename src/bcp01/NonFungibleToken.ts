@@ -245,19 +245,24 @@ export class NonFungibleToken {
           bsv.Transaction.DUST_AMOUNT +
             bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
         ) {
-          tx.change(changeAddress);
-          //添加找零后要重新计算手续费
-          tx.fee(
-            Math.ceil(
-              (tx.toBuffer().length +
-                extraSigLen +
-                unlockSize +
-                Utils.numberToBuffer(leftAmount).length +
-                1) *
-                feeb
-            )
+          tx.addOutput(
+            new bsv.Transaction.Output({
+              script: new bsv.Script(changeAddress),
+              satoshis: 0,
+            })
           );
-          changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+          //添加找零后要重新计算手续费
+          let fee = Math.ceil(
+            (tx.toBuffer().length +
+              extraSigLen +
+              unlockSize +
+              Utils.numberToBuffer(leftAmount).length +
+              1) *
+              feeb
+          );
+
+          changeAmount = tx._getUnspentValue() - fee;
+          tx.outputs[tx.outputs.length - 1].satoshis = changeAmount;
         } else {
           if (!Utils.isNull(tx._changeIndex)) {
             tx._removeOutput(tx._changeIndex);
@@ -454,19 +459,24 @@ export class NonFungibleToken {
           bsv.Transaction.DUST_AMOUNT +
             bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
         ) {
-          tx.change(changeAddress);
-          //添加找零后要重新计算手续费
-          tx.fee(
-            Math.ceil(
-              (tx.toBuffer().length +
-                extraSigLen +
-                unlockSize +
-                Utils.numberToBuffer(leftAmount).length +
-                1) *
-                feeb
-            )
+          tx.addOutput(
+            new bsv.Transaction.Output({
+              script: new bsv.Script(changeAddress),
+              satoshis: 0,
+            })
           );
-          changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+          //添加找零后要重新计算手续费
+          let fee = Math.ceil(
+            (tx.toBuffer().length +
+              extraSigLen +
+              unlockSize +
+              Utils.numberToBuffer(leftAmount).length +
+              1) *
+              feeb
+          );
+
+          changeAmount = tx._getUnspentValue() - fee;
+          tx.outputs[tx.outputs.length - 1].satoshis = changeAmount;
         } else {
           if (!Utils.isNull(tx._changeIndex)) {
             tx._removeOutput(tx._changeIndex);

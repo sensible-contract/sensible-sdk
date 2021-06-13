@@ -16,6 +16,8 @@ import * as TokenProto from "./tokenProto";
 import * as TokenUtil from "./tokenUtil";
 const Signature = bsv.crypto.Signature;
 export const sighashType = Signature.SIGHASH_ALL | Signature.SIGHASH_FORKID;
+export const SIGNER_NUM = 5;
+export const SIGNER_VERIFY_NUM = 3;
 const genesisFlag = 1;
 const nonGenesisFlag = 0;
 const tokenType = 1;
@@ -107,9 +109,17 @@ export class FungibleToken {
   constructor(
     rabinPubKey1: bigint,
     rabinPubKey2: bigint,
-    rabinPubKey3: bigint
+    rabinPubKey3: bigint,
+    rabinPubKey4: bigint,
+    rabinPubKey5: bigint
   ) {
-    this.rabinPubKeyArray = [rabinPubKey1, rabinPubKey2, rabinPubKey3];
+    this.rabinPubKeyArray = [
+      rabinPubKey1,
+      rabinPubKey2,
+      rabinPubKey3,
+      rabinPubKey4,
+      rabinPubKey5,
+    ];
 
     this.routeCheckCodeHashArray = [
       new Bytes(
@@ -500,14 +510,16 @@ export class FungibleToken {
     if (isFirstGenesis) {
       //如果是首次发行，则不需要查询签名器
       rabinMsg = Buffer.alloc(1, 0);
-      rabinPaddingArray = [new Bytes("00"), new Bytes("00")];
-      rabinSigArray = [0, 0];
-      rabinPubKeyIndexArray = [0, 1];
+      for (let i = 0; i < SIGNER_VERIFY_NUM; i++) {
+        rabinPaddingArray.push(new Bytes("00"));
+        rabinSigArray.push(0);
+        rabinPubKeyIndexArray.push(i);
+      }
     } else {
       //查询签名器
       let signerSelecteds = [];
-      for (let i = 0; i < 3; i++) {
-        if (signerSelecteds.length == 2) break;
+      for (let i = 0; i < SIGNER_NUM; i++) {
+        if (signerSelecteds.length == SIGNER_VERIFY_NUM) break;
         try {
           let sigInfo = await signers[i].satoTxSigUTXOSpendBy(satotxData);
           rabinMsg = sigInfo.payload;
@@ -550,19 +562,24 @@ export class FungibleToken {
           bsv.Transaction.DUST_AMOUNT +
             bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
         ) {
-          tx.change(changeAddress);
-          //添加找零后要重新计算手续费
-          tx.fee(
-            Math.ceil(
-              (tx.toBuffer().length +
-                extraSigLen +
-                unlockSize +
-                Utils.numberToBuffer(leftAmount).length +
-                1) *
-                feeb
-            )
+          tx.addOutput(
+            new bsv.Transaction.Output({
+              script: new bsv.Script(changeAddress),
+              satoshis: 0,
+            })
           );
-          changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+          //添加找零后要重新计算手续费
+          let fee = Math.ceil(
+            (tx.toBuffer().length +
+              extraSigLen +
+              unlockSize +
+              Utils.numberToBuffer(leftAmount).length +
+              1) *
+              feeb
+          );
+
+          changeAmount = tx._getUnspentValue() - fee;
+          tx.outputs[tx.outputs.length - 1].satoshis = changeAmount;
         } else {
           if (!Utils.isNull(tx._changeIndex)) {
             tx._removeOutput(tx._changeIndex);
@@ -974,19 +991,24 @@ export class FungibleToken {
           bsv.Transaction.DUST_AMOUNT +
             bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
         ) {
-          tx.change(changeAddress);
-          //添加找零后要重新计算手续费
-          tx.fee(
-            Math.ceil(
-              (tx.toBuffer().length +
-                extraSigLen +
-                unlockSize +
-                Utils.numberToBuffer(leftAmount).length +
-                1) *
-                feeb
-            )
+          tx.addOutput(
+            new bsv.Transaction.Output({
+              script: new bsv.Script(changeAddress),
+              satoshis: 0,
+            })
           );
-          changeAmount = tx.outputs[tx.outputs.length - 1].satoshis;
+          //添加找零后要重新计算手续费
+          let fee = Math.ceil(
+            (tx.toBuffer().length +
+              extraSigLen +
+              unlockSize +
+              Utils.numberToBuffer(leftAmount).length +
+              1) *
+              feeb
+          );
+
+          changeAmount = tx._getUnspentValue() - fee;
+          tx.outputs[tx.outputs.length - 1].satoshis = changeAmount;
         } else {
           if (!Utils.isNull(tx._changeIndex)) {
             tx._removeOutput(tx._changeIndex);

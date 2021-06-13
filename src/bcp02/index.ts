@@ -8,6 +8,7 @@ import {
   FungibleToken,
   RouteCheckType,
   sighashType,
+  SIGNER_VERIFY_NUM,
   Utxo,
 } from "./FungibleToken";
 import * as SizeHelper from "./SizeHelper";
@@ -16,6 +17,16 @@ import * as TokenUtil from "./tokenUtil";
 const $ = bsv.util.preconditions;
 const _ = bsv.deps._;
 const defaultSignerConfigs: SignerConfig[] = [
+  {
+    satotxApiPrefix: "https://api.satotx.com",
+    satotxPubKey:
+      "25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5",
+  },
+  {
+    satotxApiPrefix: "https://api.satotx.com",
+    satotxPubKey:
+      "25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5",
+  },
   {
     satotxApiPrefix: "https://api.satotx.com",
     satotxPubKey:
@@ -81,8 +92,8 @@ function checkParamUtxoFormat(utxo) {
 }
 
 function checkParamSigners(signers) {
-  if (signers.length != 3) {
-    throw new Error("only support 3 signers");
+  if (signers.length != 5) {
+    throw new Error("only support 5 signers");
   }
   let signer = signers[0];
   if (
@@ -234,7 +245,9 @@ export class SensibleFT {
     this.ft = new FungibleToken(
       BigInt("0x" + signers[0].satotxPubKey),
       BigInt("0x" + signers[1].satotxPubKey),
-      BigInt("0x" + signers[2].satotxPubKey)
+      BigInt("0x" + signers[2].satotxPubKey),
+      BigInt("0x" + signers[3].satotxPubKey),
+      BigInt("0x" + signers[4].satotxPubKey)
     );
 
     if (purse) {
@@ -1422,7 +1435,10 @@ export class SensibleFT {
     ];
     utxoPrivateKeys = utxos.map((v) => middlePrivateKey).filter((v) => v);
 
-    const signerSelecteds = [0, 1];
+    let signerSelecteds = [];
+    for (let i = 0; i < SIGNER_VERIFY_NUM; i++) {
+      signerSelecteds.push(i);
+    }
 
     let checkRabinMsgArray = Buffer.alloc(0);
     let checkRabinPaddingArray = Buffer.alloc(0);
@@ -1433,7 +1449,7 @@ export class SensibleFT {
     for (let i = 0; i < ftUtxos.length; i++) {
       let v = ftUtxos[i];
       sigReqArray[i] = [];
-      for (let j = 0; j < 2; j++) {
+      for (let j = 0; j < SIGNER_VERIFY_NUM; j++) {
         const signerIndex = signerSelecteds[j];
         sigReqArray[i][j] = this.signers[signerIndex].satoTxSigUTXOSpendByUTXO({
           txId: v.preTxId,
