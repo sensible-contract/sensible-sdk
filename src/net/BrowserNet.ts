@@ -4,11 +4,11 @@ type ReqConfig = {
   method?: string;
   timeout?: number;
   body?: any;
+  headers?: any;
 };
 type HttpConfig = {
-  contentType?: string;
   timeout?: number;
-  authorization?: string;
+  headers?: any;
 };
 export class BrowserNet {
   static _xmlRequest(reqConfig: ReqConfig, callback: Function) {
@@ -49,7 +49,7 @@ export class BrowserNet {
       xhr.send();
     }
   }
-  static httpGet(url: string, params: any, cb?: Function) {
+  static httpGet(url: string, params: any, cb?: Function, config?: any) {
     let str = "";
     let cnt = 0;
     for (var id in params) {
@@ -57,10 +57,17 @@ export class BrowserNet {
       str += id + "=" + params[id];
       cnt++;
     }
+    if (str) {
+      url += "?" + str;
+    }
+    let headers = {};
+    config = config || {};
+    if (config.authorization) headers["authorization"] = config.authorization;
     const reqData: ReqConfig = {
       uri: url,
       method: "GET",
       timeout: 180000,
+      headers,
     };
     const handlerCallback = (resolve: Function, reject: Function) => {
       this._xmlRequest(reqData, (err: any, body: any) => {
@@ -97,30 +104,25 @@ export class BrowserNet {
     config?: HttpConfig
   ) {
     let postData = "";
-    let headers = {};
 
     config = config || {};
-    let { contentType, timeout, authorization } = config;
-    contentType = contentType || "json";
-    timeout = timeout || 180000;
 
-    if (contentType == "urlencoded") {
+    let headers = config.headers || {};
+    let timeout = config.timeout || 180000;
+    headers["content-type"] = headers["content-type"] || "application/json";
+    if (headers["content-type"] == "application/x-www-form-urlencoded") {
       let arr = [];
       for (var id in params) {
         arr.push(`${id}=${params[id]}`);
       }
       postData = arr.join("&");
-      headers["content-type"] = "application/x-www-form-urlencoded";
-    } else if (contentType == "text") {
+    } else if (headers["content-type"] == "text/plain") {
       postData = params;
-      headers["content-type"] = "text/plain";
     } else {
       postData = JSON.stringify(params);
-      headers["content-type"] = "application/json";
     }
     let bodyString = Buffer.from(postData);
     headers["content-length"] = bodyString.length;
-    if (authorization) headers["authorization"] = authorization;
     const reqData = {
       uri: url,
       method: "POST",

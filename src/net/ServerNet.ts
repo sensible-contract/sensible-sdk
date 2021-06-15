@@ -1,11 +1,10 @@
 import * as Utils from "./utils";
 type HttpConfig = {
-  contentType?: string;
   timeout?: number;
-  authorization?: string;
+  headers?: any;
 };
 export class ServerNet {
-  static httpGet(url: string, params: any, cb?: Function) {
+  static httpGet(url: string, params: any, cb?: Function, config?: any) {
     let str = "";
     let cnt = 0;
     for (var id in params) {
@@ -13,11 +12,20 @@ export class ServerNet {
       str += id + "=" + params[id];
       cnt++;
     }
-    const reqData = {
+    if (str) {
+      url += "?" + str;
+    }
+    config = config || {};
+    let headers = config.headers || {};
+    let timeout = config.timeout || 180000;
+    let reqData = {
       uri: url,
       method: "GET",
-      timeout: 180000,
+      timeout,
+      gzip: true,
+      headers,
     };
+
     const handlerCallback = (resolve: Function, reject: Function) => {
       require("request")(reqData, function (err: any, res: any, body: any) {
         if (!err) {
@@ -67,36 +75,30 @@ export class ServerNet {
     config?: HttpConfig
   ) {
     let postData = "";
-    let headers = {};
-
     config = config || {};
-    let { contentType, timeout, authorization } = config;
-    contentType = contentType || "json";
-    timeout = timeout || 180000;
-
-    if (contentType == "urlencoded") {
+    let headers = config.headers || {};
+    let timeout = config.timeout || 180000;
+    headers["content-type"] = headers["content-type"] || "application/json";
+    if (headers["content-type"] == "application/x-www-form-urlencoded") {
       let arr = [];
       for (var id in params) {
         arr.push(`${id}=${params[id]}`);
       }
       postData = arr.join("&");
-      headers["content-type"] = "application/x-www-form-urlencoded";
-    } else if (contentType == "text") {
+    } else if (headers["content-type"] == "text/plain") {
       postData = params;
-      headers["content-type"] = "text/plain";
     } else {
       postData = JSON.stringify(params);
-      headers["content-type"] = "application/json";
     }
     let bodyString = Buffer.from(postData);
     headers["content-length"] = bodyString.length;
-    if (authorization) headers["authorization"] = authorization;
     const reqData = {
       uri: url,
       method: "POST",
       body: postData,
       headers: headers,
       timeout: timeout,
+      gzip: true,
     };
     const handlerCallback = (resolve, reject) => {
       require("request")(reqData, function (err, res, body) {

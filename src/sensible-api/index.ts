@@ -1,38 +1,19 @@
-import { Net } from "../net";
+import { MetaSV } from "./MetaSV";
+import { Sensible } from "./Sensible";
+
 export enum API_NET {
   MAIN = "mainnet",
   TEST = "testnet",
 }
 
-type ResData = {
-  code: number;
-  data: any;
-  msg: string;
-};
+export enum API_TARGET {
+  SENSIBLE = "sensible",
+  METASV = "metasv",
+}
 
-type SensibleQueryUtxo = {
-  address?: string;
-  codehash?: string;
-  genesis?: string;
-  height?: number;
-  idx?: number;
-  isNFT?: boolean;
-  satoshi?: number;
-  scriptPk?: string;
-  scriptType?: string;
-  tokenAmount?: number;
-  tokenDecimal?: number;
-  tokenId?: string;
-  txid?: string;
-  vout?: number;
-  metaTxId?: string;
-};
-
-type NonFungibleTokenUnspent = {
+export type NonFungibleTokenUnspent = {
   txId: string;
-  satoshis: number;
   outputIndex: number;
-  lockingScript: string;
   tokenAddress: string;
   tokenId: number;
   metaTxId: string;
@@ -40,245 +21,40 @@ type NonFungibleTokenUnspent = {
 
 export type FungibleTokenUnspent = {
   txId: string;
-  satoshis: number;
   outputIndex: number;
-  lockingScript: string;
   tokenAddress: string;
   tokenAmount: bigint;
 };
-export class SensibleApi {
-  serverBase: string;
-  constructor(apiNet: API_NET) {
-    if (apiNet == API_NET.MAIN) {
-      this.serverBase = "https://api.sensiblequery.com";
-    } else {
-      this.serverBase = "https://api.sensiblequery.com/test";
-    }
-  }
 
-  /**
-   * @param {string} address
-   */
-  public async getUnspents(
-    address: string
-  ): Promise<
-    {
-      txId: string;
-      outputIndex: number;
-      satoshis: number;
-      address: string;
-    }[]
-  > {
-    let url = `${this.serverBase}/address/${address}/utxo`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
-    }
-    let ret = data.map((v: SensibleQueryUtxo) => ({
-      txId: v.txid,
-      outputIndex: v.vout,
-      satoshis: v.satoshi,
-      address: address,
-    }));
-    return ret;
-  }
+export type SA_utxo = {
+  txId: string;
+  outputIndex: number;
+  satoshis: number;
+  address: string;
+};
 
-  /**
-   * @param {string} hex
-   */
-  public async broadcast(
-    txHex: string,
-    apiTarget: string = "sensible"
-  ): Promise<string> {
-    if (apiTarget == "metasv") {
-      let _res: any = await Net.httpPost(
-        "https://apiv2.metasv.com/tx/broadcast",
-        {
-          hex: txHex,
-        }
-      );
-      return _res.txid;
-    } else {
-      let url = `${this.serverBase}/pushtx`;
-      let _res = await Net.httpPost(url, {
-        txHex,
-      });
-      const { code, data, msg } = _res as ResData;
-      if (code != 0) {
-        console.log(txHex);
-        throw { title: "request sensible api failed", url, msg };
-      }
-      return data;
-    }
-  }
-
-  /**
-   * @param {string} txid
-   */
-  public async getRawTxData(txid: string): Promise<string> {
-    let url = `${this.serverBase}/rawtx/${txid}`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
-    }
-    if (!data) {
-      console.log("getRawfailed", url);
-    }
-    return data;
-  }
-
-  /**
-   * 通过FT合约CodeHash+溯源genesis获取某地址的utxo列表
-   */
-  public async getFungibleTokenUnspents(
+export interface SensibleApiBase {
+  authorize: (options: any) => void;
+  getUnspents: (address: string) => Promise<SA_utxo[]>;
+  getRawTxData: (txid: string) => Promise<string>;
+  broadcast: (hex: string) => Promise<string>;
+  getFungibleTokenUnspents: (
     codehash: string,
     genesis: string,
     address: string,
-    size: number = 10
-  ): Promise<FungibleTokenUnspent[]> {
-    let url = `${this.serverBase}/ft/utxo/${codehash}/${genesis}/${address}?size=${size}`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
-    }
-    if (!data) return [];
-    let ret: FungibleTokenUnspent[] = data.map((v: SensibleQueryUtxo) => ({
-      txId: v.txid,
-      outputIndex: v.vout,
-      satoshis: v.satoshi,
-      lockingScript: v.scriptPk,
-      tokenAddress: address,
-      tokenAmount: v.tokenAmount,
-    }));
-    return ret;
-  }
-
-  /**
-   * 查询某人持有的某FT的余额
-   */
-  public async getFungibleTokenBalance(
+    size?: number
+  ) => Promise<FungibleTokenUnspent[]>;
+  getFungibleTokenBalance: (
     codehash: string,
     genesis: string,
     address: string
-  ): Promise<{
+  ) => Promise<{
     balance: number;
     pendingBalance: number;
     utxoCount: number;
     decimal: number;
-  }> {
-    let url = `${this.serverBase}/ft/balance/${codehash}/${genesis}/${address}`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
-    }
-
-    return data;
-  }
-
-  /**
-   * 获取指定交易的FT输出信息
-   */
-  public async getOutputFungibleToken(txid: string, index: number) {
-    let url = `${this.serverBase}/tx/${txid}/out/${index}`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
-    }
-
-    let ret = {
-      txId: data.txid,
-      satoshis: data.satoshi,
-      outputIndex: data.vout,
-      lockingScript: data.scriptPk,
-      tokenAddress: data.address,
-      tokenAmount: data.tokenAmount,
-    };
-    return ret;
-  }
-
-  /**
-   * 通过NFT合约CodeHash+溯源genesis获取某地址的utxo列表
-   */
-  public async getNonFungibleTokenUnspents(
-    codehash: string,
-    genesis: string,
-    address: string
-  ): Promise<NonFungibleTokenUnspent[]> {
-    let url = `${this.serverBase}/nft/utxo/${codehash}/${genesis}/${address}`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
-    }
-
-    if (!data) return [];
-    let ret: NonFungibleTokenUnspent[] = data.map((v: SensibleQueryUtxo) => ({
-      txId: v.txid,
-      satoshis: v.satoshi,
-      outputIndex: v.vout,
-      lockingScript: v.scriptPk,
-      tokenAddress: address,
-      tokenId: v.tokenId,
-      metaTxId: v.metaTxId,
-    }));
-    return ret;
-  }
-
-  /**
-   * 查询某人持有的某FT的UTXO
-   */
-  public async getNonFungibleTokenUnspentDetail(
-    codehash: string,
-    genesis: string,
-    tokenid: string
-  ) {
-    let url = `${this.serverBase}/nft/utxo-detail/${codehash}/${genesis}/${tokenid}`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
-    }
-    if (!data) return null;
-    let ret = [data].map((v) => ({
-      txId: v.txid,
-      satoshis: v.satoshi,
-      outputIndex: v.vout,
-      lockingScript: v.scriptPk,
-      tokenAddress: v.address,
-      tokenId: v.tokenId,
-      metaTxId: v.metaTxId,
-    }))[0];
-    return ret;
-  }
-
-  public async getOutputNonFungibleToken(txid: string, index: number) {
-    let url = `${this.serverBase}/tx/${txid}/out/${index}`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
-    }
-
-    let ret = {
-      txId: data.txid,
-      satoshis: data.satoshi,
-      outputIndex: data.vout,
-      lockingScript: data.scriptPk,
-      tokenAddress: data.address,
-      tokenId: data.tokenId,
-    };
-    return ret;
-  }
-
-  /**
-   * 查询某人持有的FT Token列表。获得每个token的余额
-   */
-  public async getFungibleTokenSummary(
+  }>;
+  getFungibleTokenSummary(
     address: string
   ): Promise<{
     codehash: string;
@@ -287,23 +63,19 @@ export class SensibleApi {
     balance: number;
     symbol: string;
     decimal: number;
-  }> {
-    let url = `${this.serverBase}/ft/summary/${address}`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
-    }
+  }>;
+  getNonFungibleTokenUnspents(
+    codehash: string,
+    genesis: string,
+    address: string
+  ): Promise<NonFungibleTokenUnspent[]>;
+  getNonFungibleTokenUnspentDetail(
+    codehash: string,
+    genesis: string,
+    tokenid: string
+  ): Promise<NonFungibleTokenUnspent>;
 
-    return data;
-  }
-
-  /**
-   * 查询某人持有的所有NFT Token列表。获得持有的nft数量计数
-   * @param {String} address
-   * @returns
-   */
-  public async getNonFungibleTokenSummary(
+  getNonFungibleTokenSummary(
     address: string
   ): Promise<{
     codehash: string;
@@ -311,16 +83,88 @@ export class SensibleApi {
     count: number;
     pendingCount: number;
     symbol: string;
-  }> {
-    let url = `${this.serverBase}/nft/summary/${address}`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
-    }
-
-    return data;
-  }
+  }>;
 }
 
-module.exports = { SensibleApi };
+export class SensibleApi implements SensibleApiBase {
+  private apiTarget: API_TARGET;
+  private apiHandler: SensibleApiBase;
+  constructor(apiNet: API_NET, apiTarget: API_TARGET = API_TARGET.SENSIBLE) {
+    switch (apiTarget) {
+      case API_TARGET.METASV: {
+        this.apiHandler = new MetaSV(apiNet);
+        break;
+      }
+      default: {
+        this.apiHandler = new Sensible(apiNet);
+        break;
+      }
+    }
+  }
+
+  authorize(options: any) {
+    return this.apiHandler.authorize(options);
+  }
+  async getUnspents(address: string) {
+    return this.apiHandler.getUnspents(address);
+  }
+
+  async getRawTxData(txid: string) {
+    return this.apiHandler.getRawTxData(txid);
+  }
+
+  async broadcast(hex: string) {
+    return this.apiHandler.broadcast(hex);
+  }
+
+  async getFungibleTokenUnspents(
+    codehash: string,
+    genesis: string,
+    address: string,
+    size?: number
+  ) {
+    return this.apiHandler.getFungibleTokenUnspents(
+      codehash,
+      genesis,
+      address,
+      size
+    );
+  }
+  async getFungibleTokenBalance(
+    codehash: string,
+    genesis: string,
+    address: string
+  ) {
+    return this.apiHandler.getFungibleTokenBalance(codehash, genesis, address);
+  }
+
+  async getFungibleTokenSummary(address: string) {
+    return this.apiHandler.getFungibleTokenSummary(address);
+  }
+  async getNonFungibleTokenUnspents(
+    codehash: string,
+    genesis: string,
+    address: string
+  ) {
+    return this.apiHandler.getNonFungibleTokenUnspents(
+      codehash,
+      genesis,
+      address
+    );
+  }
+  async getNonFungibleTokenUnspentDetail(
+    codehash: string,
+    genesis: string,
+    tokenid: string
+  ) {
+    return this.apiHandler.getNonFungibleTokenUnspentDetail(
+      codehash,
+      genesis,
+      tokenid
+    );
+  }
+
+  async getNonFungibleTokenSummary(address: string) {
+    return this.apiHandler.getNonFungibleTokenSummary(address);
+  }
+}

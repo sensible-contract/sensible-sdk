@@ -2,7 +2,12 @@ import { bsv, Bytes, toHex } from "scryptlib";
 import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import * as Utils from "../common/utils";
 import { SigHashInfo, SigInfo } from "../common/utils";
-import { API_NET, FungibleTokenUnspent, SensibleApi } from "../sensible-api";
+import {
+  API_NET,
+  API_TARGET,
+  FungibleTokenUnspent,
+  SensibleApi,
+} from "../sensible-api";
 import {
   FtUtxo,
   FungibleToken,
@@ -65,9 +70,7 @@ type ParamUtxo = {
 
 type ParamFtUtxo = {
   txId: string;
-  satoshis: number;
   outputIndex: number;
-  lockingScript: string;
   tokenAddress: string;
   tokenAmount: any;
   wif?: string;
@@ -195,7 +198,7 @@ export class SensibleFT {
   private network: API_NET;
   private mock: boolean;
   private purse: Purse;
-  private sensibleApi: SensibleApi;
+  public sensibleApi: SensibleApi;
   private zeroAddress: any;
   private ft: FungibleToken;
   private debug: boolean;
@@ -216,6 +219,7 @@ export class SensibleFT {
     mock = false,
     purse,
     debug = false,
+    apiTarget = API_TARGET.SENSIBLE,
   }: {
     signers: SignerConfig[];
     feeb?: number;
@@ -223,20 +227,20 @@ export class SensibleFT {
     mock?: boolean;
     purse?: string;
     debug?: boolean;
+    apiTarget?: API_TARGET;
   }) {
     checkParamSigners(signers);
     checkParamNetwork(network);
-    // checkParamApiTarget(apiTarget);
     this.signers = signers.map(
       (v) => new SatotxSigner(v.satotxApiPrefix, v.satotxPubKey)
     );
     this.feeb = feeb;
     this.network = network;
     this.mock = mock;
-    this.sensibleApi = new SensibleApi(network);
+    this.sensibleApi = new SensibleApi(network, apiTarget);
     this.debug = debug;
 
-    if (network == "mainnet") {
+    if (network == API_NET.MAIN) {
       this.zeroAddress = new bsv.Address("1111111111111111111114oLvT2");
     } else {
       this.zeroAddress = new bsv.Address("mfWxJ45yp2SFn7UciZyNpvDKrzbhyfKrY8");
@@ -344,7 +348,6 @@ export class SensibleFT {
       ftUtxos.push({
         txId: v.txId,
         outputIndex: v.outputIndex,
-        satoshis: v.satoshis,
         tokenAddress: new bsv.Address(v.tokenAddress, this.network),
         tokenAmount: BigInt(v.tokenAmount),
         publicKey: publicKeys[index],
@@ -1965,8 +1968,8 @@ export class SensibleFT {
    * @param txHex
    * @param apiTarget 广播节点，可选sensible、metasv，默认sensible
    */
-  public async broadcast(txHex: string, apiTarget?: string) {
-    return await this.sensibleApi.broadcast(txHex, apiTarget);
+  public async broadcast(txHex: string) {
+    return await this.sensibleApi.broadcast(txHex);
   }
 
   /**

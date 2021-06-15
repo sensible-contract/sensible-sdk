@@ -2,7 +2,7 @@ import { bsv, toHex } from "scryptlib";
 import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import * as Utils from "../common/utils";
 import { SigHashInfo, SigInfo } from "../common/utils";
-import { API_NET, SensibleApi } from "../sensible-api";
+import { API_NET, API_TARGET, SensibleApi } from "../sensible-api";
 import { NonFungibleToken, sighashType } from "./NonFungibleToken";
 const dummyNetwork = "mainnet";
 const dummyWif = "L5k7xi4diSR8aWoGKojSNTnc3YMEXEoNpJEaGzqWimdKry6CFrzz";
@@ -123,7 +123,7 @@ export class SensibleNFT {
   private network: API_NET;
   private mock: boolean;
   private purse: string;
-  private sensibleApi: SensibleApi;
+  public sensibleApi: SensibleApi;
   private nft: NonFungibleToken;
   private debug: boolean;
   /**
@@ -142,6 +142,7 @@ export class SensibleNFT {
     mock = false,
     purse,
     debug = false,
+    apiTarget = API_TARGET.SENSIBLE,
   }: {
     signers: SignerConfig[];
     feeb: number;
@@ -149,6 +150,7 @@ export class SensibleNFT {
     mock: boolean;
     purse: string;
     debug: boolean;
+    apiTarget: API_TARGET;
   }) {
     checkParamSigners(signers);
     checkParamNetwork(network);
@@ -159,7 +161,7 @@ export class SensibleNFT {
     this.feeb = feeb;
     this.network = network;
     this.mock = mock;
-    this.sensibleApi = new SensibleApi(network);
+    this.sensibleApi = new SensibleApi(network, apiTarget);
     this.purse = purse;
     this.nft = new NonFungibleToken(BigInt("0x" + signers[0].satotxPubKey));
     this.debug = debug;
@@ -971,10 +973,9 @@ export class SensibleNFT {
   /**
    * 广播一笔交易
    * @param txHex
-   * @param apiTarget 广播节点，可选sensible、metasv，默认sensible
    */
-  public async broadcast(txHex: string, apiTarget: string) {
-    return await this.sensibleApi.broadcast(txHex, apiTarget);
+  public async broadcast(txHex: string) {
+    return await this.sensibleApi.broadcast(txHex);
   }
 
   public dumpTx(tx) {
