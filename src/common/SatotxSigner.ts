@@ -17,10 +17,29 @@ export type SignerConfig = {
 
 export class SatotxSigner {
   satotxApiPrefix: string;
-  satotxPubKey: string;
-  constructor(satotxApiPrefix: string, satotxPubKey: string) {
+  satotxPubKey?: string;
+  constructor(satotxApiPrefix: string, satotxPubKey?: string) {
     this.satotxApiPrefix = satotxApiPrefix;
     this.satotxPubKey = satotxPubKey;
+  }
+
+  async getInfo(): Promise<{
+    pubKey: string;
+  }> {
+    let _res = await Net.httpGet(
+      `${this.satotxApiPrefix}`,
+      {},
+      {
+        headers: {
+          "Accept-Encoding": "gzip",
+        },
+      }
+    );
+    const { code, msg, data } = _res as ResData;
+    if (code != 0) {
+      throw msg;
+    }
+    return data;
   }
 
   /**

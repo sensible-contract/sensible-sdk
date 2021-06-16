@@ -13,6 +13,7 @@ import {
   FungibleToken,
   RouteCheckType,
   sighashType,
+  SIGNER_NUM,
   SIGNER_VERIFY_NUM,
   Utxo,
 } from "./FungibleToken";
@@ -203,6 +204,7 @@ export class SensibleFT {
   private ft: FungibleToken;
   private debug: boolean;
   private transferPart2?: any;
+  private signerSelecteds: number[] = [];
   /**
    *
    * @param signers - 签名器
@@ -214,6 +216,7 @@ export class SensibleFT {
    */
   constructor({
     signers = defaultSignerConfigs,
+    signerSelecteds,
     feeb = 0.5,
     network = API_NET.MAIN,
     mock = false,
@@ -222,6 +225,7 @@ export class SensibleFT {
     apiTarget = API_TARGET.SENSIBLE,
   }: {
     signers: SignerConfig[];
+    signerSelecteds?: number[];
     feeb?: number;
     network?: API_NET;
     mock?: boolean;
@@ -262,6 +266,67 @@ export class SensibleFT {
         address,
       };
     }
+
+    if (signerSelecteds) {
+      if (signerSelecteds.length < SIGNER_VERIFY_NUM) {
+        throw new Error(
+          `the length of signerSeleteds should not less than ${SIGNER_VERIFY_NUM}`
+        );
+      }
+      this.signerSelecteds = signerSelecteds;
+    } else {
+      for (let i = 0; i < SIGNER_VERIFY_NUM; i++) {
+        this.signerSelecteds.push(i);
+      }
+    }
+  }
+
+  public static async selectSigners(signerArray: string[][]) {
+    if (signerArray.length < SIGNER_NUM) {
+      throw new Error(`The length of signerArray should be ${SIGNER_NUM}`);
+    }
+    let results = [];
+    for (let i = 0; i < signerArray.length; i++) {
+      let subArray = signerArray[i];
+      let ret = await new Promise((resolve, reject) => {
+        let hasResolve = false;
+        let failedCnt = 0;
+        for (let j = 0; j < subArray.length; j++) {
+          let url = subArray[j];
+          let signer = new SatotxSigner(url);
+          let d1 = Date.now();
+          signer
+            .getInfo()
+            .then(({ pubKey }) => {
+              let duration = Date.now() - d1;
+              if (!hasResolve) {
+                hasResolve = true;
+                resolve({ url, pubKey, duration, idx: i });
+              }
+            })
+            .catch((e) => {
+              failedCnt++;
+              if (failedCnt == subArray.length) {
+                reject(`failed to get info by ${url}`);
+              }
+              //ignore
+            });
+        }
+      });
+      results.push(ret);
+    }
+    let signers = results.map((v) => ({
+      satotxApiPrefix: v.url,
+      satotxPubKey: v.pubKey,
+    }));
+    let signerSelecteds: number[] = results
+      .sort((a, b) => a.duration - b.duration)
+      .slice(0, SIGNER_VERIFY_NUM)
+      .map((v) => v.idx);
+    return {
+      signers,
+      signerSelecteds,
+    };
   }
 
   private async _pretreatUtxos(
@@ -889,7 +954,7 @@ export class SensibleFT {
         byTxHex: spendByTxHex,
       },
       signers: this.signers,
-
+      signerSelecteds: this.signerSelecteds,
       opreturnData,
       genesisPrivateKey,
       utxoPrivateKeys,
@@ -1478,11 +1543,6 @@ export class SensibleFT {
     ];
     utxoPrivateKeys = utxos.map((v) => middlePrivateKey).filter((v) => v);
 
-    let signerSelecteds = [];
-    for (let i = 0; i < SIGNER_VERIFY_NUM; i++) {
-      signerSelecteds.push(i);
-    }
-
     let checkRabinMsgArray = Buffer.alloc(0);
     let checkRabinPaddingArray = Buffer.alloc(0);
     let checkRabinSigArray = Buffer.alloc(0);
@@ -1493,7 +1553,7 @@ export class SensibleFT {
       let v = ftUtxos[i];
       sigReqArray[i] = [];
       for (let j = 0; j < SIGNER_VERIFY_NUM; j++) {
-        const signerIndex = signerSelecteds[j];
+        const signerIndex = this.signerSelecteds[j];
         sigReqArray[i][j] = this.signers[signerIndex].satoTxSigUTXOSpendByUTXO({
           txId: v.preTxId,
           index: v.preOutputIndex,
@@ -1552,7 +1612,7 @@ export class SensibleFT {
       });
     }
 
-    let rabinPubKeyIndexArray = signerSelecteds;
+    let rabinPubKeyIndexArray = this.signerSelecteds;
 
     let transferPart2 = {
       routeCheckTx,

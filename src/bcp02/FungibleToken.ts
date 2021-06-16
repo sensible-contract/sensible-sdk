@@ -406,6 +406,7 @@ export class FungibleToken {
     allowIncreaseIssues,
     satotxData,
     signers,
+    signerSelecteds,
 
     genesisPrivateKey,
     utxoPrivateKeys,
@@ -517,15 +518,13 @@ export class FungibleToken {
       }
     } else {
       //查询签名器
-      let signerSelecteds = [];
-      for (let i = 0; i < SIGNER_NUM; i++) {
-        if (signerSelecteds.length == SIGNER_VERIFY_NUM) break;
+      for (let i = 0; i < signerSelecteds.length; i++) {
         try {
-          let sigInfo = await signers[i].satoTxSigUTXOSpendBy(satotxData);
+          let idx = signerSelecteds[i];
+          let sigInfo = await signers[idx].satoTxSigUTXOSpendBy(satotxData);
           rabinMsg = sigInfo.payload;
           rabinPaddingArray.push(new Bytes(sigInfo.padding));
           rabinSigArray.push(BigInt("0x" + sigInfo.sigBE));
-          signerSelecteds.push(i);
         } catch (e) {}
       }
 
