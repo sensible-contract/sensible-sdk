@@ -172,6 +172,7 @@ function satoshisToBSV(satoshis) {
   return (satoshis / 100000000).toFixed(8);
 }
 export function dumpTx(tx, network = "mainnet") {
+  tx._outputAmount = undefined;
   const version = tx.version;
   const size = tx.toBuffer().length;
   const feePaid = tx._getUnspentValue();

@@ -248,11 +248,7 @@ export class MetaSV implements SensibleApiBase {
     tokenid: string
   ) {
     let url = `https://api.sensiblequery.com/nft/utxo-detail/${codehash}/${genesis}/${tokenid}`;
-    let _res = await Net.httpGet(
-      url,
-      {},
-      { authorization: this.authorization }
-    );
+    let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw { title: "request sensible api failed", url, msg };
@@ -283,11 +279,7 @@ export class MetaSV implements SensibleApiBase {
     symbol: string;
   }> {
     let url = `https://api.sensiblequery.com/nft/summary/${address}`;
-    let _res = await Net.httpGet(
-      url,
-      {},
-      { authorization: this.authorization }
-    );
+    let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw { title: "request sensible api failed", url, msg };

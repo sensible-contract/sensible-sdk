@@ -43,10 +43,12 @@ export function getHeaderLen(): number {
 }
 
 export function getTokenAmount(script: Buffer): bigint {
+  if (script.length < TOKEN_AMOUNT_OFFSET) return BigInt(0);
   return script.readBigUInt64LE(script.length - TOKEN_AMOUNT_OFFSET);
 }
 
 export function getTokenID(script0: Buffer): TokenID {
+  if (script0.length < TOKEN_ID_OFFSET) return { txid: "", index: 0 };
   let script = Buffer.from(script0);
   let tokenIDBuf = script.slice(
     script.length - TOKEN_ID_OFFSET,
@@ -59,6 +61,7 @@ export function getTokenID(script0: Buffer): TokenID {
 }
 
 export function getTokenAddress(script: Buffer): string {
+  if (script.length < TOKEN_ADDRESS_OFFSET) return "";
   return script
     .slice(
       script.length - TOKEN_ADDRESS_OFFSET,
@@ -68,10 +71,12 @@ export function getTokenAddress(script: Buffer): string {
 }
 
 export function getDecimalNum(script: Buffer): number {
+  if (script.length < DECIMAL_NUM_OFFSET) return 0;
   return script.readUIntLE(script.length - DECIMAL_NUM_OFFSET, DECIMAL_NUM_LEN);
 }
 
 export function getGenesisFlag(script: Buffer): number {
+  if (script.length < GENESIS_FLAG_OFFSET) return 0;
   return script.readUIntLE(
     script.length - GENESIS_FLAG_OFFSET,
     GENESIS_FLAG_LEN
@@ -79,6 +84,8 @@ export function getGenesisFlag(script: Buffer): number {
 }
 
 export function getTokenSymbol(script: Buffer): string {
+  if (script.length < TOKEN_SYMBOL_OFFSET) return "";
+
   let buf = script.slice(
     script.length - TOKEN_SYMBOL_OFFSET,
     script.length - TOKEN_SYMBOL_OFFSET + TOKEN_SYMBOL_LEN
@@ -88,6 +95,8 @@ export function getTokenSymbol(script: Buffer): string {
 }
 
 export function getTokenName(script: Buffer): string {
+  if (script.length < TOKEN_NAME_OFFSET) return "";
+
   let buf = script.slice(
     script.length - TOKEN_NAME_OFFSET,
     script.length - TOKEN_NAME_OFFSET + TOKEN_NAME_LEN

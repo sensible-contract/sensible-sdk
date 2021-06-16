@@ -913,7 +913,7 @@ export class SensibleFT {
    * @param ftUtxos
    * @returns
    */
-  private async supplyFtUtxosInfo(ftUtxos: FtUtxo[]) {
+  private async supplyFtUtxosInfo(ftUtxos: FtUtxo[], codehash: string) {
     let cachedHexs: {
       [txid: string]: { waitingRes?: Promise<string>; hex?: string };
     } = {};
@@ -936,12 +936,52 @@ export class SensibleFT {
     ftUtxos.forEach((v) => {
       v.txHex = cachedHexs[v.txId].hex;
     });
+
     //获取前序tx raw，必须的吗？
+    let curDataPartObj: TokenProto.TokenDataPart;
+    let curGenesisHash: Buffer;
     for (let i = 0; i < ftUtxos.length; i++) {
       let ftUtxo = ftUtxos[i];
       const tx = new bsv.Transaction(ftUtxo.txHex);
-      let preTxId = tx.inputs[0].prevTxId.toString("hex"); //第一个输入必定能够作为前序输入
-      let preOutputIndex = tx.inputs[0].outputIndex;
+      if (!curDataPartObj) {
+        let tokenScript = tx.outputs[ftUtxo.outputIndex].script;
+        curDataPartObj = TokenProto.parseDataPart(tokenScript.toBuffer());
+        curGenesisHash = TokenUtil.getGenesisHashFromLockingScript(tokenScript);
+      }
+      let input = tx.inputs.find((input) => {
+        let script = new bsv.Script(input.script);
+        if (script.chunks.length > 0) {
+          const lockingScriptBuf = TokenUtil.getLockingScriptFromPreimage(
+            script.chunks[0].buf
+          );
+          if (lockingScriptBuf) {
+            let lockingScript = new bsv.Script(lockingScriptBuf);
+            let _codehash = Utils.getCodeHash(lockingScript);
+
+            let dataPartObj = TokenProto.parseDataPart(
+              lockingScript.toBuffer()
+            );
+            dataPartObj.tokenID = {
+              txid: curDataPartObj.tokenID.txid,
+              index: curDataPartObj.tokenID.index,
+            };
+            const newScriptBuf = TokenProto.updateScript(
+              lockingScript.toBuffer(),
+              dataPartObj
+            );
+            let _genesisHash = bsv.crypto.Hash.sha256ripemd160(newScriptBuf); //to avoid generate the same genesisHash,
+
+            if (_codehash == codehash) {
+              return true;
+            } else if (toHex(_genesisHash) == toHex(curGenesisHash)) {
+              return true;
+            }
+          }
+        }
+      });
+      if (!input) throw new Error("invalid ftUtxo");
+      let preTxId = input.prevTxId.toString("hex"); //第一个输入必定能够作为前序输入
+      let preOutputIndex = input.outputIndex;
       ftUtxo.preTxId = preTxId;
       ftUtxo.preOutputIndex = preOutputIndex;
       if (!cachedHexs[preTxId]) {
@@ -1316,7 +1356,7 @@ export class SensibleFT {
 
     ftUtxos = _ftUtxos;
     //完善ftUtxo的信息
-    await this.supplyFtUtxosInfo(ftUtxos);
+    await this.supplyFtUtxosInfo(ftUtxos, codehash);
 
     if (inputTokenAmountSum < outputTokenAmountSum) {
       throw new Error(
@@ -2150,5 +2190,3 @@ export class SensibleFT {
     );
   }
 }
-
-module.exports = { SensibleFT };

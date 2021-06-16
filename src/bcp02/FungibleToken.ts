@@ -21,7 +21,7 @@ export const SIGNER_VERIFY_NUM = 3;
 const genesisFlag = 1;
 const nonGenesisFlag = 0;
 const tokenType = 1;
-const genesisTokenIDTxid =
+export const genesisTokenIDTxid =
   "0000000000000000000000000000000000000000000000000000000000000000";
 const GenesisContractClass = buildContractClass(
   require("./contract-desc/tokenGenesis_desc.json")
@@ -88,11 +88,11 @@ export type Utxo = {
 export type FtUtxo = {
   txId: string;
   outputIndex: number;
-  txHex?: string;
   tokenAddress: any;
   tokenAmount: bigint;
-  satoshis: number;
 
+  txHex?: string;
+  satoshis?: number;
   preTxId?: string;
   preOutputIndex?: number;
   preTxHex?: string;
@@ -578,6 +578,8 @@ export class FungibleToken {
               feeb
           );
 
+          tx._fee = fee;
+          tx._outputAmount = undefined;
           changeAmount = tx._getUnspentValue() - fee;
           tx.outputs[tx.outputs.length - 1].satoshis = changeAmount;
         } else {
@@ -815,8 +817,9 @@ export class FungibleToken {
       const preLockingScript = preTx.outputs[v.preOutputIndex].script;
       const tx = new bsv.Transaction(v.txHex);
       const lockingScript = tx.outputs[v.outputIndex].script;
+      const satoshis = tx.outputs[v.outputIndex].satoshis;
       return {
-        satoshis: v.satoshis,
+        satoshis,
         txId: v.txId,
         outputIndex: v.outputIndex,
         lockingScript,
@@ -1007,6 +1010,8 @@ export class FungibleToken {
               feeb
           );
 
+          tx._fee = fee;
+          tx._outputAmount = undefined;
           changeAmount = tx._getUnspentValue() - fee;
           tx.outputs[tx.outputs.length - 1].satoshis = changeAmount;
         } else {
@@ -1069,18 +1074,10 @@ export class FungibleToken {
         const dataPart = TokenProto.newDataPart(dataPartObj);
 
         // this.createGenesisContract(dataPartObj);
-        let genesisHash = "";
-        let c = 0;
-        for (let i = 0; i < tokenInputLockingScript.chunks.length; i++) {
-          let chunk = tokenInputLockingScript.chunks[i];
-          if (chunk.buf && chunk.buf.length == 20) {
-            c++;
-            if (c == 11) {
-              genesisHash = chunk.buf;
-              break;
-            }
-          }
-        }
+        let genesisHash = TokenUtil.getGenesisHashFromLockingScript(
+          tokenInputLockingScript
+        );
+
         const tokenContract = new TokenContractClass(
           this.rabinPubKeyArray,
           this.routeCheckCodeHashArray,

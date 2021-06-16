@@ -13,6 +13,7 @@ export function getFlag(script: Buffer) {
 }
 
 export function getHeaderType(script: Buffer) {
+  if (script.length < TYPE_OFFSET) return 0;
   return script.readUIntLE(script.length - TYPE_OFFSET, TYPE_LEN);
 }
 

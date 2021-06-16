@@ -58,6 +58,11 @@ export class SatotxSigner {
       {
         txHex: txHex,
         byTxHex: byTxHex,
+      },
+      {
+        headers: {
+          "Accept-Encoding": "gzip",
+        },
       }
     );
     const { code, msg, data } = _res as ResData;
@@ -96,6 +101,11 @@ export class SatotxSigner {
       `${this.satotxApiPrefix}/utxo/${txId}/${index}`,
       {
         txHex: txHex,
+      },
+      {
+        headers: {
+          "Accept-Encoding": "gzip",
+        },
       }
     );
     const { code, msg, data } = _res as ResData;
@@ -140,6 +150,11 @@ export class SatotxSigner {
       {
         txHex: txHex,
         byTxHex: byTxHex,
+      },
+      {
+        headers: {
+          "Accept-Encoding": "gzip",
+        },
       }
     );
     const { code, msg, data } = _res as ResData;

@@ -261,6 +261,8 @@ export class NonFungibleToken {
               feeb
           );
 
+          tx._fee = fee;
+          tx._outputAmount = undefined;
           changeAmount = tx._getUnspentValue() - fee;
           tx.outputs[tx.outputs.length - 1].satoshis = changeAmount;
         } else {
@@ -475,6 +477,8 @@ export class NonFungibleToken {
               feeb
           );
 
+          tx._fee = fee;
+          tx._outputAmount = undefined;
           changeAmount = tx._getUnspentValue() - fee;
           tx.outputs[tx.outputs.length - 1].satoshis = changeAmount;
         } else {
