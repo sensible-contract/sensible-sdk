@@ -1362,6 +1362,12 @@ export class SensibleFT {
     opreturnData?: any;
     isEstimateSatoshis?: boolean;
   }) {
+    if (utxos.length > 3) {
+      throw new Error(
+        "The count of utxos should not be more than 3 in transfer,please merge them first"
+      );
+    }
+
     //将routeCheck的找零utxo作为transfer的输入utxo
     if (!middleChangeAddress) {
       middleChangeAddress = utxos[0].address;
