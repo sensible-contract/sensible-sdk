@@ -2,6 +2,7 @@ import { bsv } from "scryptlib";
 import { Net } from "../net";
 import {
   API_NET,
+  AuthorizationOption,
   FungibleTokenUnspent,
   NonFungibleTokenUnspent,
   SA_utxo,
@@ -43,7 +44,7 @@ export class MetaSV implements SensibleApiBase {
     }
   }
 
-  public authorize(options: any) {
+  public authorize(options: AuthorizationOption) {
     const { authorization, privateKey } = options;
 
     if (authorization) {

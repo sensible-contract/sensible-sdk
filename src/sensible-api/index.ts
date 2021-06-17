@@ -33,8 +33,19 @@ export type SA_utxo = {
   address: string;
 };
 
+export type AuthorizationOption = {
+  /**
+   * should be provided in MetaSV
+   */
+  authorization?: string;
+  /**
+   * should be provided in MetaSV
+   */
+  privateKey?: any;
+};
+
 export interface SensibleApiBase {
-  authorize: (options: any) => void;
+  authorize: (options: AuthorizationOption) => void;
   getUnspents: (address: string) => Promise<SA_utxo[]>;
   getRawTxData: (txid: string) => Promise<string>;
   broadcast: (hex: string) => Promise<string>;
@@ -102,9 +113,15 @@ export class SensibleApi implements SensibleApiBase {
     }
   }
 
-  authorize(options: any) {
+  /**
+   * Authorization to use MetaSV
+   * @param options
+   * @returns
+   */
+  authorize(options: AuthorizationOption) {
     return this.apiHandler.authorize(options);
   }
+
   async getUnspents(address: string) {
     return this.apiHandler.getUnspents(address);
   }

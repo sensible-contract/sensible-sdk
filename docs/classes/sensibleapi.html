@@ -73,6 +73,12 @@
 					</li>
 				</ul>
 			</section>
+			<section class="tsd-panel">
+				<h3>Implements</h3>
+				<ul class="tsd-hierarchy">
+					<li><span class="tsd-signature-type">SensibleApiBase</span></li>
+				</ul>
+			</section>
 			<section class="tsd-panel-group tsd-index-group">
 				<h2>Index</h2>
 				<section class="tsd-panel tsd-index-panel">
@@ -84,14 +90,9 @@
 							</ul>
 						</section>
 						<section class="tsd-index-section ">
-							<h3>Properties</h3>
-							<ul class="tsd-index-list">
-								<li class="tsd-kind-property tsd-parent-kind-class"><a href="sensibleapi.html#serverbase" class="tsd-kind-icon">server<wbr>Base</a></li>
-							</ul>
-						</section>
-						<section class="tsd-index-section ">
 							<h3>Methods</h3>
 							<ul class="tsd-index-list">
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="sensibleapi.html#authorize" class="tsd-kind-icon">authorize</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="sensibleapi.html#broadcast" class="tsd-kind-icon">broadcast</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="sensibleapi.html#getfungibletokenbalance" class="tsd-kind-icon">get<wbr>Fungible<wbr>Token<wbr>Balance</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="sensibleapi.html#getfungibletokensummary" class="tsd-kind-icon">get<wbr>Fungible<wbr>Token<wbr>Summary</a></li>
@@ -99,8 +100,6 @@
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="sensibleapi.html#getnonfungibletokensummary" class="tsd-kind-icon">get<wbr>Non<wbr>Fungible<wbr>Token<wbr>Summary</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="sensibleapi.html#getnonfungibletokenunspentdetail" class="tsd-kind-icon">get<wbr>Non<wbr>Fungible<wbr>Token<wbr>Unspent<wbr>Detail</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="sensibleapi.html#getnonfungibletokenunspents" class="tsd-kind-icon">get<wbr>Non<wbr>Fungible<wbr>Token<wbr>Unspents</a></li>
-								<li class="tsd-kind-method tsd-parent-kind-class"><a href="sensibleapi.html#getoutputfungibletoken" class="tsd-kind-icon">get<wbr>Output<wbr>Fungible<wbr>Token</a></li>
-								<li class="tsd-kind-method tsd-parent-kind-class"><a href="sensibleapi.html#getoutputnonfungibletoken" class="tsd-kind-icon">get<wbr>Output<wbr>Non<wbr>Fungible<wbr>Token</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="sensibleapi.html#getrawtxdata" class="tsd-kind-icon">get<wbr>Raw<wbr>TxData</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="sensibleapi.html#getunspents" class="tsd-kind-icon">get<wbr>Unspents</a></li>
 							</ul>
@@ -114,19 +113,22 @@
 					<a name="constructor" class="tsd-anchor"></a>
 					<h3>constructor</h3>
 					<ul class="tsd-signatures tsd-kind-constructor tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">new <wbr>Sensible<wbr>Api<span class="tsd-signature-symbol">(</span>apiNet<span class="tsd-signature-symbol">: </span><a href="../enums/api_net.html" class="tsd-signature-type" data-tsd-kind="Enumeration">API_NET</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="sensibleapi.html" class="tsd-signature-type" data-tsd-kind="Class">SensibleApi</a></li>
+						<li class="tsd-signature tsd-kind-icon">new <wbr>Sensible<wbr>Api<span class="tsd-signature-symbol">(</span>apiNet<span class="tsd-signature-symbol">: </span><a href="../enums/api_net.html" class="tsd-signature-type" data-tsd-kind="Enumeration">API_NET</a>, apiTarget<span class="tsd-signature-symbol">?: </span><a href="../enums/api_target.html" class="tsd-signature-type" data-tsd-kind="Enumeration">API_TARGET</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="sensibleapi.html" class="tsd-signature-type" data-tsd-kind="Class">SensibleApi</a></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in sensible-api/index.ts:50</li>
+									<li>Defined in sensible-api/index.ts:102</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
 									<h5>apiNet: <a href="../enums/api_net.html" class="tsd-signature-type" data-tsd-kind="Enumeration">API_NET</a></h5>
+								</li>
+								<li>
+									<h5>apiTarget: <a href="../enums/api_target.html" class="tsd-signature-type" data-tsd-kind="Enumeration">API_TARGET</a><span class="tsd-signature-symbol"> = ...</span></h5>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <a href="sensibleapi.html" class="tsd-signature-type" data-tsd-kind="Class">SensibleApi</a></h4>
@@ -135,40 +137,54 @@
 				</section>
 			</section>
 			<section class="tsd-panel-group tsd-member-group ">
-				<h2>Properties</h2>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class">
-					<a name="serverbase" class="tsd-anchor"></a>
-					<h3>server<wbr>Base</h3>
-					<div class="tsd-signature tsd-kind-icon">server<wbr>Base<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in sensible-api/index.ts:50</li>
-						</ul>
-					</aside>
-				</section>
-			</section>
-			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Methods</h2>
 				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
-					<a name="broadcast" class="tsd-anchor"></a>
-					<h3>broadcast</h3>
+					<a name="authorize" class="tsd-anchor"></a>
+					<h3>authorize</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">broadcast<span class="tsd-signature-symbol">(</span>txHex<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, apiTarget<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">authorize<span class="tsd-signature-symbol">(</span>options<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AuthorizationOption</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
+								<p>Implementation of SensibleApiBase.authorize</p>
 								<ul>
-									<li>Defined in sensible-api/index.ts:90</li>
+									<li>Defined in sensible-api/index.ts:121</li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Authorization to use MetaSV</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>options: <span class="tsd-signature-type">AuthorizationOption</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="broadcast" class="tsd-anchor"></a>
+					<h3>broadcast</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">broadcast<span class="tsd-signature-symbol">(</span>hex<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Implementation of SensibleApiBase.broadcast</p>
+								<ul>
+									<li>Defined in sensible-api/index.ts:133</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>txHex: <span class="tsd-signature-type">string</span></h5>
-								</li>
-								<li>
-									<h5>apiTarget: <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> = &quot;sensible&quot;</span></h5>
+									<h5>hex: <span class="tsd-signature-type">string</span></h5>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span></h4>
@@ -184,15 +200,11 @@
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
+								<p>Implementation of SensibleApiBase.getFungibleTokenBalance</p>
 								<ul>
-									<li>Defined in sensible-api/index.ts:162</li>
+									<li>Defined in sensible-api/index.ts:150</li>
 								</ul>
 							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>查询某人持有的某FT的余额</p>
-								</div>
-							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
@@ -218,15 +230,11 @@
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
+								<p>Implementation of SensibleApiBase.getFungibleTokenSummary</p>
 								<ul>
-									<li>Defined in sensible-api/index.ts:281</li>
+									<li>Defined in sensible-api/index.ts:158</li>
 								</ul>
 							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>查询某人持有的FT Token列表。获得每个token的余额</p>
-								</div>
-							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
@@ -246,15 +254,11 @@
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
+								<p>Implementation of SensibleApiBase.getFungibleTokenUnspents</p>
 								<ul>
-									<li>Defined in sensible-api/index.ts:135</li>
+									<li>Defined in sensible-api/index.ts:137</li>
 								</ul>
 							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>通过FT合约CodeHash+溯源genesis获取某地址的utxo列表</p>
-								</div>
-							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
@@ -267,7 +271,7 @@
 									<h5>address: <span class="tsd-signature-type">string</span></h5>
 								</li>
 								<li>
-									<h5>size: <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> = 10</span></h5>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> size: <span class="tsd-signature-type">number</span></h5>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">FungibleTokenUnspent</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></h4>
@@ -283,15 +287,11 @@
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
+								<p>Implementation of SensibleApiBase.getNonFungibleTokenSummary</p>
 								<ul>
-									<li>Defined in sensible-api/index.ts:306</li>
+									<li>Defined in sensible-api/index.ts:184</li>
 								</ul>
 							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>查询某人持有的所有NFT Token列表。获得持有的nft数量计数</p>
-								</div>
-							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
@@ -306,20 +306,16 @@
 					<a name="getnonfungibletokenunspentdetail" class="tsd-anchor"></a>
 					<h3>get<wbr>Non<wbr>Fungible<wbr>Token<wbr>Unspent<wbr>Detail</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">get<wbr>Non<wbr>Fungible<wbr>Token<wbr>Unspent<wbr>Detail<span class="tsd-signature-symbol">(</span>codehash<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, genesis<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, tokenid<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">{ </span>lockingScript<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>metaTxId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>outputIndex<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>satoshis<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>tokenAddress<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>tokenId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>txId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol"> }</span><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">get<wbr>Non<wbr>Fungible<wbr>Token<wbr>Unspent<wbr>Detail<span class="tsd-signature-symbol">(</span>codehash<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, genesis<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, tokenid<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">NonFungibleTokenUnspent</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
+								<p>Implementation of SensibleApiBase.getNonFungibleTokenUnspentDetail</p>
 								<ul>
-									<li>Defined in sensible-api/index.ts:235</li>
+									<li>Defined in sensible-api/index.ts:172</li>
 								</ul>
 							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>查询某人持有的某FT的UTXO</p>
-								</div>
-							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
@@ -332,7 +328,7 @@
 									<h5>tokenid: <span class="tsd-signature-type">string</span></h5>
 								</li>
 							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">{ </span>lockingScript<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>metaTxId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>outputIndex<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>satoshis<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>tokenAddress<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>tokenId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>txId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol"> }</span><span class="tsd-signature-symbol">&gt;</span></h4>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">NonFungibleTokenUnspent</span><span class="tsd-signature-symbol">&gt;</span></h4>
 						</li>
 					</ul>
 				</section>
@@ -345,15 +341,11 @@
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
+								<p>Implementation of SensibleApiBase.getNonFungibleTokenUnspents</p>
 								<ul>
-									<li>Defined in sensible-api/index.ts:207</li>
+									<li>Defined in sensible-api/index.ts:161</li>
 								</ul>
 							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>通过NFT合约CodeHash+溯源genesis获取某地址的utxo列表</p>
-								</div>
-							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
@@ -371,63 +363,6 @@
 					</ul>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
-					<a name="getoutputfungibletoken" class="tsd-anchor"></a>
-					<h3>get<wbr>Output<wbr>Fungible<wbr>Token</h3>
-					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">get<wbr>Output<wbr>Fungible<wbr>Token<span class="tsd-signature-symbol">(</span>txid<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, index<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">{ </span>lockingScript<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>outputIndex<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>satoshis<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>tokenAddress<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>tokenAmount<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>txId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol"> }</span><span class="tsd-signature-symbol">&gt;</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in sensible-api/index.ts:185</li>
-								</ul>
-							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>获取指定交易的FT输出信息</p>
-								</div>
-							</div>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>txid: <span class="tsd-signature-type">string</span></h5>
-								</li>
-								<li>
-									<h5>index: <span class="tsd-signature-type">number</span></h5>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">{ </span>lockingScript<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>outputIndex<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>satoshis<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>tokenAddress<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>tokenAmount<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>txId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol"> }</span><span class="tsd-signature-symbol">&gt;</span></h4>
-						</li>
-					</ul>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
-					<a name="getoutputnonfungibletoken" class="tsd-anchor"></a>
-					<h3>get<wbr>Output<wbr>Non<wbr>Fungible<wbr>Token</h3>
-					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">get<wbr>Output<wbr>Non<wbr>Fungible<wbr>Token<span class="tsd-signature-symbol">(</span>txid<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, index<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">{ </span>lockingScript<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>outputIndex<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>satoshis<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>tokenAddress<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>tokenId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>txId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol"> }</span><span class="tsd-signature-symbol">&gt;</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in sensible-api/index.ts:259</li>
-								</ul>
-							</aside>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>txid: <span class="tsd-signature-type">string</span></h5>
-								</li>
-								<li>
-									<h5>index: <span class="tsd-signature-type">number</span></h5>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">{ </span>lockingScript<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>outputIndex<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>satoshis<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>tokenAddress<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>tokenId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>txId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol"> }</span><span class="tsd-signature-symbol">&gt;</span></h4>
-						</li>
-					</ul>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
 					<a name="getrawtxdata" class="tsd-anchor"></a>
 					<h3>get<wbr>Raw<wbr>TxData</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
@@ -436,16 +371,15 @@
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
+								<p>Implementation of SensibleApiBase.getRawTxData</p>
 								<ul>
-									<li>Defined in sensible-api/index.ts:119</li>
+									<li>Defined in sensible-api/index.ts:129</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
 									<h5>txid: <span class="tsd-signature-type">string</span></h5>
-									<div class="tsd-comment tsd-typography">
-									</div>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span></h4>
@@ -456,24 +390,23 @@
 					<a name="getunspents" class="tsd-anchor"></a>
 					<h3>get<wbr>Unspents</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">get<wbr>Unspents<span class="tsd-signature-symbol">(</span>address<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">{ </span>address<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">; </span>outputIndex<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">; </span>satoshis<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">; </span>txId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> }</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">get<wbr>Unspents<span class="tsd-signature-symbol">(</span>address<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">SA_utxo</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
+								<p>Implementation of SensibleApiBase.getUnspents</p>
 								<ul>
-									<li>Defined in sensible-api/index.ts:62</li>
+									<li>Defined in sensible-api/index.ts:125</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
 									<h5>address: <span class="tsd-signature-type">string</span></h5>
-									<div class="tsd-comment tsd-typography">
-									</div>
 								</li>
 							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">{ </span>address<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">; </span>outputIndex<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">; </span>satoshis<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">; </span>txId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> }</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></h4>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">SA_utxo</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></h4>
 						</li>
 					</ul>
 				</section>
@@ -492,6 +425,9 @@
 					<li class=" tsd-kind-enum">
 						<a href="../enums/api_net.html" class="tsd-kind-icon">API_<wbr>NET</a>
 					</li>
+					<li class=" tsd-kind-enum">
+						<a href="../enums/api_target.html" class="tsd-kind-icon">API_<wbr>TARGET</a>
+					</li>
 				</ul>
 				<ul class="current">
 					<li class="current tsd-kind-class">
@@ -500,8 +436,8 @@
 							<li class=" tsd-kind-constructor tsd-parent-kind-class">
 								<a href="sensibleapi.html#constructor" class="tsd-kind-icon">constructor</a>
 							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-class">
-								<a href="sensibleapi.html#serverbase" class="tsd-kind-icon">server<wbr>Base</a>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="sensibleapi.html#authorize" class="tsd-kind-icon">authorize</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="sensibleapi.html#broadcast" class="tsd-kind-icon">broadcast</a>
@@ -523,12 +459,6 @@
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="sensibleapi.html#getnonfungibletokenunspents" class="tsd-kind-icon">get<wbr>Non<wbr>Fungible<wbr>Token<wbr>Unspents</a>
-							</li>
-							<li class=" tsd-kind-method tsd-parent-kind-class">
-								<a href="sensibleapi.html#getoutputfungibletoken" class="tsd-kind-icon">get<wbr>Output<wbr>Fungible<wbr>Token</a>
-							</li>
-							<li class=" tsd-kind-method tsd-parent-kind-class">
-								<a href="sensibleapi.html#getoutputnonfungibletoken" class="tsd-kind-icon">get<wbr>Output<wbr>Non<wbr>Fungible<wbr>Token</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="sensibleapi.html#getrawtxdata" class="tsd-kind-icon">get<wbr>Raw<wbr>TxData</a>
@@ -559,6 +489,9 @@
 				<li class="tsd-kind-constructor tsd-parent-kind-class"><span class="tsd-kind-icon">Constructor</span></li>
 				<li class="tsd-kind-property tsd-parent-kind-class"><span class="tsd-kind-icon">Property</span></li>
 				<li class="tsd-kind-method tsd-parent-kind-class"><span class="tsd-kind-icon">Method</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-method tsd-parent-kind-class tsd-is-static"><span class="tsd-kind-icon">Static method</span></li>
 			</ul>
 		</div>
 	</div>

@@ -92,6 +92,12 @@
 							</ul>
 						</section>
 						<section class="tsd-index-section ">
+							<h3>Properties</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-property tsd-parent-kind-class"><a href="sensiblenft.html#sensibleapi" class="tsd-kind-icon">sensible<wbr>Api</a></li>
+							</ul>
+						</section>
+						<section class="tsd-index-section ">
 							<h3>Methods</h3>
 							<ul class="tsd-index-list">
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="sensiblenft.html#broadcast" class="tsd-kind-icon">broadcast</a></li>
@@ -119,7 +125,7 @@
 					<a name="constructor" class="tsd-anchor"></a>
 					<h3>constructor</h3>
 					<ul class="tsd-signatures tsd-kind-constructor tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">new <wbr>SensibleNFT<span class="tsd-signature-symbol">(</span>__namedParameters<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">{ </span>debug<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">; </span>feeb<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">; </span>mock<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">; </span>network<span class="tsd-signature-symbol">: </span><a href="../enums/api_net.html" class="tsd-signature-type" data-tsd-kind="Enumeration">API_NET</a><span class="tsd-signature-symbol">; </span>purse<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">; </span>signers<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">SignerConfig</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> }</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="sensiblenft.html" class="tsd-signature-type" data-tsd-kind="Class">SensibleNFT</a></li>
+						<li class="tsd-signature tsd-kind-icon">new <wbr>SensibleNFT<span class="tsd-signature-symbol">(</span>__namedParameters<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">{ </span>apiTarget<span class="tsd-signature-symbol">: </span><a href="../enums/api_target.html" class="tsd-signature-type" data-tsd-kind="Enumeration">API_TARGET</a><span class="tsd-signature-symbol">; </span>debug<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">; </span>feeb<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">; </span>mock<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">; </span>network<span class="tsd-signature-symbol">: </span><a href="../enums/api_net.html" class="tsd-signature-type" data-tsd-kind="Enumeration">API_NET</a><span class="tsd-signature-symbol">; </span>purse<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">; </span>signers<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">SignerConfig</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> }</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="sensiblenft.html" class="tsd-signature-type" data-tsd-kind="Class">SensibleNFT</a></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
@@ -131,8 +137,11 @@
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>__namedParameters: <span class="tsd-signature-symbol">{ </span>debug<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">; </span>feeb<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">; </span>mock<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">; </span>network<span class="tsd-signature-symbol">: </span><a href="../enums/api_net.html" class="tsd-signature-type" data-tsd-kind="Enumeration">API_NET</a><span class="tsd-signature-symbol">; </span>purse<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">; </span>signers<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">SignerConfig</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> }</span></h5>
+									<h5>__namedParameters: <span class="tsd-signature-symbol">{ </span>apiTarget<span class="tsd-signature-symbol">: </span><a href="../enums/api_target.html" class="tsd-signature-type" data-tsd-kind="Enumeration">API_TARGET</a><span class="tsd-signature-symbol">; </span>debug<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">; </span>feeb<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">; </span>mock<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">; </span>network<span class="tsd-signature-symbol">: </span><a href="../enums/api_net.html" class="tsd-signature-type" data-tsd-kind="Enumeration">API_NET</a><span class="tsd-signature-symbol">; </span>purse<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">; </span>signers<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">SignerConfig</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> }</span></h5>
 									<ul class="tsd-parameters">
+										<li class="tsd-parameter">
+											<h5>api<wbr>Target<span class="tsd-signature-symbol">: </span><a href="../enums/api_target.html" class="tsd-signature-type" data-tsd-kind="Enumeration">API_TARGET</a></h5>
+										</li>
 										<li class="tsd-parameter">
 											<h5>debug<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span></h5>
 											<div class="tsd-comment tsd-typography">
@@ -178,18 +187,31 @@
 				</section>
 			</section>
 			<section class="tsd-panel-group tsd-member-group ">
+				<h2>Properties</h2>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class">
+					<a name="sensibleapi" class="tsd-anchor"></a>
+					<h3>sensible<wbr>Api</h3>
+					<div class="tsd-signature tsd-kind-icon">sensible<wbr>Api<span class="tsd-signature-symbol">:</span> <a href="sensibleapi.html" class="tsd-signature-type" data-tsd-kind="Class">SensibleApi</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in bcp01/index.ts:126</li>
+						</ul>
+					</aside>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Methods</h2>
 				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
 					<a name="broadcast" class="tsd-anchor"></a>
 					<h3>broadcast</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">broadcast<span class="tsd-signature-symbol">(</span>txHex<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, apiTarget<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">broadcast<span class="tsd-signature-symbol">(</span>txHex<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in bcp01/index.ts:976</li>
+									<li>Defined in bcp01/index.ts:977</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -201,11 +223,7 @@
 							<ul class="tsd-parameters">
 								<li>
 									<h5>txHex: <span class="tsd-signature-type">string</span></h5>
-								</li>
-								<li>
-									<h5>apiTarget: <span class="tsd-signature-type">string</span></h5>
 									<div class="tsd-comment tsd-typography">
-										<p>广播节点，可选sensible、metasv，默认sensible</p>
 									</div>
 								</li>
 							</ul>
@@ -223,7 +241,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in bcp01/index.ts:980</li>
+									<li>Defined in bcp01/index.ts:981</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -246,7 +264,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in bcp01/index.ts:200</li>
+									<li>Defined in bcp01/index.ts:202</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -312,7 +330,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in bcp01/index.ts:886</li>
+									<li>Defined in bcp01/index.ts:888</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -345,7 +363,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in bcp01/index.ts:912</li>
+									<li>Defined in bcp01/index.ts:914</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -378,7 +396,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in bcp01/index.ts:862</li>
+									<li>Defined in bcp01/index.ts:864</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -409,7 +427,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in bcp01/index.ts:873</li>
+									<li>Defined in bcp01/index.ts:875</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -452,7 +470,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in bcp01/index.ts:939</li>
+									<li>Defined in bcp01/index.ts:941</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -485,7 +503,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in bcp01/index.ts:378</li>
+									<li>Defined in bcp01/index.ts:380</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -570,7 +588,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in bcp01/index.ts:967</li>
+									<li>Defined in bcp01/index.ts:969</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -606,7 +624,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in bcp01/index.ts:625</li>
+									<li>Defined in bcp01/index.ts:627</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -690,7 +708,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in bcp01/index.ts:257</li>
+									<li>Defined in bcp01/index.ts:259</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -750,7 +768,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in bcp01/index.ts:446</li>
+									<li>Defined in bcp01/index.ts:448</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -828,7 +846,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in bcp01/index.ts:691</li>
+									<li>Defined in bcp01/index.ts:693</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -911,6 +929,9 @@
 					<li class=" tsd-kind-enum">
 						<a href="../enums/api_net.html" class="tsd-kind-icon">API_<wbr>NET</a>
 					</li>
+					<li class=" tsd-kind-enum">
+						<a href="../enums/api_target.html" class="tsd-kind-icon">API_<wbr>TARGET</a>
+					</li>
 					<li class=" tsd-kind-class">
 						<a href="sensibleapi.html" class="tsd-kind-icon">Sensible<wbr>Api</a>
 					</li>
@@ -924,6 +945,9 @@
 						<ul>
 							<li class=" tsd-kind-constructor tsd-parent-kind-class">
 								<a href="sensiblenft.html#constructor" class="tsd-kind-icon">constructor</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class">
+								<a href="sensiblenft.html#sensibleapi" class="tsd-kind-icon">sensible<wbr>Api</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="sensiblenft.html#broadcast" class="tsd-kind-icon">broadcast</a>
@@ -984,6 +1008,9 @@
 				<li class="tsd-kind-constructor tsd-parent-kind-class"><span class="tsd-kind-icon">Constructor</span></li>
 				<li class="tsd-kind-property tsd-parent-kind-class"><span class="tsd-kind-icon">Property</span></li>
 				<li class="tsd-kind-method tsd-parent-kind-class"><span class="tsd-kind-icon">Method</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-method tsd-parent-kind-class tsd-is-static"><span class="tsd-kind-icon">Static method</span></li>
 			</ul>
 		</div>
 	</div>

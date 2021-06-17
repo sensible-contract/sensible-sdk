@@ -1,6 +1,7 @@
 import { Net } from "../net";
 import {
   API_NET,
+  AuthorizationOption,
   FungibleTokenUnspent,
   NonFungibleTokenUnspent,
   SensibleApiBase,
@@ -38,7 +39,7 @@ export class Sensible implements SensibleApiBase {
     }
   }
 
-  public authorize(options: any) {}
+  public authorize(options: AuthorizationOption) {}
   /**
    * @param {string} address
    */
