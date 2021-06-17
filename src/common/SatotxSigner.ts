@@ -10,6 +10,14 @@ export type SignerConfig = {
   satotxPubKey: string;
 };
 
+function fixApiPrefix(api: string) {
+  api = api.split(",")[0];
+  if (api[api.length - 1] == "/") {
+    api = api.slice(0, api.length - 1);
+  }
+  return api;
+}
+
 /**
  * 签名器API
  * https://github.com/sensible-contract/satotx
@@ -19,7 +27,7 @@ export class SatotxSigner {
   satotxApiPrefix: string;
   satotxPubKey?: string;
   constructor(satotxApiPrefix: string, satotxPubKey?: string) {
-    this.satotxApiPrefix = satotxApiPrefix;
+    this.satotxApiPrefix = fixApiPrefix(satotxApiPrefix);
     this.satotxPubKey = satotxPubKey;
   }
 
@@ -70,7 +78,6 @@ export class SatotxSigner {
     sigLE: string;
     padding: string;
     payload: string;
-    script: string;
   }> {
     let _res = await Net.httpPost(
       `${this.satotxApiPrefix}/utxo-spend-by/${txId}/${index}/${byTxId}`,
@@ -114,7 +121,6 @@ export class SatotxSigner {
     sigLE: string;
     padding: string;
     payload: string;
-    script: string;
   }> {
     let _res = await Net.httpPost(
       `${this.satotxApiPrefix}/utxo/${txId}/${index}`,
@@ -155,7 +161,6 @@ export class SatotxSigner {
     sigLE: string;
     padding: string;
     payload: string;
-    script: string;
     byTxId: string;
     byTxIndex: number;
     byTxSigBE: string;

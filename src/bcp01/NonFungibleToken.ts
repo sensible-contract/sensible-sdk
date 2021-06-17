@@ -10,7 +10,7 @@ import {
   Sig,
   SigHashPreimage,
   signTx,
-  toHex,
+  toHex
 } from "scryptlib";
 import * as Utils from "../common/utils";
 import { P2PKH_UNLOCK_SIZE, SIG_PLACE_HOLDER } from "../common/utils";
@@ -227,7 +227,8 @@ export class NonFungibleToken {
     const nftOutputSatoshis = tx.outputs[reachTotalSupply ? 0 : 1].satoshis;
 
     let sigInfo = await signers[0].satoTxSigUTXOSpendBy(satotxData);
-    let script = new bsv.Script(sigInfo.script);
+    const preTx = new bsv.Transaction(satotxData.txHex);
+    let script = preTx.outputs[satotxData.index].script;
     let preDataPartHex = this.getDataPartFromScript(script);
 
     let changeAmount = 0;
@@ -443,7 +444,8 @@ export class NonFungibleToken {
     const nftOutputSatoshis = tx.outputs[0].satoshis;
 
     let sigInfo = await signers[0].satoTxSigUTXOSpendBy(satotxData);
-    let script = new bsv.Script(sigInfo.script);
+    const preTx = new bsv.Transaction(satotxData.txHex);
+    let script = preTx.outputs[satotxData.index].script;
     let preDataPartHex = this.getDataPartFromScript(script);
 
     let changeAmount = 0;
