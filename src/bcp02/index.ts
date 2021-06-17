@@ -279,6 +279,7 @@ export class SensibleFT {
         this.signerSelecteds.push(i);
       }
     }
+    this.signerSelecteds.sort((a, b) => a - b);
   }
 
   public static async selectSigners(
@@ -2001,7 +2002,7 @@ export class SensibleFT {
     opreturnData?: any;
   }) {
     let p2pkhInputNum = 1; //至少1输入
-    p2pkhInputNum = 10; //支持10输入的费用
+    p2pkhInputNum = 3; //支持10输入的费用
 
     if (senderWif) {
       senderPrivateKey = bsv.PrivateKey.fromWIF(senderWif);
