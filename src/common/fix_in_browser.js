@@ -1,3 +1,8 @@
+var BN = require("bn.js");
+BN.prototype.toBuffer = function toBuffer(endian, length) {
+  return this.toArrayLike(Buffer, endian, length);
+};
+
 if (!Buffer.prototype.readBigUInt64LE) {
   Buffer.prototype.readBigUInt64LE = function (offset) {
     let b1 = BigInt(this.readUInt32LE(offset + 0));
