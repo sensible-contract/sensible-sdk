@@ -281,50 +281,77 @@ export class SensibleFT {
     }
   }
 
-  public static async selectSigners(signerArray: string[][]) {
-    if (signerArray.length < SIGNER_NUM) {
+  public static async selectSigners(
+    signerConfigs: SignerConfig[] = defaultSignerConfigs
+  ) {
+    let _signerConfigs = signerConfigs.map((v) => Object.assign({}, v));
+    if (_signerConfigs.length < SIGNER_NUM) {
       throw new Error(`The length of signerArray should be ${SIGNER_NUM}`);
     }
     let results = [];
-    for (let i = 0; i < signerArray.length; i++) {
-      let subArray = signerArray[i];
-      let ret = await new Promise((resolve, reject) => {
-        let hasResolve = false;
-        let failedCnt = 0;
-        for (let j = 0; j < subArray.length; j++) {
-          let url = subArray[j];
-          let signer = new SatotxSigner(url);
-          let d1 = Date.now();
-          signer
-            .getInfo()
-            .then(({ pubKey }) => {
-              let duration = Date.now() - d1;
-              if (!hasResolve) {
-                hasResolve = true;
-                resolve({ url, pubKey, duration, idx: i });
-              }
-            })
-            .catch((e) => {
-              failedCnt++;
-              if (failedCnt == subArray.length) {
-                reject(`failed to get info by ${url}`);
-              }
-              //ignore
-            });
+    const SIGNER_TIMEOUT = 99999;
+    for (let i = 0; i < _signerConfigs.length; i++) {
+      let signerConfig = _signerConfigs[i];
+      let subArray = signerConfig.satotxApiPrefix.split(",");
+      let ret = await new Promise(
+        (
+          resolve: ({
+            url,
+            pubKey,
+            duration,
+            idx,
+          }: {
+            url: string;
+            pubKey: string;
+            duration: number;
+            idx: number;
+          }) => void,
+          reject
+        ) => {
+          let hasResolve = false;
+          let failedCnt = 0;
+          for (let j = 0; j < subArray.length; j++) {
+            let url = subArray[j];
+            let signer = new SatotxSigner(url);
+            let d1 = Date.now();
+            signer
+              .getInfo()
+              .then(({ pubKey }) => {
+                let duration = Date.now() - d1;
+                if (!hasResolve) {
+                  hasResolve = true;
+                  resolve({ url, pubKey, duration, idx: i });
+                }
+              })
+              .catch((e) => {
+                failedCnt++;
+                if (failedCnt == subArray.length) {
+                  resolve({
+                    url,
+                    pubKey: null,
+                    duration: SIGNER_TIMEOUT,
+                    idx: i,
+                  });
+                  // reject(`failed to get info by ${url}`);
+                }
+                //ignore
+              });
+          }
         }
-      });
+      );
+      signerConfig.satotxApiPrefix = ret.url;
       results.push(ret);
     }
-    let signers = results.map((v) => ({
-      satotxApiPrefix: v.url,
-      satotxPubKey: v.pubKey,
-    }));
     let signerSelecteds: number[] = results
+      .filter((v) => v.duration < SIGNER_TIMEOUT)
       .sort((a, b) => a.duration - b.duration)
       .slice(0, SIGNER_VERIFY_NUM)
       .map((v) => v.idx);
+    if (signerSelecteds.length < SIGNER_VERIFY_NUM) {
+      throw `Less than 3 successful signer requests`;
+    }
     return {
-      signers,
+      signers: _signerConfigs,
       signerSelecteds,
     };
   }
@@ -422,8 +449,6 @@ export class SensibleFT {
     if (ftUtxos.length == 0) throw new Error("Insufficient token.");
     return { ftUtxos, ftUtxoPrivateKeys };
   }
-
-  private _selectFtUtxos() {}
 
   /**
    * 构造一笔的genesis交易,并广播
