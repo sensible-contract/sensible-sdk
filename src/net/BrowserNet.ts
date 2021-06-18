@@ -19,7 +19,6 @@ export class BrowserNet {
     for (var id in reqConfig.headers) {
       xhr.setRequestHeader(id, reqConfig.headers[id]);
     }
-    console.log(reqConfig.headers);
     xhr.onreadystatechange = function () {
       //注册回调的方法，发送成功后执行
       if (hasCallbacked) return;
