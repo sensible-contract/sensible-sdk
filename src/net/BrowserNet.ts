@@ -16,7 +16,10 @@ export class BrowserNet {
     let hasCallbacked = false;
     var xhr = new XMLHttpRequest(); //创建XMLHttpRequest对象
     xhr.open(method, uri, true); //设置和服务器交互的参数
-    xhr.setRequestHeader("Content-Type", "application/json;charset=utf-8");
+    for (var id in reqConfig.headers) {
+      xhr.setRequestHeader(id, reqConfig.headers[id]);
+    }
+    console.log(reqConfig.headers);
     xhr.onreadystatechange = function () {
       //注册回调的方法，发送成功后执行
       if (hasCallbacked) return;
@@ -97,13 +100,13 @@ export class BrowserNet {
     });
   }
 
-  static httpPost(
+  static async httpPost(
     url: string,
     params: any,
     cb?: Function,
     config?: HttpConfig
   ) {
-    let postData = "";
+    let postData: any;
 
     config = config || {};
 
@@ -121,8 +124,11 @@ export class BrowserNet {
     } else {
       postData = JSON.stringify(params);
     }
-    let bodyString = Buffer.from(postData);
-    headers["content-length"] = bodyString.length;
+
+    if (headers["content-encoding"] == "gzip") {
+      postData = await Utils.gzip(Buffer.from(postData));
+    }
+
     const reqData = {
       uri: url,
       method: "POST",

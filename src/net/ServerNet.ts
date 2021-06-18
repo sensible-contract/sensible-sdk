@@ -68,13 +68,13 @@ export class ServerNet {
     });
   }
 
-  static httpPost(
+  static async httpPost(
     url: string,
     params: any,
     cb?: Function,
     config?: HttpConfig
   ) {
-    let postData = "";
+    let postData: any;
     config = config || {};
     let headers = config.headers || {};
     let timeout = config.timeout || 180000;
@@ -90,8 +90,10 @@ export class ServerNet {
     } else {
       postData = JSON.stringify(params);
     }
-    let bodyString = Buffer.from(postData);
-    headers["content-length"] = bodyString.length;
+    if (headers["content-encoding"] == "gzip") {
+      postData = await Utils.gzip(Buffer.from(postData));
+    }
+
     const reqData = {
       uri: url,
       method: "POST",

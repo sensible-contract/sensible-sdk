@@ -26,7 +26,8 @@
   "license": "MIT",
   "dependencies": {
     "request": "^2.88.2",
-    "scryptlib": "^0.4.1"
+    "scryptlib": "^0.4.1",
+    "zlib": "^1.0.5"
   },
   "devDependencies": {
     "browserify": "^17.0.0",

@@ -178,6 +178,7 @@ export class SatotxSigner {
       {
         headers: {
           "Accept-Encoding": "gzip",
+          "Content-Encoding": "gzip",
         },
       }
     );
