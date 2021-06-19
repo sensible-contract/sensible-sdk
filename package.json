@@ -25,7 +25,6 @@
   "author": "sensiblecontract.org",
   "license": "MIT",
   "dependencies": {
-    "buffer": "^6.0.3",
     "request": "^2.88.2",
     "scryptlib": "^0.4.1",
     "zlib": "^1.0.5"
