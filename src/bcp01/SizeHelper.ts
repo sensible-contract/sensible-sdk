@@ -1,5 +1,5 @@
-import { bsv } from "scryptlib";
 import * as BN from "../bn.js";
+import * as bsv from "../bsv";
 import { NonFungibleToken } from "./NonFungibleToken";
 import { PayloadNFT } from "./PayloadNFT";
 const network = "mainnet";

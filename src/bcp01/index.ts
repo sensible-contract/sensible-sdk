@@ -1,4 +1,5 @@
-import { bsv, toHex } from "scryptlib";
+import { toHex } from "scryptlib";
+import * as bsv from "../bsv";
 import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import * as Utils from "../common/utils";
 import { SigHashInfo, SigInfo } from "../common/utils";
@@ -264,7 +265,7 @@ export class SensibleNFT {
     utxos,
     changeAddress,
   }: {
-    genesisPublicKey: string;
+    genesisPublicKey: string | bsv.PublicKey;
     totalSupply: string | BN;
     opreturnData?: any;
     utxos?: ParamUtxo[];
@@ -299,7 +300,7 @@ export class SensibleNFT {
 
       sigHashList.push({
         sighash: toHex(
-          bsv.Transaction.sighash.sighash(
+          bsv.Transaction.Sighash.sighash(
             tx,
             sighashType,
             inputIndex,
@@ -392,11 +393,11 @@ export class SensibleNFT {
     genesis: string;
     codehash: string;
     genesisWif: string;
-    receiverAddress: string;
+    receiverAddress: string | bsv.Address;
     metaTxId: string;
     opreturnData?: any;
     utxos?: any[];
-    changeAddress?: string;
+    changeAddress?: string | bsv.Address;
     noBroadcast?: boolean;
   }): Promise<{ txHex: string; txid: string; tx: any }> {
     checkParamGenesis(genesis);
@@ -459,11 +460,11 @@ export class SensibleNFT {
     genesis: string;
     codehash: string;
     genesisPublicKey: any;
-    receiverAddress: string;
+    receiverAddress: string | bsv.Address;
     metaTxId: string;
     opreturnData?: any;
     utxos?: any[];
-    changeAddress?: string;
+    changeAddress?: string | bsv.Address;
   }): Promise<{ tx: any; sigHashList: SigHashInfo[] }> {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
@@ -503,7 +504,7 @@ export class SensibleNFT {
       }
       sigHashList.push({
         sighash: toHex(
-          bsv.Transaction.sighash.sighash(
+          bsv.Transaction.Sighash.sighash(
             tx,
             sighashType,
             inputIndex,
@@ -640,10 +641,10 @@ export class SensibleNFT {
     codehash: string;
     tokenid: string;
     senderWif: string;
-    receiverAddress: string;
+    receiverAddress: string | bsv.Address;
     opreturnData?: any;
     utxos?: any[];
-    changeAddress?: string;
+    changeAddress?: string | bsv.Address;
     noBroadcast?: boolean;
   }): Promise<{ tx: any; txid: string; txHex: string }> {
     checkParamGenesis(genesis);
@@ -705,10 +706,10 @@ export class SensibleNFT {
     codehash: string;
     tokenid: string;
     senderPublicKey: any;
-    receiverAddress: string;
+    receiverAddress: string | bsv.Address;
     opreturnData?: any;
     utxos?: any[];
-    changeAddress?: string;
+    changeAddress?: string | bsv.Address;
   }): Promise<{ tx: any; sigHashList: SigHashInfo[] }> {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
@@ -747,7 +748,7 @@ export class SensibleNFT {
       }
       sigHashList.push({
         sighash: toHex(
-          bsv.Transaction.sighash.sighash(
+          bsv.Transaction.Sighash.sighash(
             tx,
             sighashType,
             inputIndex,

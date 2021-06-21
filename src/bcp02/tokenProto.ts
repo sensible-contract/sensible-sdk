@@ -1,4 +1,4 @@
-import { bsv } from "scryptlib";
+import * as bsv from "../bsv";
 import * as proto from "./protoheader";
 import BN = require("../bn.js");
 export type TokenID = {

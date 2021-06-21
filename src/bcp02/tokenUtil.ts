@@ -1,4 +1,4 @@
-import { bsv } from "scryptlib";
+import * as bsv from "../bsv";
 import BN = require("../bn.js");
 
 export const RABIN_SIG_LEN = 128;

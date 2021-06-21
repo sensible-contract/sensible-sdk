@@ -1,5 +1,6 @@
-import { bsv, Bytes, toHex } from "scryptlib";
+import { Bytes, toHex } from "scryptlib";
 import * as BN from "../bn.js";
+import * as bsv from "../bsv";
 import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import * as Utils from "../common/utils";
 import { SigHashInfo, SigInfo } from "../common/utils";
@@ -79,8 +80,8 @@ type ParamFtUtxo = {
 };
 
 type Purse = {
-  privateKey: any;
-  address: any;
+  privateKey: bsv.PrivateKey;
+  address: bsv.Address;
 };
 
 function checkParamUtxoFormat(utxo) {
@@ -201,7 +202,7 @@ export class SensibleFT {
   private mock: boolean;
   private purse: Purse;
   public sensibleApi: SensibleApi;
-  private zeroAddress: any;
+  private zeroAddress: bsv.Address;
   private ft: FungibleToken;
   private debug: boolean;
   private transferPart2?: any;
@@ -399,8 +400,8 @@ export class SensibleFT {
     paramFtUtxos: ParamFtUtxo[],
     codehash?: string,
     genesis?: string,
-    senderPrivateKey?: any,
-    senderPublicKey?: any
+    senderPrivateKey?: bsv.PrivateKey,
+    senderPublicKey?: bsv.PublicKey
   ): Promise<{ ftUtxos: FtUtxo[]; ftUtxoPrivateKeys: any[] }> {
     let ftUtxos: FtUtxo[] = [];
     let ftUtxoPrivateKeys = [];
@@ -478,7 +479,7 @@ export class SensibleFT {
     tokenSymbol: string;
     decimalNum: number;
     utxos?: any;
-    changeAddress?: any;
+    changeAddress?: string | bsv.Address;
     opreturnData?: any;
     genesisWif: any;
     noBroadcast?: any;
@@ -565,9 +566,9 @@ export class SensibleFT {
     tokenSymbol: string;
     decimalNum: number;
     utxos?: any;
-    changeAddress?: any;
+    changeAddress?: string | bsv.Address;
     opreturnData?: any;
-    genesisPublicKey: any;
+    genesisPublicKey: string | bsv.PublicKey;
   }): Promise<{
     tx: any;
     sigHashList: SigHashInfo[];
@@ -620,7 +621,7 @@ export class SensibleFT {
       let address = utxoInfo.utxos[inputIndex].address.toString();
       sigHashList.push({
         sighash: toHex(
-          bsv.Transaction.sighash.sighash(
+          bsv.Transaction.Sighash.sighash(
             tx,
             sighashType,
             inputIndex,
@@ -653,9 +654,9 @@ export class SensibleFT {
     decimalNum: number;
     utxos?: any;
     utxoPrivateKeys?: any;
-    changeAddress?: any;
+    changeAddress?: string | bsv.Address;
     opreturnData?: any;
-    genesisPublicKey: any;
+    genesisPublicKey: string | bsv.PublicKey;
   }) {
     //create genesis contract
     let genesisContract = this.ft.createGenesisContract(genesisPublicKey, {
@@ -734,11 +735,11 @@ export class SensibleFT {
     genesis: string;
     codehash: string;
     genesisWif: string;
-    receiverAddress: any;
+    receiverAddress: string | bsv.Address;
     tokenAmount: string | BN;
     allowIncreaseIssues: boolean;
     utxos?: any;
-    changeAddress?: any;
+    changeAddress?: string | bsv.Address;
     opreturnData?: any;
     noBroadcast?: boolean;
   }): Promise<{ txHex: string; txid: string; tx: any }> {
@@ -805,12 +806,12 @@ export class SensibleFT {
   }: {
     genesis: string;
     codehash: string;
-    genesisPublicKey: any;
-    receiverAddress: any;
+    genesisPublicKey: string | bsv.PublicKey;
+    receiverAddress: string | bsv.Address;
     tokenAmount: string | BN;
     allowIncreaseIssues?: boolean;
     utxos?: any;
-    changeAddress?: any;
+    changeAddress?: string | bsv.Address;
     opreturnData?: any;
   }): Promise<{ tx: any; sigHashList: SigHashInfo[] }> {
     checkParamGenesis(genesis);
@@ -824,7 +825,7 @@ export class SensibleFT {
     } else {
       changeAddress = utxoInfo.utxos[0].address;
     }
-    genesisPublicKey = new bsv.PublicKey(genesisPublicKey);
+    let _genesisPublicKey = new bsv.PublicKey(genesisPublicKey);
     receiverAddress = new bsv.Address(receiverAddress, this.network);
     tokenAmount = new BN(tokenAmount);
     let { tx } = await this._issue({
@@ -837,7 +838,7 @@ export class SensibleFT {
       utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
       changeAddress,
       opreturnData,
-      genesisPublicKey,
+      genesisPublicKey: _genesisPublicKey,
     });
 
     let sigHashList: SigHashInfo[] = [];
@@ -845,7 +846,7 @@ export class SensibleFT {
       let address = "";
       let isP2PKH;
       if (inputIndex == 0) {
-        address = genesisPublicKey.toAddress(this.network).toString();
+        address = _genesisPublicKey.toAddress(this.network).toString();
         isP2PKH = false;
       } else {
         address = utxoInfo.utxos[inputIndex - 1].address.toString();
@@ -853,7 +854,7 @@ export class SensibleFT {
       }
       sigHashList.push({
         sighash: toHex(
-          bsv.Transaction.sighash.sighash(
+          bsv.Transaction.Sighash.sighash(
             tx,
             sighashType,
             inputIndex,
@@ -1267,9 +1268,9 @@ export class SensibleFT {
 
     senderPublicKey?: any;
     ftUtxos: any[];
-    ftChangeAddress?: string;
+    ftChangeAddress?: string | bsv.Address;
     utxos: any[];
-    changeAddress?: string;
+    changeAddress?: string | bsv.Address;
     isMerge?: boolean;
     opreturnData?: any;
     middleChangeAddress?: any;
@@ -1327,7 +1328,7 @@ export class SensibleFT {
       let isP2PKH = true;
       routeCheckSigHashList.push({
         sighash: toHex(
-          bsv.Transaction.sighash.sighash(
+          bsv.Transaction.Sighash.sighash(
             routeCheckTx,
             sighashType,
             inputIndex,
@@ -1715,7 +1716,7 @@ export class SensibleFT {
       }
       sigHashList.push({
         sighash: toHex(
-          bsv.Transaction.sighash.sighash(
+          bsv.Transaction.Sighash.sighash(
             tx,
             sighashType,
             inputIndex,
@@ -1933,7 +1934,7 @@ export class SensibleFT {
     const changeAddressSize = 20;
     const changeAmountSize = 8;
     const opreturnSize = opreturnData
-      ? 8 + 3 + new bsv.Script.buildSafeDataOut(opreturnData).toBuffer().length
+      ? 8 + 3 + bsv.Script.buildSafeDataOut(opreturnData).toBuffer().length
       : 0;
     let tokenGenesisUnlockingSize =
       preimageSize +
@@ -2218,7 +2219,7 @@ export class SensibleFT {
     let changeAmountSize = 8;
     let changeAddressSize = 20;
     let opreturnSize = opreturnData
-      ? 8 + 3 + new bsv.Script.buildSafeDataOut(opreturnData).toBuffer().length
+      ? 8 + 3 + bsv.Script.buildSafeDataOut(opreturnData).toBuffer().length
       : 0;
     let routeCheckUnlockingSize =
       preimageSize +

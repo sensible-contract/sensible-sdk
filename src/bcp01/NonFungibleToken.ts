@@ -1,6 +1,4 @@
-import path = require("path");
 import {
-  bsv,
   buildContractClass,
   Bytes,
   getPreimage,
@@ -13,6 +11,7 @@ import {
   toHex,
 } from "scryptlib";
 import * as BN from "../bn.js";
+import * as bsv from "../bsv";
 import * as Utils from "../common/utils";
 import { P2PKH_UNLOCK_SIZE, SIG_PLACE_HOLDER } from "../common/utils";
 import { ISSUE, PayloadNFT, TRANSFER } from "./PayloadNFT";
@@ -95,7 +94,7 @@ export class NonFungibleToken {
     if (opreturnData) {
       tx.addOutput(
         new bsv.Transaction.Output({
-          script: new bsv.Script.buildSafeDataOut(opreturnData),
+          script: bsv.Script.buildSafeDataOut(opreturnData),
           satoshis: 0,
         })
       );
@@ -216,7 +215,7 @@ export class NonFungibleToken {
     if (opreturnData) {
       tx.addOutput(
         new bsv.Transaction.Output({
-          script: new bsv.Script.buildSafeDataOut(opreturnData),
+          script: bsv.Script.buildSafeDataOut(opreturnData),
           satoshis: 0,
         })
       );
@@ -323,9 +322,7 @@ export class NonFungibleToken {
         new Bytes(sigInfo.padding),
         new Bytes(preDataPartHex),
         new Bytes(
-          opreturnData
-            ? new bsv.Script.buildSafeDataOut(opreturnData).toHex()
-            : ""
+          opreturnData ? bsv.Script.buildSafeDataOut(opreturnData).toHex() : ""
         ),
         new Sig(toHex(sig)),
         new PubKey(toHex(genesisPublicKey)),
@@ -433,7 +430,7 @@ export class NonFungibleToken {
     if (opreturnData) {
       tx.addOutput(
         new bsv.Transaction.Output({
-          script: new bsv.Script.buildSafeDataOut(opreturnData),
+          script: bsv.Script.buildSafeDataOut(opreturnData),
           satoshis: 0,
         })
       );
@@ -536,9 +533,7 @@ export class NonFungibleToken {
         new Bytes(sigInfo.padding),
         new Bytes(preDataPartHex),
         new Bytes(
-          opreturnData
-            ? new bsv.Script.buildSafeDataOut(opreturnData).toHex()
-            : ""
+          opreturnData ? bsv.Script.buildSafeDataOut(opreturnData).toHex() : ""
         ),
         new Sig(toHex(sig)),
         new PubKey(toHex(senderPublicKey)),

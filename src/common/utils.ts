@@ -1,4 +1,5 @@
-import { bsv, toHex } from "scryptlib";
+import { toHex } from "scryptlib";
+import * as bsv from "../bsv";
 // Helper functions
 export function checkIfValidHexString(hexString: string): boolean {
   if (typeof hexString !== "string") return false;
@@ -117,7 +118,7 @@ export function sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
     let input = tx.inputs[inputIndex];
     let { publicKey, sig } = sigList[index];
     publicKey = new bsv.PublicKey(publicKey);
-    let _sig = new bsv.crypto.Signature.fromString(sig);
+    let _sig = bsv.crypto.Signature.fromString(sig);
     _sig.nhashtype = sighashType;
     if (isP2PKH) {
       const signature = new bsv.Transaction.Signature({

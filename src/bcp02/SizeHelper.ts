@@ -1,4 +1,4 @@
-import { bsv } from "scryptlib";
+import * as bsv from "../bsv";
 import { FungibleToken } from "./FungibleToken";
 import * as TokenProto from "./tokenProto";
 import BN = require("../bn.js");

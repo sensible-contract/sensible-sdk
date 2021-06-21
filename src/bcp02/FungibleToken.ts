@@ -1,5 +1,4 @@
 import {
-  bsv,
   buildContractClass,
   Bytes,
   getPreimage,
@@ -11,6 +10,7 @@ import {
   toHex,
 } from "scryptlib";
 import * as BN from "../bn.js";
+import * as bsv from "../bsv";
 import * as Utils from "../common/utils";
 import { PUBKEY_PLACE_HOLDER, SIG_PLACE_HOLDER } from "../common/utils";
 import * as TokenProto from "./tokenProto";
@@ -306,7 +306,7 @@ export class FungibleToken {
 
     //如果有opReturn则添加到第二项输出
     if (opreturnData) {
-      let script = new bsv.Script.buildSafeDataOut(opreturnData);
+      let script = bsv.Script.buildSafeDataOut(opreturnData);
       tx.addOutput(
         new bsv.Transaction.Output({
           script,
@@ -487,7 +487,7 @@ export class FungibleToken {
     //如果有opReturn,则添加输出
     let opreturnScriptHex = "";
     if (opreturnData) {
-      let script = new bsv.Script.buildSafeDataOut(opreturnData);
+      let script = bsv.Script.buildSafeDataOut(opreturnData);
       opreturnScriptHex = script.toHex();
       tx.addOutput(
         new bsv.Transaction.Output({
@@ -971,7 +971,7 @@ export class FungibleToken {
 
     let opreturnScriptHex = "";
     if (opreturnData) {
-      let script = new bsv.Script.buildSafeDataOut(opreturnData);
+      let script = bsv.Script.buildSafeDataOut(opreturnData);
       opreturnScriptHex = script.toHex();
       tx.addOutput(
         new bsv.Transaction.Output({
