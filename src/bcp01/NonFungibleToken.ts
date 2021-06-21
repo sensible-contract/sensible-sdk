@@ -10,8 +10,9 @@ import {
   Sig,
   SigHashPreimage,
   signTx,
-  toHex
+  toHex,
 } from "scryptlib";
+import * as BN from "../bn.js";
 import * as Utils from "../common/utils";
 import { P2PKH_UNLOCK_SIZE, SIG_PLACE_HOLDER } from "../common/utils";
 import { ISSUE, PayloadNFT, TRANSFER } from "./PayloadNFT";
@@ -29,10 +30,10 @@ export class NonFungibleToken {
   nftCodePart: string;
   nftGenesisPart: string;
   /**
-   * @param {bigint} rabinPubKey
+   * @param {BN} rabinPubKey
    * @constructor NFT合约
    */
-  constructor(rabinPubKey: bigint) {
+  constructor(rabinPubKey: BN) {
     this.nftContract = new nftContractClass(rabinPubKey);
     this.nftCodePart = this.nftContract.codePart.toASM();
   }
@@ -167,7 +168,7 @@ export class NonFungibleToken {
     pl.read(issuerLockingScript.toBuffer());
     this.nftContract.setDataPart(this.nftGenesisPart + " " + pl.dump());
 
-    pl.tokenId = pl.tokenId + BigInt(1);
+    pl.tokenId = pl.tokenId.add(BN.One);
 
     let reachTotalSupply = pl.tokenId == pl.totalSupply;
 
@@ -317,7 +318,7 @@ export class NonFungibleToken {
 
       let contractObj = this.nftContract.issue(
         new SigHashPreimage(toHex(preimage)),
-        BigInt("0x" + sigInfo.sigBE),
+        "0x" + sigInfo.sigBE,
         new Bytes(sigInfo.payload),
         new Bytes(sigInfo.padding),
         new Bytes(preDataPartHex),
@@ -530,7 +531,7 @@ export class NonFungibleToken {
 
       let contractObj = this.nftContract.issue(
         new SigHashPreimage(toHex(preimage)),
-        BigInt("0x" + sigInfo.sigBE),
+        "0x" + sigInfo.sigBE,
         new Bytes(sigInfo.payload),
         new Bytes(sigInfo.padding),
         new Bytes(preDataPartHex),

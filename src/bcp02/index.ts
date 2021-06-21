@@ -1,4 +1,5 @@
 import { bsv, Bytes, toHex } from "scryptlib";
+import * as BN from "../bn.js";
 import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import * as Utils from "../common/utils";
 import { SigHashInfo, SigInfo } from "../common/utils";
@@ -251,11 +252,11 @@ export class SensibleFT {
     }
 
     this.ft = new FungibleToken(
-      BigInt("0x" + signers[0].satotxPubKey),
-      BigInt("0x" + signers[1].satotxPubKey),
-      BigInt("0x" + signers[2].satotxPubKey),
-      BigInt("0x" + signers[3].satotxPubKey),
-      BigInt("0x" + signers[4].satotxPubKey)
+      BN.fromString(signers[0].satotxPubKey, 16),
+      BN.fromString(signers[1].satotxPubKey, 16),
+      BN.fromString(signers[2].satotxPubKey, 16),
+      BN.fromString(signers[3].satotxPubKey, 16),
+      BN.fromString(signers[4].satotxPubKey, 16)
     );
 
     if (purse) {
@@ -442,7 +443,7 @@ export class SensibleFT {
         txId: v.txId,
         outputIndex: v.outputIndex,
         tokenAddress: new bsv.Address(v.tokenAddress, this.network),
-        tokenAmount: BigInt(v.tokenAmount),
+        tokenAmount: new BN(v.tokenAmount),
         publicKey: publicKeys[index],
       });
     });
@@ -685,7 +686,7 @@ export class SensibleFT {
         genesisContract.lockingScript,
         {
           receiverAddress: new bsv.Address(this.zeroAddress), //dummy address
-          tokenAmount: BigInt(0),
+          tokenAmount: BN.Zero,
         }
       );
       codehash = Utils.getCodeHash(tokenContract.lockingScript);
@@ -734,7 +735,7 @@ export class SensibleFT {
     codehash: string;
     genesisWif: string;
     receiverAddress: any;
-    tokenAmount: string | bigint;
+    tokenAmount: string | BN;
     allowIncreaseIssues: boolean;
     utxos?: any;
     changeAddress?: any;
@@ -756,7 +757,7 @@ export class SensibleFT {
     let genesisPrivateKey = new bsv.PrivateKey(genesisWif);
     let genesisPublicKey = genesisPrivateKey.toPublicKey();
     receiverAddress = new bsv.Address(receiverAddress, this.network);
-    tokenAmount = BigInt(tokenAmount);
+    tokenAmount = new BN(tokenAmount);
     let { tx } = await this._issue({
       genesis,
       codehash,
@@ -806,7 +807,7 @@ export class SensibleFT {
     codehash: string;
     genesisPublicKey: any;
     receiverAddress: any;
-    tokenAmount: string | bigint;
+    tokenAmount: string | BN;
     allowIncreaseIssues?: boolean;
     utxos?: any;
     changeAddress?: any;
@@ -825,7 +826,7 @@ export class SensibleFT {
     }
     genesisPublicKey = new bsv.PublicKey(genesisPublicKey);
     receiverAddress = new bsv.Address(receiverAddress, this.network);
-    tokenAmount = BigInt(tokenAmount);
+    tokenAmount = new BN(tokenAmount);
     let { tx } = await this._issue({
       genesis,
       codehash,
@@ -886,7 +887,7 @@ export class SensibleFT {
     genesis: string;
     codehash: string;
     receiverAddress: any;
-    tokenAmount: bigint;
+    tokenAmount: BN;
     allowIncreaseIssues: boolean;
     utxos?: any;
     utxoPrivateKeys?: any;
@@ -1107,7 +1108,7 @@ export class SensibleFT {
       }
     });
     ftUtxos.forEach((v) => {
-      v.preTokenAmount = BigInt(v.preTokenAmount);
+      v.preTokenAmount = new BN(v.preTokenAmount);
     });
 
     return ftUtxos;
@@ -1401,12 +1402,12 @@ export class SensibleFT {
     }
 
     let mergeUtxos: FtUtxo[] = [];
-    let mergeTokenAmountSum: bigint = BigInt(0);
+    let mergeTokenAmountSum: BN = BN.Zero;
     if (isMerge) {
       mergeUtxos = ftUtxos.slice(0, 20);
       mergeTokenAmountSum = mergeUtxos.reduce(
-        (pre, cur) => pre + cur.tokenAmount,
-        BigInt(0)
+        (pre, cur) => cur.tokenAmount.add(pre),
+        BN.Zero
       );
       receivers = [
         {
@@ -1418,27 +1419,27 @@ export class SensibleFT {
     //格式化接收者
     let tokenOutputArray = receivers.map((v) => ({
       address: new bsv.Address(v.address, this.network),
-      tokenAmount: BigInt(v.amount),
+      tokenAmount: new BN(v.amount),
     }));
 
     //计算输出的总金额
     let outputTokenAmountSum = tokenOutputArray.reduce(
-      (pre, cur) => pre + cur.tokenAmount,
-      BigInt(0)
+      (pre, cur) => cur.tokenAmount.add(pre),
+      BN.Zero
     );
 
     //token的选择策略
-    let inputTokenAmountSum = BigInt(0);
+    let inputTokenAmountSum = BN.Zero;
     let _ftUtxos = [];
     for (let i = 0; i < ftUtxos.length; i++) {
       let ftUtxo = ftUtxos[i];
       _ftUtxos.push(ftUtxo);
-      inputTokenAmountSum += ftUtxo.tokenAmount;
-      if (i == 9 && inputTokenAmountSum >= outputTokenAmountSum) {
+      inputTokenAmountSum = ftUtxo.tokenAmount.add(inputTokenAmountSum);
+      if (i == 9 && inputTokenAmountSum.gte(outputTokenAmountSum)) {
         //尽量支持到10To10
         break;
       }
-      if (inputTokenAmountSum >= outputTokenAmountSum) {
+      if (inputTokenAmountSum.gte(outputTokenAmountSum)) {
         break;
       }
     }
@@ -1446,7 +1447,7 @@ export class SensibleFT {
     if (isMerge) {
       _ftUtxos = mergeUtxos;
       inputTokenAmountSum = mergeTokenAmountSum;
-      if (mergeTokenAmountSum == BigInt(0)) {
+      if (mergeTokenAmountSum.eq(BN.Zero)) {
         throw new Error("No utxos to merge.");
       }
     }
@@ -1455,14 +1456,14 @@ export class SensibleFT {
     //完善ftUtxo的信息
     await this.supplyFtUtxosInfo(ftUtxos, codehash);
 
-    if (inputTokenAmountSum < outputTokenAmountSum) {
+    if (inputTokenAmountSum.lt(outputTokenAmountSum)) {
       throw new Error(
         `Insufficent token. Need ${outputTokenAmountSum} But only ${inputTokenAmountSum}`
       );
     }
     //判断是否需要token找零
-    let changeTokenAmount = inputTokenAmountSum - outputTokenAmountSum;
-    if (changeTokenAmount > BigInt(0)) {
+    let changeTokenAmount = inputTokenAmountSum.sub(outputTokenAmountSum);
+    if (changeTokenAmount.gt(BN.Zero)) {
       tokenOutputArray.push({
         address: ftChangeAddress,
         tokenAmount: changeTokenAmount,
@@ -1628,13 +1629,13 @@ export class SensibleFT {
     //提供给token的签名信息
     const tokenRabinDatas = [];
     for (let i = 0; i < sigReqArray.length; i++) {
-      let tokenRabinMsg;
-      let tokenRabinSigArray = [];
-      let tokenRabinPaddingArray = [];
+      let tokenRabinMsg: string;
+      let tokenRabinSigArray: string[] = [];
+      let tokenRabinPaddingArray: Bytes[] = [];
       for (let j = 0; j < sigReqArray[i].length; j++) {
         let sigInfo = await sigReqArray[i][j];
         tokenRabinMsg = sigInfo.payload;
-        tokenRabinSigArray.push(BigInt("0x" + sigInfo.sigBE));
+        tokenRabinSigArray.push("0x" + sigInfo.sigBE);
         tokenRabinPaddingArray.push(new Bytes(sigInfo.padding));
       }
       tokenRabinDatas.push({
@@ -2123,7 +2124,7 @@ export class SensibleFT {
       genesisTx.outputs[genesisOutputIndex].script,
       {
         receiverAddress: this.zeroAddress, //dummy address
-        tokenAmount: BigInt(0),
+        tokenAmount: BN.Zero,
       }
     );
     let codehash = Utils.getCodeHash(tokenContract.lockingScript);
@@ -2149,7 +2150,7 @@ export class SensibleFT {
       genesisTx.outputs[genesisOutputIndex].script,
       {
         receiverAddress: this.zeroAddress, //dummy address
-        tokenAmount: BigInt(0),
+        tokenAmount: BN.Zero,
       }
     );
     let codehash = Utils.getCodeHash(tokenContract.lockingScript);

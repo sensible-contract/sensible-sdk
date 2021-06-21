@@ -4,6 +4,7 @@ import * as Utils from "../common/utils";
 import { SigHashInfo, SigInfo } from "../common/utils";
 import { API_NET, API_TARGET, SensibleApi } from "../sensible-api";
 import { NonFungibleToken, sighashType } from "./NonFungibleToken";
+import BN = require("../bn.js");
 const dummyNetwork = "mainnet";
 const dummyWif = "L5k7xi4diSR8aWoGKojSNTnc3YMEXEoNpJEaGzqWimdKry6CFrzz";
 const dummyPrivateKey = bsv.PrivateKey.fromWIF(dummyWif);
@@ -163,7 +164,7 @@ export class SensibleNFT {
     this.mock = mock;
     this.sensibleApi = new SensibleApi(network, apiTarget);
     this.purse = purse;
-    this.nft = new NonFungibleToken(BigInt("0x" + signers[0].satotxPubKey));
+    this.nft = new NonFungibleToken(BN.fromString(signers[0].satotxPubKey, 16));
     this.debug = debug;
   }
 
@@ -208,7 +209,7 @@ export class SensibleNFT {
     noBroadcast = false,
   }: {
     genesisWif: string;
-    totalSupply: string | bigint;
+    totalSupply: string | BN;
     opreturnData: any;
     utxos?: ParamUtxo[];
     changeAddress?: any;
@@ -230,7 +231,7 @@ export class SensibleNFT {
       changeAddress = utxoInfo.utxos[0].address;
     }
 
-    totalSupply = BigInt(totalSupply);
+    totalSupply = new BN(totalSupply);
 
     let { tx, codehash, genesis } = await this._genesis({
       genesisPublicKey,
@@ -264,7 +265,7 @@ export class SensibleNFT {
     changeAddress,
   }: {
     genesisPublicKey: string;
-    totalSupply: string | bigint;
+    totalSupply: string | BN;
     opreturnData?: any;
     utxos?: ParamUtxo[];
     changeAddress?: any;
@@ -280,7 +281,7 @@ export class SensibleNFT {
       changeAddress = utxoInfo.utxos[0].address;
     }
 
-    totalSupply = BigInt(totalSupply);
+    totalSupply = new BN(totalSupply);
 
     let { tx, codehash, genesis } = await this._genesis({
       genesisPublicKey,
@@ -325,7 +326,7 @@ export class SensibleNFT {
     changeAddress,
   }: {
     genesisPublicKey: any;
-    totalSupply: bigint;
+    totalSupply: BN;
     opreturnData?: any;
     utxos?: ParamUtxo[];
     utxoPrivateKeys: any[];
@@ -340,7 +341,7 @@ export class SensibleNFT {
     });
     let tx = await this.nft.makeTxGenesis({
       genesisPublicKey,
-      tokenId: BigInt(0),
+      tokenId: BN.Zero,
       totalSupply,
       opreturnData,
 
@@ -542,7 +543,7 @@ export class SensibleNFT {
     utxos: any[];
     utxoPrivateKeys?: any[];
     changeAddress: any;
-  }): Promise<{ tx: any; tokenid: bigint }> {
+  }): Promise<{ tx: any; tokenid: BN }> {
     const issuerAddress = genesisPublicKey.toAddress(this.network);
 
     let { genesisTxId, genesisOutputIndex } = parseGenesis(genesis);

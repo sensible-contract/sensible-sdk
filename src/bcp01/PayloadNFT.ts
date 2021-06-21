@@ -1,4 +1,5 @@
 import { Ripemd160 } from "scryptlib";
+import BN = require("../bn.js");
 export const ISSUE = 0;
 export const TRANSFER = 1;
 
@@ -14,9 +15,9 @@ const PKH_LEN = 20;
 export class PayloadNFT {
   dataType: number;
   ownerPkh: Ripemd160 | Buffer;
-  tokenId: bigint;
+  tokenId: BN;
   metaTxId: string;
-  totalSupply: bigint;
+  totalSupply: BN;
   /**
    * 解析、构造NFT合约的数据部分
    *
@@ -38,8 +39,8 @@ export class PayloadNFT {
   }: {
     dataType?: number;
     ownerPkh?: Ripemd160;
-    tokenId?: bigint;
-    totalSupply?: bigint;
+    tokenId?: BN;
+    totalSupply?: BN;
     metaTxId?: string;
   } = {}) {
     this.dataType = dataType || 0;
@@ -47,8 +48,8 @@ export class PayloadNFT {
       metaTxId || "000000000000000000000000000000000000000000000000000000";
     this.ownerPkh =
       ownerPkh || new Ripemd160("0000000000000000000000000000000000000000");
-    this.totalSupply = totalSupply || BigInt(0);
-    this.tokenId = tokenId || BigInt(0);
+    this.totalSupply = totalSupply || BN.Zero;
+    this.tokenId = tokenId || BN.Zero;
   }
 
   read(script: Buffer) {
@@ -57,9 +58,15 @@ export class PayloadNFT {
 
     if (dataType == 0) {
       let totalSupplyOffset = dataTypeOffset - TOTAL_SUPPLY_LEN;
-      let totalSupply = script.readBigUInt64LE(totalSupplyOffset);
+      let totalSupply = BN.fromBuffer(
+        script.slice(totalSupplyOffset, totalSupplyOffset + 8),
+        { endian: "little" }
+      );
       let tokenIdOffset = totalSupplyOffset - TOKEN_ID_LEN;
-      let tokenId = script.readBigUInt64LE(tokenIdOffset);
+      let tokenId = BN.fromBuffer(
+        script.slice(tokenIdOffset, tokenIdOffset + 8),
+        { endian: "little" }
+      );
       let ownerPkhOffset = tokenIdOffset - PKH_LEN;
       let ownerPkh = script.slice(ownerPkhOffset, ownerPkhOffset + PKH_LEN);
 
@@ -73,7 +80,10 @@ export class PayloadNFT {
         .slice(metaTxIdOffset, metaTxIdOffset + META_TXID_LEN)
         .toString("hex");
       let tokenIdOffset = metaTxIdOffset - TOKEN_ID_LEN;
-      let tokenId = script.readBigUInt64LE(tokenIdOffset);
+      let tokenId = BN.fromBuffer(
+        script.slice(tokenIdOffset, tokenIdOffset + 8),
+        { endian: "little" }
+      );
       let ownerPkhOffset = tokenIdOffset - PKH_LEN;
       let ownerPkh = script.slice(ownerPkhOffset, ownerPkhOffset + PKH_LEN);
 
@@ -90,11 +100,11 @@ export class PayloadNFT {
     if (this.dataType == ISSUE) {
       const ownerPkhBuf = this.ownerPkh as Buffer;
 
-      const tokenIdBuf = Buffer.alloc(TOKEN_ID_LEN, 0);
-      tokenIdBuf.writeBigUInt64LE(this.tokenId);
-
-      const totalSupplyBuf = Buffer.alloc(TOTAL_SUPPLY_LEN, 0);
-      totalSupplyBuf.writeBigUInt64LE(this.totalSupply);
+      const tokenIdBuf = this.tokenId.toBuffer({ endian: "little", size: 8 });
+      const totalSupplyBuf = this.totalSupply.toBuffer({
+        endian: "little",
+        size: 8,
+      });
 
       const dataTypeBuf = Buffer.alloc(PROTO_TYPE_LEN, 0);
       dataTypeBuf.writeUIntLE(this.dataType, 0, PROTO_TYPE_LEN);
@@ -107,8 +117,7 @@ export class PayloadNFT {
     } else if (this.dataType == TRANSFER) {
       const ownerPkhBuf = this.ownerPkh as Buffer;
 
-      const tokenIdBuf = Buffer.alloc(TOKEN_ID_LEN, 0);
-      tokenIdBuf.writeBigUInt64LE(this.tokenId);
+      const tokenIdBuf = this.tokenId.toBuffer({ endian: "little", size: 8 });
 
       const metaTxIdBuf = Buffer.from(this.metaTxId, "hex");
 

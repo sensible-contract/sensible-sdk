@@ -25,9 +25,7 @@ gulp.task("tsc", function () {
   ]);
 });
 gulp.task("copy_js", function () {
-  return gulp
-    .src("./src/common/*.js", { base: "./src" })
-    .pipe(gulp.dest("dist"));
+  return gulp.src("./src/**/*.js", { base: "./src" }).pipe(gulp.dest("dist"));
 });
 
 gulp.task("copy_bcp01_contact", function () {

@@ -1,5 +1,6 @@
 import { bsv } from "scryptlib";
 import * as proto from "./protoheader";
+import BN = require("../bn.js");
 export type TokenID = {
   txid: string;
   index: number;
@@ -10,7 +11,7 @@ export type TokenDataPart = {
   genesisFlag?: number;
   decimalNum?: number;
   tokenAddress?: string;
-  tokenAmount?: bigint;
+  tokenAmount?: BN;
   tokenID?: TokenID;
   tokenType?: number;
 };
@@ -42,9 +43,15 @@ export function getHeaderLen(): number {
   return TOKEN_HEADER_LEN;
 }
 
-export function getTokenAmount(script: Buffer): bigint {
-  if (script.length < TOKEN_AMOUNT_OFFSET) return BigInt(0);
-  return script.readBigUInt64LE(script.length - TOKEN_AMOUNT_OFFSET);
+export function getTokenAmount(script: Buffer): BN {
+  if (script.length < TOKEN_AMOUNT_OFFSET) return BN.Zero;
+  return BN.fromBuffer(
+    script.slice(
+      script.length - TOKEN_AMOUNT_OFFSET,
+      script.length - TOKEN_AMOUNT_OFFSET + TOKEN_AMOUNT_LEN
+    ),
+    { endian: "little" }
+  );
 }
 
 export function getTokenID(script0: Buffer): TokenID {
@@ -120,10 +127,9 @@ export function getDataPart(script: Buffer): Buffer {
 export function getNewTokenScript(
   scriptBuf: Buffer,
   address: Buffer,
-  tokenAmount: bigint
+  tokenAmount: BN
 ): Buffer {
-  const amountBuf = Buffer.alloc(8, 0);
-  amountBuf.writeBigUInt64LE(BigInt(tokenAmount));
+  const amountBuf = tokenAmount.toBuffer({ endian: "little", size: 8 });
   const firstBuf = scriptBuf.slice(0, scriptBuf.length - TOKEN_ADDRESS_OFFSET);
   const newScript = Buffer.concat([
     firstBuf,
@@ -166,9 +172,9 @@ export function newDataPart({
     tokenAddressBuf.write(tokenAddress, "hex");
   }
 
-  const tokenAmountBuf = Buffer.alloc(TOKEN_AMOUNT_LEN, 0);
+  let tokenAmountBuf = Buffer.alloc(TOKEN_AMOUNT_LEN, 0);
   if (tokenAmount) {
-    tokenAmountBuf.writeBigUInt64LE(tokenAmount);
+    tokenAmountBuf = tokenAmount.toBuffer({ endian: "little", size: 8 });
   }
   let tokenIDBuf = Buffer.alloc(TOKEN_ID_LEN, 0);
   if (tokenID) {

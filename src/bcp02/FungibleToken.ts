@@ -10,10 +10,12 @@ import {
   signTx,
   toHex,
 } from "scryptlib";
+import * as BN from "../bn.js";
 import * as Utils from "../common/utils";
 import { PUBKEY_PLACE_HOLDER, SIG_PLACE_HOLDER } from "../common/utils";
 import * as TokenProto from "./tokenProto";
 import * as TokenUtil from "./tokenUtil";
+
 const Signature = bsv.crypto.Signature;
 export const sighashType = Signature.SIGHASH_ALL | Signature.SIGHASH_FORKID;
 export const SIGNER_NUM = 5;
@@ -89,7 +91,7 @@ export type FtUtxo = {
   txId: string;
   outputIndex: number;
   tokenAddress: any;
-  tokenAmount: bigint;
+  tokenAmount: BN;
 
   txHex?: string;
   satoshis?: number;
@@ -97,30 +99,29 @@ export type FtUtxo = {
   preOutputIndex?: number;
   preTxHex?: string;
   preTokenAddress?: any;
-  preTokenAmount?: bigint;
+  preTokenAmount?: BN;
 
   publicKey: any;
 };
 
 export class FungibleToken {
-  rabinPubKeyArray: bigint[];
+  rabinPubKeyArray: string[];
   routeCheckCodeHashArray: Bytes[];
   unlockContractCodeHashArray: Bytes[];
   constructor(
-    rabinPubKey1: bigint,
-    rabinPubKey2: bigint,
-    rabinPubKey3: bigint,
-    rabinPubKey4: bigint,
-    rabinPubKey5: bigint
+    rabinPubKey1: BN,
+    rabinPubKey2: BN,
+    rabinPubKey3: BN,
+    rabinPubKey4: BN,
+    rabinPubKey5: BN
   ) {
     this.rabinPubKeyArray = [
-      rabinPubKey1,
-      rabinPubKey2,
-      rabinPubKey3,
-      rabinPubKey4,
-      rabinPubKey5,
+      rabinPubKey1.toString(),
+      rabinPubKey2.toString(),
+      rabinPubKey3.toString(),
+      rabinPubKey4.toString(),
+      rabinPubKey5.toString(),
     ];
-
     this.routeCheckCodeHashArray = [
       new Bytes(
         Buffer.from(
@@ -353,10 +354,7 @@ export class FungibleToken {
     genesisTxId: string,
     genesisTxOutputIndex: number,
     genesisLockingScript: any,
-    {
-      receiverAddress,
-      tokenAmount,
-    }: { receiverAddress: any; tokenAmount: bigint }
+    { receiverAddress, tokenAmount }: { receiverAddress: any; tokenAmount: BN }
   ) {
     const scriptBuffer = genesisLockingScript.toBuffer();
     const dataPartObj = TokenProto.parseDataPart(scriptBuffer);
@@ -505,15 +503,15 @@ export class FungibleToken {
       tx.inputs[genesisInputIndex].output.script;
 
     let rabinMsg;
-    let rabinPaddingArray = [];
-    let rabinSigArray = [];
-    let rabinPubKeyIndexArray = [];
+    let rabinPaddingArray: Bytes[] = [];
+    let rabinSigArray: string[] = [];
+    let rabinPubKeyIndexArray: number[] = [];
     if (isFirstGenesis) {
       //如果是首次发行，则不需要查询签名器
       rabinMsg = Buffer.alloc(1, 0);
       for (let i = 0; i < SIGNER_VERIFY_NUM; i++) {
         rabinPaddingArray.push(new Bytes("00"));
-        rabinSigArray.push(0);
+        rabinSigArray.push("0");
         rabinPubKeyIndexArray.push(i);
       }
     } else {
@@ -524,7 +522,7 @@ export class FungibleToken {
           let sigInfo = await signers[idx].satoTxSigUTXOSpendBy(satotxData);
           rabinMsg = sigInfo.payload;
           rabinPaddingArray.push(new Bytes(sigInfo.padding));
-          rabinSigArray.push(BigInt("0x" + sigInfo.sigBE));
+          rabinSigArray.push("0x" + sigInfo.sigBE);
         } catch (e) {}
       }
 
@@ -664,7 +662,7 @@ export class FungibleToken {
   createRouteCheckContract(
     routeCheckType: RouteCheckType,
     tokenInputArray: any[],
-    tokenOutputArray: any[],
+    tokenOutputArray: { address: any; tokenAmount: BN }[],
     tokenID: Buffer,
     tokenCodeHash: Buffer
   ) {
@@ -673,7 +671,10 @@ export class FungibleToken {
     for (let i = 0; i < tokenOutputArray.length; i++) {
       const item = tokenOutputArray[i];
       recervierArray = Buffer.concat([recervierArray, item.address.hashBuffer]);
-      const amountBuf = TokenUtil.getUInt64Buf(item.tokenAmount);
+      const amountBuf = item.tokenAmount.toBuffer({
+        endian: "little",
+        size: 8,
+      });
       receiverTokenAmountArray = Buffer.concat([
         receiverTokenAmountArray,
         amountBuf,
@@ -799,7 +800,7 @@ export class FungibleToken {
     checkRabinMsgArray: Buffer;
     checkRabinPaddingArray: Buffer;
     checkRabinSigArray: Buffer;
-    tokenOutputArray: any[];
+    tokenOutputArray: { address: any; tokenAmount: BN }[];
     tokenRabinDatas: any;
     routeCheckContract: any;
     ftPrivateKeys: any[];
@@ -869,10 +870,11 @@ export class FungibleToken {
         inputTokenAddressArray,
         Buffer.from(TokenProto.getTokenAddress(tokenScriptBuf), "hex"),
       ]);
-      const amountBuf = Buffer.alloc(8, 0);
-      amountBuf.writeBigUInt64LE(
-        BigInt(TokenProto.getTokenAmount(tokenScriptBuf))
-      );
+      const amountBuf = TokenProto.getTokenAmount(tokenScriptBuf).toBuffer({
+        endian: "little",
+        size: 8,
+      });
+
       inputTokenAmountArray = Buffer.concat([inputTokenAmountArray, amountBuf]);
 
       // add outputpoint to prevouts
@@ -952,14 +954,18 @@ export class FungibleToken {
         })
       );
       recervierArray = Buffer.concat([recervierArray, address.hashBuffer]);
-      const tokenBuf = Buffer.alloc(8, 0);
-      tokenBuf.writeBigUInt64LE(BigInt(outputTokenAmount));
+      const tokenBuf = outputTokenAmount.toBuffer({
+        endian: "little",
+        size: 8,
+      });
       receiverTokenAmountArray = Buffer.concat([
         receiverTokenAmountArray,
         tokenBuf,
       ]);
-      const satoshiBuf = Buffer.alloc(8, 0);
-      satoshiBuf.writeBigUInt64LE(BigInt(outputSatoshis));
+      const satoshiBuf = BN.fromNumber(outputSatoshis).toBuffer({
+        endian: "little",
+        size: 8,
+      });
       outputSatoshiArray = Buffer.concat([outputSatoshiArray, satoshiBuf]);
     }
 
@@ -1110,7 +1116,7 @@ export class FungibleToken {
           0,
           tokenOutputLen,
           new Bytes(toHex(tokenInput.preTokenAddress.hashBuffer)),
-          tokenInput.preTokenAmount,
+          tokenInput.preTokenAmount.toString(),
           new PubKey(toHex(pubkey)),
           new Sig(toHex(sig)),
           0,

@@ -1,4 +1,5 @@
 import { bsv } from "scryptlib";
+import BN = require("../bn.js");
 
 export const RABIN_SIG_LEN = 128;
 
@@ -31,9 +32,7 @@ export let getUInt32Buf = function (index: number) {
 };
 
 export let getUInt64Buf = function (amount: number) {
-  const buf = Buffer.alloc(8, 0);
-  buf.writeBigUInt64LE(BigInt(amount));
-  return buf;
+  return new BN(amount).toBuffer({ endian: "little", size: 8 });
 };
 
 export let getTxIdBuf = function (txid: string) {
