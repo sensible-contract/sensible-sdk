@@ -17,6 +17,7 @@ import {
   sighashType,
   SIGNER_NUM,
   SIGNER_VERIFY_NUM,
+  TokenContractClass,
   Utxo,
 } from "./FungibleToken";
 import * as SizeHelper from "./SizeHelper";
@@ -2282,5 +2283,32 @@ export class SensibleFT {
       address,
       count
     );
+  }
+
+  public async isSupportedToken(
+    codehash: string,
+    genesis: string,
+    address: string
+  ): Promise<boolean> {
+    let ftUtxos = await this.sensibleApi.getFungibleTokenUnspents(
+      codehash,
+      genesis,
+      address,
+      1
+    );
+    if (ftUtxos.length == 0) return false;
+    let ftUtxo = ftUtxos[0];
+    let txHex = await this.sensibleApi.getRawTxData(ftUtxo.txId);
+    let tx = new bsv.Transaction(txHex);
+    let lockingScript = tx.outputs[ftUtxo.outputIndex].script;
+    let supported = true;
+    try {
+      TokenContractClass.fromASM(
+        lockingScript.toASM().split("OP_RETURN")[0].trim()
+      );
+    } catch (e) {
+      supported = false;
+    }
+    return supported;
   }
 }

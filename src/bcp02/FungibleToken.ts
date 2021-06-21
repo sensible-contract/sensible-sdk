@@ -28,7 +28,7 @@ export const genesisTokenIDTxid =
 const GenesisContractClass = buildContractClass(
   require("./contract-desc/tokenGenesis_desc.json")
 );
-const TokenContractClass = buildContractClass(
+export const TokenContractClass = buildContractClass(
   require("./contract-desc/token_desc.json")
 );
 const RouteCheckContractClass_3To3 = buildContractClass(
