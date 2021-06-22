@@ -33,7 +33,7 @@ export class NonFungibleToken {
    * @constructor NFT合约
    */
   constructor(rabinPubKey: BN) {
-    this.nftContract = new nftContractClass(rabinPubKey);
+    this.nftContract = new nftContractClass(rabinPubKey.toString());
     this.nftCodePart = this.nftContract.codePart.toASM();
   }
 
@@ -169,7 +169,7 @@ export class NonFungibleToken {
 
     pl.tokenId = pl.tokenId.add(BN.One);
 
-    let reachTotalSupply = pl.tokenId == pl.totalSupply;
+    let reachTotalSupply = pl.tokenId.eq(pl.totalSupply);
 
     const newLockingScript0 = bsv.Script.fromASM(
       [this.nftCodePart, this.nftGenesisPart, pl.dump()].join(" ")
