@@ -24,7 +24,7 @@
   "author": "sensiblecontract.org",
   "license": "MIT",
   "dependencies": {
-    "bn.js": "^4.11.9",
+    "bn.js": "=4.11.0",
     "request": "^2.88.2",
     "scryptlib": "^0.4.2-beta1",
     "zlib": "^1.0.5"
