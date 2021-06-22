@@ -32,7 +32,7 @@ export let getUInt32Buf = function (index: number) {
 };
 
 export let getUInt64Buf = function (amount: number) {
-  return new BN(amount).toBuffer({ endian: "little", size: 8 });
+  return new BN(amount.toString()).toBuffer({ endian: "little", size: 8 });
 };
 
 export let getTxIdBuf = function (txid: string) {

@@ -232,7 +232,7 @@ export class SensibleNFT {
       changeAddress = utxoInfo.utxos[0].address;
     }
 
-    totalSupply = new BN(totalSupply);
+    totalSupply = new BN(totalSupply.toString());
 
     let { tx, codehash, genesis } = await this._genesis({
       genesisPublicKey,
@@ -282,7 +282,7 @@ export class SensibleNFT {
       changeAddress = utxoInfo.utxos[0].address;
     }
 
-    totalSupply = new BN(totalSupply);
+    totalSupply = new BN(totalSupply.toString());
 
     let { tx, codehash, genesis } = await this._genesis({
       genesisPublicKey,

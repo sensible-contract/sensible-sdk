@@ -24,19 +24,9 @@ gulp.task("tsc", function () {
     tsResult.js.pipe(gulp.dest("dist")),
   ]);
 });
-gulp.task("copy_js", function () {
-  return gulp.src("./src/**/*.js", { base: "./src" }).pipe(gulp.dest("dist"));
-});
-
-gulp.task("copy_bcp01_contact", function () {
+gulp.task("copy_file", function () {
   return gulp
-    .src("./src/bcp01/contract-desc/*", { base: "./src" })
-    .pipe(gulp.dest("dist"));
-});
-
-gulp.task("copy_bcp02_contact", function () {
-  return gulp
-    .src("./src/bcp02/contract-desc/*", { base: "./src" })
+    .src(["./src/**/*.js", "./src/**/*.json"], { base: "./src" })
     .pipe(gulp.dest("dist"));
 });
 
@@ -48,7 +38,14 @@ gulp.task("browserify", function () {
     cache: {},
     packageCache: {},
   })
-    .plugin(tsify)
+    .plugin(tsify, {
+      module: "commonjs",
+      target: "es2015",
+      noImplicitAny: false,
+      outDir: "./dist",
+      sourceMap: true,
+      declaration: true,
+    })
     .plugin(standalonify, { name: "sensible" })
     .bundle()
     .pipe(source("sensible.browser.min.js"))
@@ -79,9 +76,7 @@ gulp.task(
   gulp.series(
     "clean",
     "tsc",
-    "copy_js",
-    "copy_bcp01_contact",
-    "copy_bcp02_contact",
+    "copy_file",
     "browserify"
     // "typedoc"
   )

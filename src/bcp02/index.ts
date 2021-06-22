@@ -445,7 +445,7 @@ export class SensibleFT {
         txId: v.txId,
         outputIndex: v.outputIndex,
         tokenAddress: new bsv.Address(v.tokenAddress, this.network),
-        tokenAmount: new BN(v.tokenAmount),
+        tokenAmount: new BN(v.tokenAmount.toString()),
         publicKey: publicKeys[index],
       });
     });
@@ -759,7 +759,7 @@ export class SensibleFT {
     let genesisPrivateKey = new bsv.PrivateKey(genesisWif);
     let genesisPublicKey = genesisPrivateKey.toPublicKey();
     receiverAddress = new bsv.Address(receiverAddress, this.network);
-    tokenAmount = new BN(tokenAmount);
+    tokenAmount = new BN(tokenAmount.toString());
     let { tx } = await this._issue({
       genesis,
       codehash,
@@ -828,7 +828,7 @@ export class SensibleFT {
     }
     let _genesisPublicKey = new bsv.PublicKey(genesisPublicKey);
     receiverAddress = new bsv.Address(receiverAddress, this.network);
-    tokenAmount = new BN(tokenAmount);
+    tokenAmount = new BN(tokenAmount.toString());
     let { tx } = await this._issue({
       genesis,
       codehash,
@@ -1110,7 +1110,7 @@ export class SensibleFT {
       }
     });
     ftUtxos.forEach((v) => {
-      v.preTokenAmount = new BN(v.preTokenAmount);
+      v.preTokenAmount = new BN(v.preTokenAmount.toString());
     });
 
     return ftUtxos;
@@ -1421,7 +1421,7 @@ export class SensibleFT {
     //格式化接收者
     let tokenOutputArray = receivers.map((v) => ({
       address: new bsv.Address(v.address, this.network),
-      tokenAmount: new BN(v.amount),
+      tokenAmount: new BN(v.amount.toString()),
     }));
 
     //计算输出的总金额

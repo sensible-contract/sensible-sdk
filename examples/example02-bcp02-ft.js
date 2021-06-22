@@ -57,7 +57,7 @@ codehash: ${codehash}`);
       codehash: codehash,
       genesisWif: CoffeeShop.wif,
       receiverAddress: CoffeeShop.address,
-      tokenAmount: "1000000000000",
+      tokenAmount: "100000000000000000",
       allowIncreaseIssues: false,
     });
 
