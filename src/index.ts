@@ -1,4 +1,3 @@
-require("./common/fix_in_browser.js");
 export { SensibleNFT } from "./bcp01";
 export { SensibleFT } from "./bcp02";
 export { Net } from "./net";
