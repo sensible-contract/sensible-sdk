@@ -29,23 +29,17 @@ gulp.task("copy_file", function () {
     .src(["./src/**/*.js", "./src/**/*.json"], { base: "./src" })
     .pipe(gulp.dest("dist"));
 });
-
 gulp.task("browserify", function () {
+  tsProject.config.exclude = "";
   return browserify({
     basedir: ".",
     debug: true,
-    entries: ["src/index.ts"],
+    entries: ["src/index.browser.ts"],
     cache: {},
     packageCache: {},
+    // fullPaths: true,
   })
-    .plugin(tsify, {
-      module: "commonjs",
-      target: "es2015",
-      noImplicitAny: false,
-      outDir: "./dist",
-      sourceMap: true,
-      declaration: true,
-    })
+    .plugin(tsify, tsProject.config)
     .plugin(standalonify, { name: "sensible" })
     .bundle()
     .pipe(source("sensible.browser.min.js"))
