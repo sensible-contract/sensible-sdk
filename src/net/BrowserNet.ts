@@ -27,7 +27,7 @@ export class BrowserNet {
         hasCallbacked = true;
         callback(null, response);
       } else {
-        if (xhr.status == 200) {
+        if (xhr.status >= 200 && xhr.status <= 207) {
         } else {
           hasCallbacked = true;
           callback("EC_REQ_FAILED");
@@ -62,13 +62,14 @@ export class BrowserNet {
     if (str) {
       url += "?" + str;
     }
-    let headers = {};
+
     config = config || {};
-    if (config.authorization) headers["authorization"] = config.authorization;
-    const reqData: ReqConfig = {
+    let headers = config.headers || {};
+    let timeout = config.timeout || 180000;
+    let reqData: ReqConfig = {
       uri: url,
       method: "GET",
-      timeout: 180000,
+      timeout,
       headers,
     };
     const handlerCallback = (resolve: Function, reject: Function) => {
