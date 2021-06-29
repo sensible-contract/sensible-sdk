@@ -26,74 +26,80 @@ library RabinUtil {
   // <txid(32 bytes)> + <outputIndex(4 bytes)> + <outputSatoshi(8 bytes)> + <contractHash(20 bytes)>
   // rabin sig length
   static int U4_RABIN_MSG_LEN = 64;
-  // 128 bytes, 1024 bits
-  static int RABIN_SIG_LEN = 128;
+  // 384 bytes, 3072 bits
+  static int RABIN_SIG_LEN = 384;
   static int PADDING_SIZE_LEN = 2;
 
-  static function rabinHash(bytes x) : int {
+  static function rabinHash(bytes x): int {
     // expand into 512 bit hash
     bytes hx = sha256(x);
     int idx = len(hx) / 2;
-    return unpack(sha256(hx[: idx]) + sha256(hx[idx :]) + b'00');
+    return unpack(sha256(hx[:idx]) + sha256(hx[idx:]) + b'00');
   }
 
-  static function verifyRabinMsg(int[RabinUtil.ORACLE_NUM] rabinPubKeyArray, bytes rabinMsg, bytes[RabinUtil.ORACLE_VERIFY_NUM] paddingArray, int[RabinUtil.ORACLE_VERIFY_NUM] sigArray, int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyIndexArray) : int {
+  static function verifyRabinMsg(int[RabinUtil.ORACLE_NUM] rabinPubKeyArray, bytes rabinMsg, bytes[RabinUtil.ORACLE_VERIFY_NUM] paddingArray, int[RabinUtil.ORACLE_VERIFY_NUM] sigArray, int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyIndexArray): int {
     int verifyCount = 0;
-    int paddingPos = 0;
 
     RabinUtil.verifyRabinPubkeyIndexArray(rabinPubKeyIndexArray);
 
-    loop (RabinUtil.ORACLE_VERIFY_NUM) : i {
+    loop(RabinUtil.ORACLE_VERIFY_NUM): i {
       int pubIndex = rabinPubKeyIndexArray[i];
       int rabinPubKey = rabinPubKeyArray[pubIndex];
       bytes padding = paddingArray[i];
       int h = RabinUtil.rabinHash(rabinMsg + padding);
       int sig = sigArray[i];
       if ((sig * sig) % rabinPubKey == h % rabinPubKey) {
-        verifyCount = verifyCount + 1;
+          verifyCount = verifyCount + 1;
       }
     }
     return verifyCount;
   }
 
   static function loadPayloadU4(bytes msg) : PayloadU4Data {
-    PayloadU4Data self = { b'', 0, b'' };
-    self.outpoint = msg[: 36];
+    PayloadU4Data self = {
+      b'',
+      0,
+      b''
+    };
+    self.outpoint = msg[ : 36];
     self.satoshis = unpack(msg[36 : 44] + b'00');
-    self.scriptHash = msg[44 :];
+    self.scriptHash = msg[44 : ];
 
     return self;
   }
 
   static function loadPayloadU4SpendBy(bytes msg) : PayloadU4SpendByData {
-    PayloadU4SpendByData self = { b'', 0, b'', Sha256(b'') };
+    PayloadU4SpendByData self = {
+      b'',
+      0,
+      b'',
+      Sha256(b'')
+    };
 
-    self.outpoint = msg[: 36];
+    self.outpoint = msg[ : 36];
     self.satoshis = unpack(msg[36 : 44] + b'00');
     self.scriptHash = msg[44 : 64];
-    self.byTxId = Sha256(msg[64 :]);
+    self.byTxId = Sha256(msg[64 : ]);
 
     return self;
   }
 
-  static function verifySelfMsg(int[RabinUtil.ORACLE_NUM] rabinPubKeyArray, bytes rabinMsg, bytes[RabinUtil.ORACLE_VERIFY_NUM] paddingArray, int[RabinUtil.ORACLE_VERIFY_NUM] sigArray, int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyIndexArray, bytes thisOutpoint, bytes tokenID, bytes script, bytes genesisHash, bytes tokenAddress, int tokenAmount) : bool {
+  static function verifySelfMsg(int[RabinUtil.ORACLE_NUM] rabinPubKeyArray, bytes rabinMsg, bytes[RabinUtil.ORACLE_VERIFY_NUM] paddingArray, int[RabinUtil.ORACLE_VERIFY_NUM] sigArray, int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyIndexArray, bytes thisOutpoint, bytes tokenID, bytes script, bytes genesisHash, bytes tokenAddress, int tokenAmount): bool {
     int verifyCount = RabinUtil.verifyRabinMsg(rabinPubKeyArray, rabinMsg, paddingArray, sigArray, rabinPubKeyIndexArray);
     require(verifyCount == RabinUtil.ORACLE_VERIFY_NUM);
 
     PayloadU4SpendByData pl = RabinUtil.loadPayloadU4SpendBy(rabinMsg);
 
-    require(pl.byTxId == thisOutpoint[: 32]);
+    require(pl.byTxId == thisOutpoint[ : 32]);
 
     bool matchGenesis = false;
 
     if (pl.outpoint == tokenID) {
       matchGenesis = true;
-    }
-    else {
+    } else {
       if (pl.scriptHash == genesisHash) {
         matchGenesis = true;
-      }
-      else {
+      } else {
         bytes newScript = TokenProto.getNewTokenScript(script, len(script), tokenAddress, tokenAmount);
         if (hash160(newScript) == pl.scriptHash) {
           matchGenesis = true;
@@ -104,25 +110,27 @@ library RabinUtil {
     return matchGenesis;
   }
 
-  static function verifyRabinPubkeyIndexArray(int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyIndexArray) : bool {
-    loop (RabinUtil.ORACLE_VERIFY_NUM2) : i {
-      require(rabinPubKeyIndexArray[i + 1] > rabinPubKeyIndexArray[i]);
+  static function verifyRabinPubkeyIndexArray(int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyIndexArray): bool {
+    loop(RabinUtil.ORACLE_VERIFY_NUM2): i {
+        require(rabinPubKeyIndexArray[i + 1] > rabinPubKeyIndexArray[i]);
     }
     return true;
   }
 
-  static function verifyOtherInput(int[RabinUtil.ORACLE_NUM] rabinPubKeyArray,
+  static function verifyOtherInput(
+    int[RabinUtil.ORACLE_NUM] rabinPubKeyArray, 
     bytes rabinMsg,
-    bytes[RabinUtil.ORACLE_VERIFY_NUM] rabinPaddingArray,
+    bytes[RabinUtil.ORACLE_VERIFY_NUM] rabinPaddingArray, 
     int[RabinUtil.ORACLE_VERIFY_NUM] rabinSigArray,
     int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyIndexArray,
     bytes prevouts,
     int inputIndex,
     bytes inputScript,
-    PayloadU4Data u4) : bool {
+    PayloadU4Data u4
+    ): bool {
     int verifyCount = 0;
     RabinUtil.verifyRabinPubkeyIndexArray(rabinPubKeyIndexArray);
-    loop (RabinUtil.ORACLE_VERIFY_NUM) : i {
+    loop(RabinUtil.ORACLE_VERIFY_NUM): i {
       int pubIndex = rabinPubKeyIndexArray[i];
       int rabinPubKey = rabinPubKeyArray[pubIndex];
       int rabinSig = rabinSigArray[i];
@@ -135,7 +143,7 @@ library RabinUtil {
     require(verifyCount == RabinUtil.ORACLE_VERIFY_NUM);
 
     // verify output point
-    bytes outpoint = prevouts[inputIndex * TxUtil.OUTPOINT_LEN : (inputIndex + 1) * TxUtil.OUTPOINT_LEN];
+    bytes outpoint = prevouts[inputIndex * TxUtil.OUTPOINT_LEN: (inputIndex + 1) * TxUtil.OUTPOINT_LEN];
     require(u4.outpoint == outpoint);
 
     require(u4.scriptHash == hash160(inputScript));

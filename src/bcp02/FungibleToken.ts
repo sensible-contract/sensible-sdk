@@ -52,7 +52,7 @@ const RouteCheckContractClass_20To3 = buildContractClass(
 );
 
 const UnlockContractCheckContractClass_2To5 = buildContractClass(
-  require("./contract-desc/tokenUnlockContractCheck_2To5_desc.json")
+  require("./contract-desc/tokenUnlockContractCheck_desc.json")
 );
 
 const UnlockContractCheckContractClass_4To8 = buildContractClass(

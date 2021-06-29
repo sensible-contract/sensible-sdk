@@ -1,8 +1,8 @@
 {
     "version": 4,
-    "compilerVersion": "1.0.0+commit.65eb397",
+    "compilerVersion": "1.0.3+commit.48afe59",
     "contract": "RabinUtil",
-    "md5": "942a88d575963d989cdfc7ac0b0e7a16",
+    "md5": "947157cd0a73974978ca4d59fb27f558",
     "structs": [
         {
             "name": "PayloadU4Data",
@@ -50,7 +50,7 @@
             "params": []
         }
     ],
-    "buildType": "debug",
+    "buildType": "release",
     "file": "",
     "asm": "24 OP_8 14 OP_1 OP_1 OP_10 14 OP_4 OP_8 OP_2DUP OP_ADD OP_9 OP_PICK OP_OVER OP_ADD OP_DUP OP_10 OP_PICK OP_ADD OP_DUP OP_10 OP_PICK OP_ADD OP_DUP OP_10 OP_PICK OP_ADD OP_DUP OP_10 OP_PICK OP_ADD OP_DUP OP_10 OP_PICK OP_ADD OP_DUP OP_10 OP_PICK OP_ADD",
     "sources": [],

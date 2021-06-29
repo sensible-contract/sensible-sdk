@@ -1,7 +1,7 @@
 import * as bsv from "../bsv";
 import BN = require("../bn.js");
 
-export const RABIN_SIG_LEN = 128;
+export const RABIN_SIG_LEN = 384;
 
 export let toBufferLE = function (num: number, width: number) {
   const hex = num.toString(16);
