@@ -64,6 +64,38 @@ const BASE_UTXO_FEE = 1000;
 const BASE_FEE = 52416;
 const SIZE_OF_P2PKH = 106;
 
+const routeCheckArray = [
+  {
+    inputMaxCount: 3,
+    outputMaxCount: 3,
+    routeCheckType: RouteCheckType.from3To3,
+    sizeOfRouteCheck: SIZE_OF_ROUTE_CHECK_TYPE_3To3,
+  },
+  {
+    inputMaxCount: 6,
+    outputMaxCount: 6,
+    routeCheckType: RouteCheckType.from6To6,
+    sizeOfRouteCheck: SIZE_OF_ROUTE_CHECK_TYPE_6To6,
+  },
+  {
+    inputMaxCount: 10,
+    outputMaxCount: 10,
+    routeCheckType: RouteCheckType.from10To10,
+    sizeOfRouteCheck: SIZE_OF_ROUTE_CHECK_TYPE_10To10,
+  },
+  {
+    inputMaxCount: 20,
+    outputMaxCount: 3,
+    routeCheckType: RouteCheckType.from20To3,
+    sizeOfRouteCheck: SIZE_OF_ROUTE_CHECK_TYPE_20To3,
+  },
+  {
+    inputMaxCount: 3,
+    outputMaxCount: 100,
+    routeCheckType: RouteCheckType.from3To100,
+    sizeOfRouteCheck: SIZE_OF_ROUTE_CHECK_TYPE_3To100,
+  },
+];
 type ParamUtxo = {
   txId: string;
   outputIndex: number;
@@ -1477,45 +1509,12 @@ export class SensibleFT {
     let inputLength = ftUtxos.length;
     let outputLength = tokenOutputArray.length;
     let sizeOfRouteCheck = 0;
-    if (inputLength <= 3) {
-      if (outputLength <= 3) {
-        routeCheckType = RouteCheckType.from3To3;
-        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_3To3;
-      } else if (outputLength <= 100) {
-        routeCheckType = RouteCheckType.from3To100;
-        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_3To100;
-      } else {
-        throw new Error(
-          `unsupport transfer from inputs(${inputLength}) to outputs(${outputLength})`
-        );
-      }
-    } else if (inputLength <= 6) {
-      if (outputLength <= 6) {
-        routeCheckType = RouteCheckType.from6To6;
-        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_6To6;
-      } else {
-        throw new Error(
-          `unsupport transfer from inputs(${inputLength}) to outputs(${outputLength})`
-        );
-      }
-    } else if (inputLength <= 10) {
-      if (outputLength <= 10) {
-        routeCheckType = RouteCheckType.from10To10;
-        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_10To10;
-      } else {
-        throw new Error(
-          `unsupport transfer from inputs(${inputLength}) to outputs(${outputLength})`
-        );
-      }
-    } else if (inputLength <= 20) {
-      if (outputLength <= 3) {
-        routeCheckType = RouteCheckType.from20To3;
-        sizeOfRouteCheck = SIZE_OF_ROUTE_CHECK_TYPE_20To3;
-      } else {
-        throw new Error(
-          `unsupport transfer from inputs(${inputLength}) to outputs(${outputLength})`
-        );
-      }
+    let strategy = routeCheckArray.find(
+      (v) => inputLength <= v.inputMaxCount && outputLength <= v.outputMaxCount
+    );
+    if (strategy) {
+      routeCheckType = strategy.routeCheckType;
+      sizeOfRouteCheck = strategy.sizeOfRouteCheck;
     } else {
       throw new Error("Too many token-utxos, should merge them to continue.");
     }
@@ -1927,9 +1926,9 @@ export class SensibleFT {
     const preimageSize = 159 + tokenGenesisLockingSize;
     const sigSize = 72;
     const rabinMsgSize = 96;
-    const rabinPaddingArraySize = 2 * 2;
-    const rabinSigArraySize = 128 * 2;
-    const rabinPubKeyIndexArraySize = 2;
+    const rabinPaddingArraySize = 2 * SIGNER_VERIFY_NUM;
+    const rabinSigArraySize = TokenUtil.RABIN_SIG_LEN * SIGNER_VERIFY_NUM;
+    const rabinPubKeyIndexArraySize = SIGNER_VERIFY_NUM;
     const genesisContractSatoshisSize = 8;
     const tokenContractSatoshisSize = 8;
     const changeAddressSize = 20;
@@ -2170,15 +2169,18 @@ export class SensibleFT {
   }) {
     let sumFee = 0;
 
+    let p2pkhUnlockingSize = 32 + 4 + 1 + 107 + 4;
+    let p2pkhLockingSize = 8 + 1 + 25;
+
     let tokenUnlockingSizeSum = 0;
     for (let i = 0; i < inputTokenNum; i++) {
       let preimageSize = 159 + tokenLockingSize;
       let tokenInputIndexSize = 1;
       let prevoutsSize = (inputTokenNum + 1 + 1) * 36;
       let tokenRabinMsgSize = 96;
-      let tokenRabinPaddingArraySize = 2 * 2;
-      let tokenRabinSigArraySize = 128 * 2;
-      let rabinPubKeyIndexArraySize = 2;
+      let tokenRabinPaddingArraySize = 2 * SIGNER_VERIFY_NUM;
+      let tokenRabinSigArraySize = TokenUtil.RABIN_SIG_LEN * SIGNER_VERIFY_NUM;
+      let rabinPubKeyIndexArraySize = SIGNER_VERIFY_NUM;
       let routeCheckInputIndexSize = 1;
       let tokenOutputLenSize = 1;
       let tokenAddressSize = 20;
@@ -2194,7 +2196,9 @@ export class SensibleFT {
         tokenRabinSigArraySize +
         rabinPubKeyIndexArraySize +
         routeCheckInputIndexSize +
-        routeCheckLockingSize +
+        (p2pkhUnlockingSize * p2pkhInputNum +
+          routeCheckLockingSize +
+          p2pkhLockingSize) +
         1 +
         tokenOutputLenSize +
         tokenAddressSize +
@@ -2211,9 +2215,10 @@ export class SensibleFT {
     let preimageSize = 159 + routeCheckLockingSize;
     let prevoutsSize = (inputTokenNum + 1 + 1) * 36;
     let checkRabinMsgArraySize = 64 * inputTokenNum;
-    let checkRabinPaddingArraySize = 8 * inputTokenNum;
-    let checkRabinSigArraySize = 256 * inputTokenNum;
-    let rabinPubKeyIndexArraySize = 2;
+    let checkRabinPaddingArraySize = 4 * SIGNER_VERIFY_NUM * inputTokenNum;
+    let checkRabinSigArraySize =
+      TokenUtil.RABIN_SIG_LEN * SIGNER_VERIFY_NUM * inputTokenNum;
+    let rabinPubKeyIndexArraySize = SIGNER_VERIFY_NUM;
     let inputTokenAddressArraySize = 20 * inputTokenNum;
     let inputTokenAmountArray = 8 * inputTokenNum;
     let outputSatoshiArraySize = 8 * outputTokenNum;
@@ -2237,24 +2242,30 @@ export class SensibleFT {
       changeAddressSize +
       opreturnSize;
 
-    let p2pkhUnlockingSize = 32 + 4 + 1 + 107 + 4;
-    let p2pkhLockingSize = 8 + 1 + 25;
-
     //routeCheck tx
     sumFee +=
-      (p2pkhUnlockingSize * p2pkhInputNum +
+      (4 +
+        p2pkhUnlockingSize * p2pkhInputNum +
+        11 +
         routeCheckLockingSize +
-        p2pkhLockingSize) *
+        11 +
+        p2pkhLockingSize +
+        4) *
         this.feeb +
       Utils.getDustThreshold(routeCheckLockingSize);
 
     //transfer tx
     sumFee +=
-      (p2pkhUnlockingSize +
+      (4 +
+        43 +
+        p2pkhUnlockingSize +
+        43 +
         tokenUnlockingSizeSum +
+        43 +
         routeCheckUnlockingSize +
-        tokenLockingSize * outputTokenNum +
-        p2pkhLockingSize) *
+        (11 + tokenLockingSize) * outputTokenNum +
+        p2pkhLockingSize +
+        4) *
         this.feeb +
       Utils.getDustThreshold(tokenLockingSize) * outputTokenNum -
       Utils.getDustThreshold(tokenLockingSize) * inputTokenNum -
