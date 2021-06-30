@@ -220,6 +220,7 @@ export class Sensible implements SensibleApiBase {
   ): Promise<{
     codehash: string;
     genesis: string;
+    sensibleId: string;
     pendingBalance: number;
     balance: number;
     symbol: string;

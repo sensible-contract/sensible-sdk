@@ -3,7 +3,7 @@ import BN = require("../bn.js");
 
 export const RABIN_SIG_LEN = 384;
 
-export let toBufferLE = function (num: number, width: number) {
+export let toBufferLE = function (num: number | string, width: number) {
   const hex = num.toString(16);
   const buffer = Buffer.from(
     hex.padStart(width * 2, "0").slice(0, width * 2),
