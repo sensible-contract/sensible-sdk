@@ -2151,4 +2151,38 @@ export class SensibleFT {
   public isSupportedToken(codehash: string): boolean {
     return codehash == ContractUtil.tokenCodeHash;
   }
+
+  /**
+   * 计算代币的codehash和genesis
+   * @param genesisTx genesis的tx
+   * @param genesisOutputIndex (可选)genesis的outputIndex，默认为0
+   * @returns
+   */
+  public getCodehashAndGensisByTx(
+    genesisTx: bsv.Transaction,
+    genesisOutputIndex: number = 0
+  ) {
+    let genesis: string;
+    let codehash: string;
+    let sensibleId: string;
+
+    let genesisTxId = genesisTx.id;
+    let tokenContract = Token.createContract(
+      genesisTxId,
+      genesisOutputIndex,
+      genesisTx.outputs[genesisOutputIndex].script,
+      this.ft.transferCheckCodeHashArray,
+      this.ft.unlockContractCodeHashArray,
+      {
+        receiverAddress: new bsv.Address(this.zeroAddress), //dummy address
+        tokenAmount: BN.Zero,
+      }
+    );
+    let scriptBuf = tokenContract.lockingScript.toBuffer();
+    genesis = toHex(TokenProto.getTokenID(scriptBuf));
+    codehash = Utils.getCodeHash(tokenContract.lockingScript);
+    sensibleId = toHex(TokenProto.getSensibleIDBuf(scriptBuf));
+
+    return { codehash, genesis, sensibleId };
+  }
 }

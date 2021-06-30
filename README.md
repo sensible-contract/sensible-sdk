@@ -56,10 +56,10 @@ const ft = new SensibleFT({
 ### Genesis
 
 Define a token with name,symbol,decimal number.
-You should save the returned values.(genesis、codehash)
+You should save the returned values.(genesis、codehash、sensibleId)
 
 ```js
-let { txid, genesis, codehash } = await ft.genesis({
+let { txid, genesis, codehash, sensibleId } = await ft.genesis({
   genesisWif: CoffeeShop.wif,
   tokenName: "COFFEE COIN",
   tokenSymbol: "CC",
@@ -75,6 +75,7 @@ Issue 1000000000000 tokens
 let { txid } = await ft.issue({
   genesis: genesis,
   codehash: codehash,
+  sensibleId: sensibleId,
   genesisWif: CoffeeShop.wif,
   receiverAddress: CoffeeShop.address,
   tokenAmount: "1000000000000",
@@ -142,7 +143,7 @@ Define the NFT with totalSupply
 You should save the returned values.(genesis、codehash)
 
 ```js
-let { txid, genesis, codehash } = await nft.genesis({
+let { txid, genesis, codehash, sensibleId } = await nft.genesis({
   genesisWif: CoffeeShop.wif,
   totalSupply: "3",
 });
@@ -157,6 +158,7 @@ metaTxId is created by metaid which stands for NFT State
 let { txid, tokenid } = await nft.issue({
   genesis,
   codehash,
+  sensibleId,
   genesisWif: CoffeeShop.wif,
   receiverAddress: CoffeeShop.address,
   metaTxId: "8424d5efb0c11f574d7f045959bdc233c17804312c9ca1e196cebdae2b2646ea",

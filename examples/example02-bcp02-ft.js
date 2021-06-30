@@ -39,7 +39,7 @@ async function main() {
     feeb: feeb,
   });
 
-  let { txid, genesis, codehash } = await ft.genesis({
+  let { txid, genesis, codehash, sensibleId } = await ft.genesis({
     genesisWif: CoffeeShop.wif,
     tokenName: "COFFEE COIN",
     tokenSymbol: "CC",
@@ -55,6 +55,7 @@ codehash: ${codehash}`);
     let { txid } = await ft.issue({
       genesis: genesis,
       codehash: codehash,
+      sensibleId: sensibleId,
       genesisWif: CoffeeShop.wif,
       receiverAddress: CoffeeShop.address,
       tokenAmount: "100000000000000000",
