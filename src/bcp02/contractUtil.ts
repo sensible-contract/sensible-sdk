@@ -22,7 +22,7 @@ import {
   dummyTx,
   dummyTxId,
 } from "../common/dummy";
-import * as TokenUtil from "../common/TokenUtil";
+import * as TokenUtil from "../common/tokenUtil";
 import { isNull, SIG_PLACE_HOLDER } from "../common/utils";
 import { SIGNER_VERIFY_NUM } from "./FungibleToken";
 import * as TokenProto from "./tokenProto";

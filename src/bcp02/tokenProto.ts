@@ -68,7 +68,7 @@ export function getTokenAmount(script: Buffer): BN {
 
 export function getTokenID(script: Buffer) {
   return bsv.crypto.Hash.sha256ripemd160(
-    script.subarray(
+    script.slice(
       script.length - GENESIS_HASH_OFFSET,
       script.length - proto.getHeaderLen()
     )
@@ -98,7 +98,7 @@ export function getSensibleID(script0: Buffer) {
 
 export function getRabinPubKeyHashArrayHash(script: Buffer) {
   return script
-    .subarray(
+    .slice(
       script.length - RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET,
       script.length -
         RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET +
@@ -109,7 +109,7 @@ export function getRabinPubKeyHashArrayHash(script: Buffer) {
 
 export function getGenesisHash(script: Buffer) {
   return script
-    .subarray(
+    .slice(
       script.length - GENESIS_HASH_OFFSET,
       script.length - GENESIS_HASH_OFFSET + GENESIS_HASH_LEN
     )

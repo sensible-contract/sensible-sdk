@@ -101,3 +101,16 @@ export let getGenesisHashFromLockingScript = function (
   }
   return genesisHash;
 };
+
+export let getRabinPubKeyHashArray = function (rabinPubKeys: BN[]) {
+  let buf = Buffer.alloc(0);
+  for (let i = 0; i < rabinPubKeys.length; i++) {
+    buf = Buffer.concat([
+      buf,
+      bsv.crypto.Hash.sha256ripemd160(
+        this.toBufferLE(rabinPubKeys[i].toString(16), this.RABIN_SIG_LEN)
+      ),
+    ]);
+  }
+  return buf;
+};

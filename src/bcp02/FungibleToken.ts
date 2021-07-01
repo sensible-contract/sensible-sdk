@@ -60,19 +60,7 @@ export class FungibleToken {
   transferCheckCodeHashArray: Bytes[];
   unlockContractCodeHashArray: Bytes[];
   constructor(rabinPubKeys: BN[]) {
-    let buf = Buffer.alloc(0);
-    for (let i = 0; i < SIGNER_NUM; i++) {
-      buf = Buffer.concat([
-        buf,
-        bsv.crypto.Hash.sha256ripemd160(
-          TokenUtil.toBufferLE(
-            rabinPubKeys[i].toString(16),
-            TokenUtil.RABIN_SIG_LEN
-          )
-        ),
-      ]);
-    }
-    this.rabinPubKeyHashArray = buf;
+    this.rabinPubKeyHashArray = TokenUtil.getRabinPubKeyHashArray(rabinPubKeys);
     this.rabinPubKeyHashArrayHash = bsv.crypto.Hash.sha256ripemd160(
       this.rabinPubKeyHashArray
     );
