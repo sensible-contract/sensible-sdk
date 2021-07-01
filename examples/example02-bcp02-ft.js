@@ -48,7 +48,8 @@ async function main() {
   console.log(`genesis success!
 txid: ${txid}
 genesis: ${genesis}
-codehash: ${codehash}`);
+codehash: ${codehash}
+codehash: ${sensibleId}`);
   //wait for a moment
   await sleep(3);
   {

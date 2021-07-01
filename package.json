@@ -29,6 +29,7 @@
     "zlib": "^1.0.5"
   },
   "devDependencies": {
+    "@types/mocha": "^8.2.2",
     "browserify": "^17.0.0",
     "chai": "^4.3.4",
     "glob": "^7.1.7",
