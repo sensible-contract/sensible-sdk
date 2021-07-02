@@ -146,7 +146,6 @@ export function getTokenSymbol(script: Buffer): string {
     script.length - TOKEN_SYMBOL_OFFSET,
     script.length - TOKEN_SYMBOL_OFFSET + TOKEN_SYMBOL_LEN
   );
-  buf = buf.slice(0, buf.indexOf(Buffer.from("00", "hex")));
   return buf.toString();
 }
 
@@ -157,7 +156,6 @@ export function getTokenName(script: Buffer): string {
     script.length - TOKEN_NAME_OFFSET,
     script.length - TOKEN_NAME_OFFSET + TOKEN_NAME_LEN
   );
-  buf = buf.slice(0, buf.indexOf(Buffer.from("00", "hex")));
   return buf.toString();
 }
 
