@@ -2,6 +2,8 @@ import { Net } from "../net";
 import {
   API_NET,
   AuthorizationOption,
+  FungibleTokenBalance,
+  FungibleTokenSummary,
   FungibleTokenUnspent,
   NonFungibleTokenUnspent,
   SensibleApiBase,
@@ -145,12 +147,7 @@ export class Sensible implements SensibleApiBase {
     codehash: string,
     genesis: string,
     address: string
-  ): Promise<{
-    balance: number;
-    pendingBalance: number;
-    utxoCount: number;
-    decimal: number;
-  }> {
+  ): Promise<FungibleTokenBalance> {
     let url = `${this.serverBase}/ft/balance/${codehash}/${genesis}/${address}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -158,7 +155,14 @@ export class Sensible implements SensibleApiBase {
       throw { title: "request sensible api failed", url, msg };
     }
 
-    return data;
+    let ret: FungibleTokenBalance = {
+      balance: data.balance.toString(),
+      pendingBalance: data.pendingBalance.toString(),
+      utxoCount: data.utxoCount,
+      decimal: data.decimal,
+    };
+
+    return ret;
   }
 
   /**
@@ -217,23 +221,26 @@ export class Sensible implements SensibleApiBase {
    */
   public async getFungibleTokenSummary(
     address: string
-  ): Promise<{
-    codehash: string;
-    genesis: string;
-    sensibleId: string;
-    pendingBalance: number;
-    balance: number;
-    symbol: string;
-    decimal: number;
-  }> {
+  ): Promise<FungibleTokenSummary[]> {
     let url = `${this.serverBase}/ft/summary/${address}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw { title: "request sensible api failed", url, msg };
     }
-
-    return data;
+    let ret: FungibleTokenSummary[] = [];
+    data.forEach((v) => {
+      ret.push({
+        codehash: v.codehash,
+        genesis: v.genesis,
+        sensibleId: v.sensibleId,
+        pendingBalance: v.pendingBalance.toString(),
+        balance: v.balance.toString(),
+        symbol: v.symbol,
+        decimal: v.decimal,
+      });
+    });
+    return ret;
   }
 
   /**

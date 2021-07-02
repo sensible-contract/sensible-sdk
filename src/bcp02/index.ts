@@ -1819,7 +1819,9 @@ export class SensibleFT {
       genesis,
       address
     );
-    return balance + pendingBalance;
+    return BN.fromString(balance, 10)
+      .add(BN.fromString(pendingBalance, 10))
+      .toString();
   }
 
   /**

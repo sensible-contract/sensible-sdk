@@ -3,6 +3,8 @@ import { Net } from "../net";
 import {
   API_NET,
   AuthorizationOption,
+  FungibleTokenBalance,
+  FungibleTokenSummary,
   FungibleTokenUnspent,
   NonFungibleTokenUnspent,
   SA_utxo,
@@ -158,12 +160,7 @@ export class MetaSV implements SensibleApiBase {
     codehash: string,
     genesis: string,
     address: string
-  ): Promise<{
-    balance: number;
-    pendingBalance: number;
-    utxoCount: number;
-    decimal: number;
-  }> {
+  ): Promise<FungibleTokenBalance> {
     let path = `/sensible/ft/address/${address}/balance`;
     let url = this.serverBase + path;
     let _res: any = await Net.httpGet(
@@ -172,13 +169,21 @@ export class MetaSV implements SensibleApiBase {
       { headers: this._getHeaders(path) }
     );
 
-    let data = _res.map((v) => ({
-      balance: v.confirmed,
-      pendingBalance: v.unconfirmed,
-      utxoCount: 1,
-      decimal: v.decimal,
-    }));
-    return data[0];
+    let ret: FungibleTokenBalance = {
+      balance: "0",
+      pendingBalance: "0",
+      utxoCount: 0,
+      decimal: 0,
+    };
+    if (_res.length > 0) {
+      ret = {
+        balance: _res[0].confirmedString,
+        pendingBalance: _res[0].unconfirmedString,
+        utxoCount: _res[0].utxoCount,
+        decimal: _res[0].decimal,
+      };
+    }
+    return ret;
   }
 
   /**
@@ -186,14 +191,7 @@ export class MetaSV implements SensibleApiBase {
    */
   public async getFungibleTokenSummary(
     address: string
-  ): Promise<{
-    codehash: string;
-    genesis: string;
-    pendingBalance: number;
-    balance: number;
-    symbol: string;
-    decimal: number;
-  }> {
+  ): Promise<FungibleTokenSummary[]> {
     let path = `/sensible/ft/address/${address}/balance`;
     let url = this.serverBase + path;
     let _res: any = await Net.httpGet(
@@ -202,14 +200,18 @@ export class MetaSV implements SensibleApiBase {
       { headers: this._getHeaders(path) }
     );
 
-    let data = _res.map((v) => ({
-      codehash: v.codeHash,
-      genesis: v.genesis,
-      symbol: v.symbol,
-      decimal: v.decimal,
-      balance: v.confirmed,
-      pendingBalance: v.unconfirmed,
-    }));
+    let data: FungibleTokenSummary[] = [];
+    _res.forEach((v: any) => {
+      data.push({
+        codehash: v.codeHash,
+        genesis: v.genesis,
+        sensibleId: v.sensibleId,
+        symbol: v.symbol,
+        decimal: v.decimal,
+        balance: v.confirmedString,
+        pendingBalance: v.unconfirmedString,
+      });
+    });
 
     return data;
   }

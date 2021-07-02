@@ -32,6 +32,22 @@ export type SA_utxo = {
   satoshis: number;
   address: string;
 };
+export type FungibleTokenSummary = {
+  codehash: string;
+  genesis: string;
+  sensibleId: string;
+  pendingBalance: string;
+  balance: string;
+  symbol: string;
+  decimal: number;
+};
+
+export type FungibleTokenBalance = {
+  balance: string;
+  pendingBalance: string;
+  utxoCount: number;
+  decimal: number;
+};
 
 export type AuthorizationOption = {
   /**
@@ -59,22 +75,8 @@ export interface SensibleApiBase {
     codehash: string,
     genesis: string,
     address: string
-  ) => Promise<{
-    balance: number;
-    pendingBalance: number;
-    utxoCount: number;
-    decimal: number;
-  }>;
-  getFungibleTokenSummary(
-    address: string
-  ): Promise<{
-    codehash: string;
-    genesis: string;
-    pendingBalance: number;
-    balance: number;
-    symbol: string;
-    decimal: number;
-  }>;
+  ) => Promise<FungibleTokenBalance>;
+  getFungibleTokenSummary(address: string): Promise<FungibleTokenSummary[]>;
   getNonFungibleTokenUnspents(
     codehash: string,
     genesis: string,
