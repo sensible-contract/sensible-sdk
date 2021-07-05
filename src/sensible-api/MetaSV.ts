@@ -228,7 +228,7 @@ export class MetaSV implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
+      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
     }
 
     if (!data) return [];
@@ -254,7 +254,7 @@ export class MetaSV implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
+      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
     }
     if (!data) return null;
     let ret = [data].map((v) => ({
@@ -285,7 +285,7 @@ export class MetaSV implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
+      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
     }
 
     return data;

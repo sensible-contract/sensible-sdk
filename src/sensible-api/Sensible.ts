@@ -59,7 +59,7 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
+      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
     }
     let ret = data.map((v: SensibleQueryUtxo) => ({
       txId: v.txid,
@@ -92,8 +92,7 @@ export class Sensible implements SensibleApiBase {
       });
       const { code, data, msg } = _res as ResData;
       if (code != 0) {
-        console.log(txHex);
-        throw { title: "request sensible api failed", url, msg };
+        throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
       }
       return data;
     }
@@ -107,7 +106,7 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
+      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
     }
     if (!data) {
       console.log("getRawfailed", url);
@@ -128,7 +127,7 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
+      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
     }
     if (!data) return [];
     let ret: FungibleTokenUnspent[] = data.map((v: SensibleQueryUtxo) => ({
@@ -152,7 +151,7 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
+      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
     }
 
     let ret: FungibleTokenBalance = {
@@ -177,7 +176,7 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
+      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
     }
 
     if (!data) return [];
@@ -203,7 +202,7 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
+      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
     }
     if (!data) return null;
     let ret = [data].map((v) => ({
@@ -226,7 +225,7 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
+      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
     }
     let ret: FungibleTokenSummary[] = [];
     data.forEach((v) => {
@@ -261,7 +260,7 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw { title: "request sensible api failed", url, msg };
+      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
     }
 
     return data;
