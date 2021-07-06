@@ -270,12 +270,12 @@ export class SensibleFT {
     if (_signerConfigs.length < SIGNER_NUM) {
       throw new Error(`The length of signerArray should be ${SIGNER_NUM}`);
     }
-    let results = [];
+    let retPromises = [];
     const SIGNER_TIMEOUT = 99999;
     for (let i = 0; i < _signerConfigs.length; i++) {
       let signerConfig = _signerConfigs[i];
       let subArray = signerConfig.satotxApiPrefix.split(",");
-      let ret = await new Promise(
+      let ret = new Promise(
         (
           resolve: ({
             url,
@@ -321,6 +321,13 @@ export class SensibleFT {
           }
         }
       );
+      retPromises.push(ret);
+    }
+
+    let results = [];
+    for (let i = 0; i < _signerConfigs.length; i++) {
+      let signerConfig = _signerConfigs[i];
+      let ret = await retPromises[i];
       signerConfig.satotxApiPrefix = ret.url;
       results.push(ret);
     }

@@ -26,7 +26,7 @@ type SensibleQueryUtxo = {
   satoshi?: number;
   scriptPk?: string;
   scriptType?: string;
-  tokenAmount?: number;
+  tokenAmount?: string;
   tokenDecimal?: number;
   tokenId?: string;
   txid?: string;
@@ -148,7 +148,7 @@ export class MetaSV implements SensibleApiBase {
       txId: v.txid,
       outputIndex: v.txIndex,
       tokenAddress: address,
-      tokenAmount: v.value,
+      tokenAmount: v.valueString,
     }));
     return ret;
   }
