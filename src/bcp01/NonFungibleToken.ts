@@ -56,15 +56,13 @@ export class NonFungibleToken {
   rabinPubKeyHashArray: Buffer;
   rabinPubKeyHashArrayHash: Buffer;
   unlockContractCodeHashArray: Bytes[];
-  dustRate: number;
-  constructor(rabinPubKeys: BN[], dustRate?: number) {
+  constructor(rabinPubKeys: BN[]) {
     this.rabinPubKeyHashArray = TokenUtil.getRabinPubKeyHashArray(rabinPubKeys);
     this.rabinPubKeyHashArrayHash = bsv.crypto.Hash.sha256ripemd160(
       this.rabinPubKeyHashArray
     );
     this.rabinPubKeyArray = rabinPubKeys.map((v) => new Int(v.toString(10))); //scryptlib 需要0x开头
     this.unlockContractCodeHashArray = ContractUtil.unlockContractCodeHashArray;
-    this.dustRate = dustRate;
   }
 
   /**
@@ -113,8 +111,7 @@ export class NonFungibleToken {
       new bsv.Transaction.Output({
         script: genesisContract.lockingScript,
         satoshis: Utils.getDustThreshold(
-          genesisContract.lockingScript.toBuffer().length,
-          this.dustRate
+          genesisContract.lockingScript.toBuffer().length
         ),
       })
     );
@@ -184,8 +181,7 @@ export class NonFungibleToken {
         output: new bsv.Transaction.Output({
           script: spendByLockingScript,
           satoshis: Utils.getDustThreshold(
-            spendByLockingScript.toBuffer().length,
-            this.dustRate
+            spendByLockingScript.toBuffer().length
           ),
         }),
         prevTxId: spendByTxId,
@@ -232,8 +228,7 @@ export class NonFungibleToken {
         )
       );
       genesisContractSatoshis = Utils.getDustThreshold(
-        newGenesislockingScript.toBuffer().length,
-        this.dustRate
+        newGenesislockingScript.toBuffer().length
       );
       tx.addOutput(
         new bsv.Transaction.Output({
@@ -244,8 +239,7 @@ export class NonFungibleToken {
     }
 
     const tokenContractSatoshis = Utils.getDustThreshold(
-      tokenContract.lockingScript.toBuffer().length,
-      this.dustRate
+      tokenContract.lockingScript.toBuffer().length
     );
     //添加token合约作为输出
     tx.addOutput(
@@ -564,7 +558,7 @@ export class NonFungibleToken {
     const lockingScriptBuf = NftProto.updateScript(nftScriptBuf, dataPartObj);
     const nftOutput = {
       lockingScript: bsv.Script.fromBuffer(lockingScriptBuf),
-      satoshis: Utils.getDustThreshold(lockingScriptBuf.length, this.dustRate),
+      satoshis: Utils.getDustThreshold(lockingScriptBuf.length),
     };
     tx.addOutput(
       new bsv.Transaction.Output({

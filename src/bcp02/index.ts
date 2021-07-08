@@ -230,7 +230,7 @@ export class SensibleFT {
    * @param purse (Optional) the private key to offer transacions fee. If not provided, bsv utoxs must be provided in genesis/issue/transfer.
    * @param debug (Optional) specify if verify the tx when genesis/issue/transfer, default is false
    * @param apiTarget (Optional) SENSIBLE/METASV, default is SENSIBLE.
-   * @param dustRate (Optional) specify the output dust rate, default is 0.25 .If the value is equal to 0, the final dust will be at least 1.
+   * @param dustLimitFactor (Optional) specify the output dust rate, default is 0.25 .If the value is equal to 0, the final dust will be at least 1.
    */
   constructor({
     signers = defaultSignerConfigs,
@@ -241,7 +241,7 @@ export class SensibleFT {
     debug = false,
     apiTarget = API_TARGET.SENSIBLE,
     mockData,
-    dustRate = 0.75,
+    dustLimitFactor = 300,
     dustAmount,
   }: {
     signers?: SignerConfig[];
@@ -252,7 +252,7 @@ export class SensibleFT {
     debug?: boolean;
     apiTarget?: API_TARGET;
     mockData?: MockData;
-    dustRate?: number;
+    dustLimitFactor?: number;
     dustAmount?: number;
   }) {
     checkParamNetwork(network);
@@ -275,7 +275,7 @@ export class SensibleFT {
 
     this.debug = debug;
 
-    this.dustCalculator = new DustCalculator(dustRate, dustAmount);
+    this.dustCalculator = new DustCalculator(dustLimitFactor, dustAmount);
     if (network == API_NET.MAIN) {
       this.zeroAddress = new bsv.Address("1111111111111111111114oLvT2");
     } else {
@@ -401,14 +401,14 @@ export class SensibleFT {
   }
 
   public setDustThreshold({
-    dustRate,
+    dustLimitFactor,
     dustAmount,
   }: {
-    dustRate?: number;
+    dustLimitFactor?: number;
     dustAmount?: number;
   }) {
     this.dustCalculator.dustAmount = dustAmount;
-    this.dustCalculator.dustRate = dustRate;
+    this.dustCalculator.dustLimitFactor = dustLimitFactor;
   }
 
   private async _pretreatUtxos(

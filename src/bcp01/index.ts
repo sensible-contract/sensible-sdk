@@ -192,7 +192,7 @@ export class SensibleNFT {
   private nft: NonFungibleToken;
   private debug: boolean;
   private signerSelecteds: number[] = [];
-  private dustRate: number;
+  private dustLimitFactor: number;
   /**
    *
    * @param signers - 签名器
@@ -211,7 +211,7 @@ export class SensibleNFT {
     debug = false,
     apiTarget = API_TARGET.SENSIBLE,
     mockData,
-    dustRate,
+    dustLimitFactor,
   }: {
     signers: SignerConfig[];
     signerSelecteds?: number[];
@@ -221,7 +221,7 @@ export class SensibleNFT {
     debug: boolean;
     apiTarget?: API_TARGET;
     mockData?: MockData;
-    dustRate?: number;
+    dustLimitFactor?: number;
   }) {
     checkParamNetwork(network);
     this.signers = signers.map(
@@ -247,7 +247,7 @@ export class SensibleNFT {
     }
 
     this.debug = debug;
-    this.dustRate = dustRate;
+    this.dustLimitFactor = dustLimitFactor;
 
     if (network == API_NET.MAIN) {
       this.zeroAddress = new bsv.Address("1111111111111111111114oLvT2");
@@ -1245,7 +1245,7 @@ export class SensibleNFT {
       p2pkhOutputNum * (8 + 1 + 25) +
       4;
 
-    let dust = Utils.getDustThreshold(sizeOfNft, this.dustRate);
+    let dust = Utils.getDustThreshold(sizeOfNft);
     let fee = Math.ceil(size * this.feeb) + dust;
     return fee;
   }
@@ -1272,7 +1272,7 @@ export class SensibleNFT {
       p2pkhOutputNum * (8 + 1 + 25) +
       4;
 
-    let dust = Utils.getDustThreshold(sizeOfNft, this.dustRate);
+    let dust = Utils.getDustThreshold(sizeOfNft);
     let fee = Math.ceil(size * this.feeb) + dust;
     return fee;
   }

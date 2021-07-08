@@ -1,9 +1,9 @@
 import * as Utils from "./utils";
 export class DustCalculator {
-  dustRate: number = null;
+  dustLimitFactor: number = 300;
   dustAmount: number = null;
-  constructor(dustRate: number, dustAmount: number) {
-    this.dustRate = dustRate;
+  constructor(dustLimitFactor: number, dustAmount: number) {
+    this.dustLimitFactor = dustLimitFactor;
     this.dustAmount = dustAmount;
   }
 
@@ -11,7 +11,9 @@ export class DustCalculator {
     if (!Utils.isNull(this.dustAmount)) {
       return this.dustAmount;
     } else {
-      return Math.ceil((s + 148) * this.dustRate);
+      return (
+        (Math.ceil((250 * (s + 9 + 148)) / 1000) * this.dustLimitFactor) / 100
+      );
     }
   }
 }
