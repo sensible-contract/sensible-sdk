@@ -64,14 +64,14 @@ type ParamUtxo = {
   outputIndex: number;
   satoshis: number;
   wif?: string;
-  address?: any;
+  address?: string | bsv.Address;
 };
 
 type ParamFtUtxo = {
   txId: string;
   outputIndex: number;
   tokenAddress: string;
-  tokenAmount: any;
+  tokenAmount: string;
   wif?: string;
 };
 
@@ -538,11 +538,11 @@ export class SensibleFT {
     tokenName: string;
     tokenSymbol: string;
     decimalNum: number;
-    utxos?: any;
+    utxos?: ParamUtxo[];
     changeAddress?: string | bsv.Address;
     opreturnData?: any;
-    genesisWif: any;
-    noBroadcast?: any;
+    genesisWif: string | bsv.PrivateKey;
+    noBroadcast?: boolean;
   }): Promise<{
     txHex: string;
     txid: string;
@@ -621,7 +621,7 @@ export class SensibleFT {
     tokenName: string;
     tokenSymbol: string;
     decimalNum: number;
-    utxos?: any;
+    utxos?: ParamUtxo[];
     changeAddress?: string | bsv.Address;
     opreturnData?: any;
     genesisPublicKey: string | bsv.PublicKey;
@@ -713,6 +713,18 @@ export class SensibleFT {
       rabinPubKeyHashArrayHash: toHex(this.ft.rabinPubKeyHashArrayHash),
     });
 
+    let estimateSatoshis = await this.getGenesisEstimateFee({
+      opreturnData,
+      utxoMaxCount: utxos.length,
+    });
+    const balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
+    if (balance < estimateSatoshis) {
+      throw new CodeError(
+        ErrCode.EC_INSUFFICENT_BSV,
+        `Insufficient balance.It take more than ${estimateSatoshis}, but only ${balance}.`
+      );
+    }
+
     //create genesis tx
     let tx = this.ft.createGenesisTx({
       utxos,
@@ -784,7 +796,7 @@ export class SensibleFT {
     receiverAddress: string | bsv.Address;
     tokenAmount: string | BN;
     allowIncreaseIssues: boolean;
-    utxos?: any;
+    utxos?: ParamUtxo[];
     changeAddress?: string | bsv.Address;
     opreturnData?: any;
     noBroadcast?: boolean;
@@ -860,7 +872,7 @@ export class SensibleFT {
     receiverAddress: string | bsv.Address;
     tokenAmount: string | BN;
     allowIncreaseIssues?: boolean;
-    utxos?: any;
+    utxos?: ParamUtxo[];
     changeAddress?: string | bsv.Address;
     opreturnData?: any;
   }): Promise<{ tx: bsv.Transaction; sigHashList: SigHashInfo[] }> {
@@ -1056,6 +1068,7 @@ export class SensibleFT {
       genesisUtxoSatoshis: genesisUtxo.satoshis,
       opreturnData,
       allowIncreaseIssues,
+      utxoMaxCount: utxos.length,
     });
     if (balance < estimateSatoshis) {
       throw new CodeError(
@@ -1319,13 +1332,13 @@ export class SensibleFT {
 
     senderWif?: string;
     ftUtxos?: ParamFtUtxo[];
-    ftChangeAddress?: any;
+    ftChangeAddress?: string | bsv.Address;
 
     utxos?: ParamUtxo[];
-    changeAddress?: any;
+    changeAddress?: string | bsv.Address;
 
-    middleChangeAddress?: any;
-    middlePrivateKey?: any;
+    middleChangeAddress?: string | bsv.Address;
+    middlePrivateKey?: string | bsv.PrivateKey;
 
     isMerge?: boolean;
     opreturnData?: any;
@@ -1437,13 +1450,13 @@ export class SensibleFT {
     receivers?: TokenReceiver[];
 
     senderPublicKey?: any;
-    ftUtxos: any[];
+    ftUtxos: ParamFtUtxo[];
     ftChangeAddress?: string | bsv.Address;
-    utxos: any[];
+    utxos: ParamUtxo[];
     changeAddress?: string | bsv.Address;
     isMerge?: boolean;
     opreturnData?: any;
-    middleChangeAddress?: any;
+    middleChangeAddress?: string | bsv.Address;
   }): Promise<{
     routeCheckTx: bsv.Transaction;
     routeCheckSigHashList: SigHashInfo[];
@@ -1928,8 +1941,8 @@ export class SensibleFT {
     codehash: string;
     genesis: string;
     ownerWif: string;
-    utxos?: any;
-    changeAddress?: any;
+    utxos?: ParamUtxo[];
+    changeAddress?: string | bsv.Address;
     noBroadcast?: boolean;
     opreturnData?: any;
   }) {
@@ -1971,11 +1984,11 @@ export class SensibleFT {
   }: {
     codehash: string;
     genesis: string;
-    ownerPublicKey: string;
-    ftUtxos?: any;
-    ftChangeAddress?: any;
-    utxos?: any;
-    changeAddress?: any;
+    ownerPublicKey: string | bsv.PublicKey;
+    ftUtxos?: ParamFtUtxo[];
+    ftChangeAddress?: string | bsv.Address;
+    utxos?: ParamUtxo[];
+    changeAddress?: string | bsv.Address;
     opreturnData?: any;
   }) {
     return await this.unsignPreTransfer({
@@ -2009,7 +2022,15 @@ export class SensibleFT {
    * @param address
    * @returns
    */
-  public async getBalance({ codehash, genesis, address }): Promise<string> {
+  public async getBalance({
+    codehash,
+    genesis,
+    address,
+  }: {
+    codehash: string;
+    genesis: string;
+    address: string;
+  }): Promise<string> {
     let {
       balance,
       pendingBalance,
@@ -2063,10 +2084,17 @@ export class SensibleFT {
   /**
    * Estimate the cost of genesis
    * @param opreturnData
+   * @param utxoMaxCount Maximum number of BSV UTXOs supported
    * @returns
    */
-  public async getGenesisEstimateFee({ opreturnData }: { opreturnData?: any }) {
-    const p2pkhInputNum = 10;
+  public async getGenesisEstimateFee({
+    opreturnData,
+    utxoMaxCount = 10,
+  }: {
+    opreturnData?: any;
+    utxoMaxCount?: number;
+  }) {
+    const p2pkhInputNum = utxoMaxCount;
     const sizeOfTokenGenesis = TokenGenesis.getLockingScriptSize();
     let stx = new SizeTransaction(this.feeb, this.dustCalculator);
     for (let i = 0; i < p2pkhInputNum; i++) {
@@ -2085,7 +2113,10 @@ export class SensibleFT {
   /**
    * Estimate the cost of issue
    * The minimum cost required in the case of 10 utxo inputs .
-   * @param param0
+   * @param sensibleId
+   * @param genesisPublicKey
+   * @param opreturnData
+   * @param utxoMaxCount Maximum number of BSV UTXOs supported
    * @returns
    */
   public async getIssueEstimateFee({
@@ -2093,12 +2124,15 @@ export class SensibleFT {
     genesisPublicKey,
     opreturnData,
     allowIncreaseIssues = true,
+    utxoMaxCount = 10,
   }: {
     sensibleId: string;
-    genesisPublicKey: bsv.PublicKey;
+    genesisPublicKey: string | bsv.PublicKey;
     opreturnData?: any;
     allowIncreaseIssues: boolean;
+    utxoMaxCount?: number;
   }) {
+    genesisPublicKey = new bsv.PublicKey(genesisPublicKey);
     let { genesisUtxo } = await this._prepareIssueUtxo({
       sensibleId,
       genesisPublicKey,
@@ -2107,6 +2141,7 @@ export class SensibleFT {
       genesisUtxoSatoshis: genesisUtxo.satoshis,
       opreturnData,
       allowIncreaseIssues,
+      utxoMaxCount,
     });
   }
 
@@ -2114,12 +2149,14 @@ export class SensibleFT {
     genesisUtxoSatoshis,
     opreturnData,
     allowIncreaseIssues = true,
+    utxoMaxCount = 10,
   }: {
     genesisUtxoSatoshis: number;
     opreturnData?: any;
     allowIncreaseIssues: boolean;
+    utxoMaxCount?: number;
   }) {
-    let p2pkhInputNum = 10;
+    let p2pkhInputNum = utxoMaxCount;
 
     let stx = new SizeTransaction(this.feeb, this.dustCalculator);
     stx.addInput(
@@ -2160,24 +2197,37 @@ export class SensibleFT {
     ftChangeAddress,
     isMerge,
     opreturnData,
+    utxoMaxCount = 3,
   }: {
     codehash: string;
     genesis: string;
     receivers?: TokenReceiver[];
 
     senderWif: string;
-    senderPrivateKey?: any;
-    senderPublicKey?: any;
+    senderPrivateKey?: string | bsv.PrivateKey;
+    senderPublicKey?: string | bsv.PublicKey;
     ftUtxos?: ParamFtUtxo[];
-    ftChangeAddress?: any;
+    ftChangeAddress?: string | bsv.Address;
     isMerge?: boolean;
     opreturnData?: any;
+    utxoMaxCount?: number;
   }) {
-    let p2pkhInputNum = 3;
+    let p2pkhInputNum = utxoMaxCount;
+    if (p2pkhInputNum > 3) {
+      throw new CodeError(
+        ErrCode.EC_UTXOS_MORE_THAN_3,
+        "Bsv utxos should be no more than 3 in the transfer operation. "
+      );
+    }
 
     if (senderWif) {
       senderPrivateKey = bsv.PrivateKey.fromWIF(senderWif);
       senderPublicKey = senderPrivateKey.toPublicKey();
+    } else if (senderPrivateKey) {
+      senderPrivateKey = new bsv.PrivateKey(senderPrivateKey);
+      senderPublicKey = senderPrivateKey.toPublicKey();
+    } else {
+      senderPublicKey = new bsv.PublicKey(senderPublicKey);
     }
 
     let utxos: Utxo[] = [];
@@ -2194,7 +2244,7 @@ export class SensibleFT {
       ftUtxos,
       codehash,
       genesis,
-      senderPrivateKey,
+      senderPrivateKey as bsv.PrivateKey,
       senderPublicKey
     );
     if (ftChangeAddress) {
@@ -2238,14 +2288,16 @@ export class SensibleFT {
     ftUtxos,
     ftChangeAddress,
     opreturnData,
+    utxoMaxCount = 3,
   }: {
     codehash: string;
     genesis: string;
     ownerWif?: string;
-    ownerPublicKey?: any;
+    ownerPublicKey?: string | bsv.PublicKey;
     ftUtxos?: ParamFtUtxo[];
-    ftChangeAddress?: any;
+    ftChangeAddress?: string | bsv.Address;
     opreturnData?: any;
+    utxoMaxCount?: number;
   }) {
     return await this.getTransferEstimateFee({
       codehash,
@@ -2257,6 +2309,7 @@ export class SensibleFT {
       opreturnData,
       receivers: [],
       isMerge: true,
+      utxoMaxCount,
     });
   }
   /**
@@ -2290,7 +2343,7 @@ export class SensibleFT {
   }: {
     p2pkhInputNum: number;
     tokenInputArray: FtUtxo[];
-    tokenOutputArray: any[];
+    tokenOutputArray: { address: bsv.Address; tokenAmount: BN }[];
     tokenTransferType: TOKEN_TRANSFER_TYPE;
     opreturnData: any;
   }) {

@@ -11,7 +11,7 @@ export class DustCalculator {
     if (!Utils.isNull(this.dustAmount)) {
       return this.dustAmount;
     } else {
-      return (
+      return Math.ceil(
         (Math.ceil((250 * (s + 9 + 148)) / 1000) * this.dustLimitFactor) / 100
       );
     }
