@@ -1,0 +1,105 @@
+import "util.scrypt";
+
+library NftProto {
+  static int PROTO_TYPE = 3;
+  // flag is sensible
+  static bytes PROTO_FLAG = b'73656e7369626c65';
+
+  static bytes BURN_ADDRESS = b'0000000000000000000000000000000000000000';
+
+  static const int OP_TRANSFER = 1;
+  static const int OP_UNLOCK_FROM_CONTRACT = 2;
+
+  static const int RABIN_PUBKEY_LEN = 384;
+
+  // <type specific data> + <proto header>
+  // <proto header> = <type(4 bytes)> + <'sensible'(8 bytes)>
+  //<nft type specific data> = <metaid_outpoint(36 bytes)> + <is_genesis(1 byte)> + <address(20 bytes)> + <totalSupply(8 bytes) + <tokenIndex(8 bytes)> + <genesisHash<20 bytes>) + <rabinPubKeyHashArrayHash(20 bytes)> + <sensibleID(36 bytes)>
+  static const int SENSIBLE_ID_LEN = 36;
+  static const int RABIN_PUBKEY_HASH_ARRAY_HASH_LEN = 20;
+  static const int GENESIS_HASH_LEN = 20;
+  static const int TOKEN_INDEX_LEN = 8;
+  static const int NFT_ID_LEN = 20;
+  static const int TOTAL_SUPPLY_LEN = 8;
+  static const int NFT_ADDRESS_LEN = 20;
+  static const int GENESIS_FLAG_LEN = 1;
+  static const int METAID_OUTPOINT_LEN = 36;
+  static int PROTO_TYPE_LEN = 4;
+  static int PROTO_FLAG_LEN = 8;
+
+  static int TYPE_OFFSET = PROTO_TYPE_LEN + PROTO_FLAG_LEN;
+  static int SENSIBLE_ID_OFFSET = TYPE_OFFSET + SENSIBLE_ID_LEN;
+  static int RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET = SENSIBLE_ID_OFFSET + RABIN_PUBKEY_HASH_ARRAY_HASH_LEN;
+  static int GENESIS_HASH_OFFSET = RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET + GENESIS_HASH_LEN;
+  static int TOKEN_INDEX_OFFSET = GENESIS_HASH_OFFSET + TOKEN_INDEX_LEN;
+  static int TOTAL_SUPPLY_OFFSET = TOKEN_INDEX_OFFSET + TOTAL_SUPPLY_LEN;
+  static int NFT_ADDRESS_OFFSET = TOTAL_SUPPLY_OFFSET + NFT_ADDRESS_LEN;
+  static int GENESIS_FLAG_OFFSET = NFT_ADDRESS_OFFSET + GENESIS_FLAG_LEN;
+  static int METAID_OUTPOINT_OFFSET = GENESIS_FLAG_OFFSET + METAID_OUTPOINT_LEN;
+
+  static int DATA_LEN = METAID_OUTPOINT_OFFSET;
+
+  static function getProtoFlag(bytes script, int slen): bytes {
+      return script[slen - PROTO_FLAG_LEN:];
+  }
+
+  static function getProtoType(bytes script, int slen): int {
+      return Util.fromLEUnsigned(script[slen - TYPE_OFFSET: slen - TYPE_OFFSET + PROTO_TYPE_LEN]);
+  }
+
+  static function getSensibleID(bytes script, int slen): bytes {
+    return script[slen - SENSIBLE_ID_OFFSET: slen - SENSIBLE_ID_OFFSET + SENSIBLE_ID_LEN];
+  }
+
+  static function getRabinPubKeyHashArrayHash(bytes script, int slen): bytes {
+    return script[slen - RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET: slen - RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET + RABIN_PUBKEY_HASH_ARRAY_HASH_LEN];
+  }
+
+  static function getGenesisHash(bytes script, int slen): bytes {
+      return script[slen - GENESIS_HASH_OFFSET: slen - GENESIS_HASH_OFFSET + GENESIS_HASH_LEN];
+  }
+
+  static function getTokenIndex(bytes script, int slen): int {
+      return Util.fromLEUnsigned(script[slen - TOKEN_INDEX_OFFSET: slen - TOKEN_INDEX_OFFSET + TOKEN_INDEX_LEN]);
+  }
+
+  static function getNftID(bytes script, int slen): bytes {
+      return hash160(script[slen - GENESIS_HASH_OFFSET: slen - TYPE_OFFSET]);
+  }
+
+  static function getTotalSupply(bytes script, int slen): int {
+    return Util.fromLEUnsigned(script[slen - TOTAL_SUPPLY_OFFSET: slen - TOTAL_SUPPLY_OFFSET + TOTAL_SUPPLY_LEN]);
+  }
+    
+  static function getNftAddress(bytes script, int slen): bytes {
+    return script[slen - NFT_ADDRESS_OFFSET: slen - NFT_ADDRESS_OFFSET + NFT_ADDRESS_LEN];
+  }
+
+  static function getGenesisFlag(bytes script, int slen): int {
+    return Util.fromLEUnsigned(script[slen - GENESIS_FLAG_OFFSET: slen - GENESIS_FLAG_OFFSET + GENESIS_FLAG_LEN]);
+  }
+
+  static function getContractCode(bytes script, int slen): bytes {
+    return script[: slen - DATA_LEN - 3];
+  }
+
+  static function getContractCodeHash(bytes script, int slen): bytes {
+    return hash160(getContractCode(script, slen));
+  }
+
+  static function getNewNftScript(bytes script, int slen, bytes address): bytes {
+    return script[: slen - NFT_ADDRESS_OFFSET] + address + script[slen - NFT_ADDRESS_OFFSET + NFT_ADDRESS_LEN: slen];
+  }
+
+  static function checkDataLen(bytes script, int slen): bool {
+    return unpack(script[slen - DATA_LEN - 1: slen - DATA_LEN] + b'00') == DATA_LEN;
+  }
+
+  static function checkOpReturn(bytes script, int slen): bool {
+    return unpack(script[slen - DATA_LEN - 3: slen - DATA_LEN - 2] + b'00') == 0x6a;
+  }
+    
+  static function getNewGenesisScript(bytes script, int slen, bytes sensibleID, int tokenIndex): bytes {
+      return script[: slen - TOKEN_INDEX_OFFSET] + Util.toLEUnsigned(tokenIndex, 8) + script[slen - GENESIS_HASH_OFFSET: slen - SENSIBLE_ID_OFFSET] + sensibleID + script[slen - TYPE_OFFSET:];
+  }
+}

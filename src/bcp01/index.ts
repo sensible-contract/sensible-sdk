@@ -1,10 +1,26 @@
-import { toHex } from "scryptlib";
+import { Bytes, Int, toHex } from "scryptlib";
 import * as bsv from "../bsv";
+import { CodeError, ErrCode } from "../common/error";
 import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
+import * as TokenUtil from "../common/tokenUtil";
 import * as Utils from "../common/utils";
 import { SigHashInfo, SigInfo } from "../common/utils";
-import { API_NET, API_TARGET, SensibleApi } from "../sensible-api";
-import { NonFungibleToken, sighashType } from "./NonFungibleToken";
+import {
+  API_NET,
+  API_TARGET,
+  NonFungibleTokenUnspent,
+  SensibleApi,
+  SensibleApiBase,
+} from "../sensible-api";
+import { ContractUtil, Nft, NftGenesis } from "./contractUtil";
+import * as NftProto from "./nftProto";
+import {
+  NftUtxo,
+  NonFungibleToken,
+  sighashType,
+  SIGNER_VERIFY_NUM,
+  Utxo,
+} from "./NonFungibleToken";
 import BN = require("../bn.js");
 const dummyNetwork = "mainnet";
 const dummyWif = "L5k7xi4diSR8aWoGKojSNTnc3YMEXEoNpJEaGzqWimdKry6CFrzz";
@@ -29,92 +45,138 @@ type ParamUtxo = {
 };
 const defaultSignerConfigs: SignerConfig[] = [
   {
-    satotxApiPrefix: "https://api.satotx.com",
+    satotxApiPrefix: "https://s1.satoplay.cn,https://s1.satoplay.com",
     satotxPubKey:
-      "25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5",
+      "2c8c0117aa5edba9a4539e783b6a1bdbc1ad88ad5b57f3d9c5cba55001c45e1fedb877ebc7d49d1cfa8aa938ccb303c3a37732eb0296fee4a6642b0ff1976817b603404f64c41ec098f8cd908caf64b4a3aada220ff61e252ef6d775079b69451367eda8fdb37bc55c8bfd69610e1f31b9d421ff44e3a0cfa7b11f334374827256a0b91ce80c45ffb798798e7bd6b110134e1a3c3fa89855a19829aab3922f55da92000495737e99e0094e6c4dbcc4e8d8de5459355c21ff055d039a202076e4ca263b745a885ef292eec0b5a5255e6ecc45534897d9572c3ebe97d36626c7b1e775159e00b17d03bc6d127260e13a252afd89bab72e8daf893075f18c1840cb394f18a9817913a9462c6ffc8951bee50a05f38da4c9090a4d6868cb8c955e5efb4f3be4e7cf0be1c399d78a6f6dd26a0af8492dca67843c6da9915bae571aa9f4696418ab1520dd50dd05f5c0c7a51d2843bd4d9b6b3b79910e98f3d98099fd86d71b2fac290e32bdacb31943a8384a7668c32a66be127b74390b4b0dec6455",
+  },
+  {
+    satotxApiPrefix: "https://satotx.showpay.top",
+    satotxPubKey:
+      "5b94858991d384c61ffd97174e895fcd4f62e4fea618916dc095fe4c149bbdf1188c9b33bc15cbe963a63b2522e70b80a5b722ac0e6180407917403755df4de27d69cc115c683a99face8c823cbccf73c7f0d546f1300b9ee2e96aea85542527f33b649f1885caebe19cf75d9a645807f03565c65bd4c99c8f6bb000644cfb56969eac3e9331c254b08aa279ceb64c47ef66be3f071e28b3a5a21e48cdfc3335d8b52e80a09a104a791ace6a2c1b4da88c52f9cc28c54a324e126ec91a988c1fe4e21afc8a84d0e876e01502386f74e7fc24fc32aa249075dd222361aea119d4824db2a797d58886e93bdd60556e504bb190b76a451a4e7b0431973c0410e71e808d0962415503931bbde3dfce5186b371c5bf729861f239ef626b7217d071dfd62bac877a847f2ac2dca07597a0bb9dc1969bed40606c025c4ff7b53a4a6bd921642199c16ede8165ed28da161739fa8d33f9f483212759498c1219d246092d14c9ae63808f58f03c8ca746904ba51fa326d793cea80cda411c85d35894bdb5",
+  },
+  {
+    satotxApiPrefix: "https://satotx.volt.id",
+    satotxPubKey:
+      "3a62ce90c189ae322150cfc68cd00739cd681babf46a9b27793413ad780ea7c4ef22afd0042bc3711588587c2b8a953ced78496cb95579b1272b8979183ea3c66d204c8eeffebfa115c596c0c561f3569fe6d6e8e06d7e82192a24a84b739838ac846db8594a565679d617695f184eb85a3902a036eb8e82f95b83acc207f0deeac87291539865765899d97cfe41169c555480372195729269ae30b6c39324a6731d6f4e46da5ba1789c6e9bd14b16426d35fd4449eecd177e2834e87fb65d9d469176ffe0c12097fcc7e2393dbaa504631487a3ad725235b4d25fe3d09c2460f8a6c0bf4defc1ffe65d5fa28e85fae11eace2a66e48a0ae2ed6bcfb4bb94296717a4a5b1b3fa9b0fb3c165e517b9b69fa8aaca7fdc7351a0ac14d110258f442f423a780bebd87ac10173ca00ee4e9f56ced0510e7f53ed41411b91286f288438c361d2a15868d1c84d6a73510ef23eee9312ae2a7162c1fcd5438788236c0571ee822c326ebd123b8a6636e7b192db2911725a20da027bfaa79c33f58174285",
+  },
+  {
+    satotxApiPrefix: "https://satotx.metasv.com",
+    satotxPubKey:
+      "19d9193ee2e95d09445d28408e8a3da730b2d557cd8d39a7ae4ebbfbceb17ed5d745623529ad33d043511f3e205c1f92b6322833424d19823c3b611b3adabb74e1006e0e93a8f1e0b97ab801c6060a4c060f775998d9f003568ab4ea7633a0395eb761c36106e229394f2c271b8522a44a5ae759254f5d22927923ba85b3729460ecccca07a5556299aa7f2518814c74a2a4d48b48013d609002631f2d93c906d07077ef58d473e3d971362d1129c1ab9b8f9b1365519f0c023c1cadad5ab57240d19e256e08022fd0708951ff90a8af0655aff806c6382d0a72c13f1e52b88222d7dfc6357179b06ffcf937f9da3b0419908aa589a731e26bbaba2fa0b754bf722e338c5627b11dc24aadc4d83c35851c034936cf0df18167e856a5f0a7121d23cd48b3f8a420869a37bd1362905d7f76ff18a991f75a0f9d1bcfc18416d76691cc357cbdcc8cc0df9dbd9318a40e08adb2fb4e78b3c47bdf07eeed4f3f4e0f7e81e37460a09b857e0194c72ec03bb564b5b409d8a1b84c153186ecbb4cfdfd",
+  },
+  {
+    satotxApiPrefix: "https://satotx.tswap.io",
+    satotxPubKey:
+      "a36531727b324b34baef257d223b8ba97bac06d6b631cccb271101f20ef1de2523a0a3a5367d89d98ff354fe1a07bcfb00425ab252950ce10a90dc9040930cf86a3081f0c68ea05bfd40aab3e8bfaaaf6b5a1e7a2b202892dc9b1c0fe478210799759b31ee04e842106a58d901eb5bc538c1b58b7eb774a382e7ae0d6ed706bb0b12b9b891828da5266dd9f0b381b05ecbce99fcde628360d281800cf8ccf4630b2a0a1a25cf4d103199888984cf61edaa0dad578b80dbce25b3316985a8f846ada9bf9bdb8c930e2a43e69994a9b15ea33fe6ee29fa1a6f251f8d79a5de9f1f24152efddedc01b63e2f2468005ecce7da382a64d7936b22a7cac697e1b0a48419101a802d3be554a9b582a80e5c5d8b998e5eb9684c7aaf09ef286d3d990c71be6e3f3340fdaeb2dac70a0be928b6de6ef79f353c868def3385bccd36aa871eb7c8047d3f10b0a38135cdb3577eaafa512111a7af088e8f77821a27b195c95bf80da3c59fda5ff3dd1d40f60d61c099a608b58b6de4a76146cf7b89444c1055",
   },
 ];
+
+ContractUtil.init();
 
 function checkParamUtxoFormat(utxo) {
   if (utxo) {
     if (!utxo.txId || !utxo.satoshis || !utxo.wif) {
-      throw new Error(`UtxoFormatError-valid format example :{
+      throw new CodeError(
+        ErrCode.EC_INVALID_ARGUMENT,
+        `UtxoFormatError-valid format example :{
 				txId:'85f583e7a8e8b9cf86e265c2594c1e4eb45db389f6781c3b1ec9aa8e48976caa',
 				satoshis:1000,
 				outputIndex:1,
 				wif:'L3J1A6Xyp7FSg9Vtj3iBKETyVpr6NibxUuLhw3uKpUWoZBLkK1hk'
-			}`);
+			}`
+      );
     }
   }
 }
 
 function checkParamSigners(signers) {
-  if (signers.length != 1) {
-    throw new Error("only support 1 signer");
+  if (signers.length != 5) {
+    throw new CodeError(ErrCode.EC_INVALID_ARGUMENT, "only support 5 signers");
   }
   let signer = signers[0];
   if (
     Utils.isNull(signer.satotxApiPrefix) ||
     Utils.isNull(signer.satotxPubKey)
   ) {
-    throw new Error(`SignerFormatError-valid format example :
-		signers:[{
+    throw new CodeError(
+      ErrCode.EC_INVALID_ARGUMENT,
+      `SignerFormatError-valid format example :
+    signers:[{
 			satotxApiPrefix: "https://api.satotx.com",
     	satotxPubKey:
       "25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5",
-		}]`);
+		},...]`
+    );
   }
 }
 
 function checkParamNetwork(network) {
   if (!["mainnet", "testnet"].includes(network)) {
-    throw new Error(
+    throw new CodeError(
+      ErrCode.EC_INVALID_ARGUMENT,
       `NetworkFormatError:only support 'mainnet' and 'testnet' but value is ${network}`
     );
   }
 }
 
 function checkParamGenesis(genesis) {
-  if (typeof genesis != "string" || genesis.length != 80) {
-    throw new Error(
-      `GenesisFormatError:genesis should be a string with 80 length `
+  if (typeof genesis != "string" || genesis.length != 72) {
+    throw new CodeError(
+      ErrCode.EC_INVALID_ARGUMENT,
+      `GenesisFormatError:genesis should be a string with 72 length `
     );
   }
 }
 
 function checkParamCodehash(codehash) {
   if (typeof codehash != "string" || codehash.length != 40) {
-    throw new Error(
+    throw new CodeError(
+      ErrCode.EC_INVALID_ARGUMENT,
       `CodehashFormatError:codehash should be a string with 40 length `
     );
   }
 }
 
-function getGenesis(
-  txid: string,
-  index: number,
-  issueOutputIndex: number = 0
-): string {
+function getGenesis(txid: string, index: number): string {
   const txidBuf = Buffer.from(txid, "hex").reverse();
   const indexBuf = Buffer.alloc(4, 0);
   indexBuf.writeUInt32LE(index);
-  const issueOutputIndexBuf = Buffer.alloc(4, 0);
-  issueOutputIndexBuf.writeUInt32LE(issueOutputIndex);
-  return toHex(Buffer.concat([txidBuf, indexBuf, issueOutputIndexBuf]));
+  return toHex(Buffer.concat([txidBuf, indexBuf]));
 }
 
 function parseGenesis(genesis: string) {
   let tokenIDBuf = Buffer.from(genesis, "hex");
   let genesisTxId = tokenIDBuf.slice(0, 32).reverse().toString("hex");
   let genesisOutputIndex = tokenIDBuf.readUIntLE(32, 4);
-  let issueOutputIndex = tokenIDBuf.readUIntLE(36, 4);
   return {
     genesisTxId,
     genesisOutputIndex,
-    issueOutputIndex,
   };
 }
 
+/**
+ * 解析sensibleID的值
+ * @param genesis
+ * @returns
+ */
+function parseSensibleID(sensibleID: string) {
+  let sensibleIDBuf = Buffer.from(sensibleID, "hex");
+  let genesisTxId = sensibleIDBuf.slice(0, 32).reverse().toString("hex");
+  let genesisOutputIndex = sensibleIDBuf.readUIntLE(32, 4);
+  return {
+    genesisTxId,
+    genesisOutputIndex,
+  };
+}
+type MockData = {
+  sensibleApi: SensibleApiBase;
+  satotxSigners: SatotxSigner[];
+};
+
+type Purse = {
+  privateKey: bsv.PrivateKey;
+  address: bsv.Address;
+};
 /**
 Sensible Non Fungible Token
 感应合约非同质化代币
@@ -124,10 +186,13 @@ export class SensibleNFT {
   private feeb: number;
   private network: API_NET;
   private mock: boolean;
-  private purse: string;
-  public sensibleApi: SensibleApi;
+  private purse: Purse;
+  public sensibleApi: SensibleApiBase;
+  private zeroAddress: bsv.Address;
   private nft: NonFungibleToken;
   private debug: boolean;
+  private signerSelecteds: number[] = [];
+  private dustRate: number;
   /**
    *
    * @param signers - 签名器
@@ -139,56 +204,152 @@ export class SensibleNFT {
    */
   constructor({
     signers = defaultSignerConfigs,
+    signerSelecteds,
     feeb = 0.5,
     network = API_NET.MAIN,
-    mock = false,
     purse,
     debug = false,
     apiTarget = API_TARGET.SENSIBLE,
+    mockData,
+    dustRate,
   }: {
     signers: SignerConfig[];
+    signerSelecteds?: number[];
     feeb: number;
     network: API_NET;
-    mock: boolean;
     purse: string;
     debug: boolean;
-    apiTarget: API_TARGET;
+    apiTarget?: API_TARGET;
+    mockData?: MockData;
+    dustRate?: number;
   }) {
-    checkParamSigners(signers);
     checkParamNetwork(network);
     this.signers = signers.map(
       (v) => new SatotxSigner(v.satotxApiPrefix, v.satotxPubKey)
     );
 
+    checkParamNetwork(network);
+    if (mockData) {
+      this.signers = mockData.satotxSigners;
+    } else {
+      checkParamSigners(signers);
+      this.signers = signers.map(
+        (v) => new SatotxSigner(v.satotxApiPrefix, v.satotxPubKey)
+      );
+    }
+
     this.feeb = feeb;
     this.network = network;
-    this.mock = mock;
-    this.sensibleApi = new SensibleApi(network, apiTarget);
-    this.purse = purse;
-    this.nft = new NonFungibleToken(BN.fromString(signers[0].satotxPubKey, 16));
+    if (mockData) {
+      this.sensibleApi = mockData.sensibleApi;
+    } else {
+      this.sensibleApi = new SensibleApi(network, apiTarget);
+    }
+
     this.debug = debug;
+    this.dustRate = dustRate;
+
+    if (network == API_NET.MAIN) {
+      this.zeroAddress = new bsv.Address("1111111111111111111114oLvT2");
+    } else {
+      this.zeroAddress = new bsv.Address("mfWxJ45yp2SFn7UciZyNpvDKrzbhyfKrY8");
+    }
+
+    this.nft = new NonFungibleToken(
+      this.signers.map((v) => BN.fromString(v.satotxPubKey, 16))
+    );
+
+    if (purse) {
+      const privateKey = bsv.PrivateKey.fromWIF(purse);
+      const address = privateKey.toAddress(this.network);
+      this.purse = {
+        privateKey,
+        address,
+      };
+    }
+
+    if (signerSelecteds) {
+      if (signerSelecteds.length < SIGNER_VERIFY_NUM) {
+        throw new CodeError(
+          ErrCode.EC_INVALID_ARGUMENT,
+          `the length of signerSeleteds should not less than ${SIGNER_VERIFY_NUM}`
+        );
+      }
+      this.signerSelecteds = signerSelecteds;
+    } else {
+      for (let i = 0; i < SIGNER_VERIFY_NUM; i++) {
+        this.signerSelecteds.push(i);
+      }
+    }
+    this.signerSelecteds.sort((a, b) => a - b);
   }
 
-  private async _pretreatUtxos(utxos: ParamUtxo[]) {
+  private async _pretreatUtxos(
+    paramUtxos: ParamUtxo[]
+  ): Promise<{ utxos: Utxo[]; utxoPrivateKeys: bsv.PrivateKey[] }> {
     let utxoPrivateKeys = [];
-    if (utxos) {
-      checkParamUtxoFormat(utxos[0]);
-      utxos.forEach((v) => {
-        let privateKey = bsv.PrivateKey.fromWIF(v.wif);
-        v.address = privateKey.toAddress(this.network);
-        utxoPrivateKeys.push(privateKey);
+    let utxos: Utxo[] = [];
+
+    //如果没有传utxos，则由purse提供
+    if (!paramUtxos) {
+      if (!this.purse)
+        throw new CodeError(
+          ErrCode.EC_INVALID_ARGUMENT,
+          "Utxos or Purse must be provided."
+        );
+      paramUtxos = await this.sensibleApi.getUnspents(
+        this.purse.address.toString()
+      );
+      paramUtxos.forEach((v) => {
+        utxoPrivateKeys.push(this.purse.privateKey);
       });
     } else {
-      const utxoPrivateKey = bsv.PrivateKey.fromWIF(this.purse);
-      const utxoAddress = utxoPrivateKey.toAddress(this.network);
-      utxos = await this.sensibleApi.getUnspents(utxoAddress.toString());
-      utxos.forEach((utxo) => {
-        utxo.address = utxoAddress;
+      paramUtxos.forEach((v) => {
+        if (v.wif) {
+          let privateKey = new bsv.PrivateKey(v.wif);
+          utxoPrivateKeys.push(privateKey);
+          v.address = privateKey.toAddress(this.network).toString(); //兼容旧版本只提供wif没提供address
+        }
       });
-      utxoPrivateKeys = utxos.map((v) => utxoPrivateKey).filter((v) => v);
     }
-    if (utxos.length == 0) throw new Error("Insufficient balance.");
+    paramUtxos.forEach((v) => {
+      utxos.push({
+        txId: v.txId,
+        outputIndex: v.outputIndex,
+        satoshis: v.satoshis,
+        address: new bsv.Address(v.address, this.network),
+      });
+    });
+
+    if (utxos.length == 0)
+      throw new CodeError(ErrCode.EC_INSUFFICENT_BSV, "Insufficient balance.");
     return { utxos, utxoPrivateKeys };
+  }
+
+  private async _pretreatNftUtxo(
+    tokenIndex: string,
+    codehash?: string,
+    genesis?: string,
+    senderPrivateKey?: bsv.PrivateKey,
+    senderPublicKey?: bsv.PublicKey
+  ): Promise<{ nftUtxo: NftUtxo; nftUtxoPrivateKey: bsv.PrivateKey }> {
+    if (senderPrivateKey) {
+      senderPublicKey = senderPrivateKey.toPublicKey();
+    }
+
+    let _res = await this.sensibleApi.getNonFungibleTokenUnspentDetail(
+      codehash,
+      genesis,
+      tokenIndex
+    );
+    let nftUtxo: NftUtxo = {
+      txId: _res.txId,
+      outputIndex: _res.outputIndex,
+      nftAddress: new bsv.Address(_res.tokenAddress, this.network),
+      publicKey: senderPublicKey,
+    };
+
+    return { nftUtxo, nftUtxoPrivateKey: senderPrivateKey };
   }
 
   /**
@@ -329,37 +490,53 @@ export class SensibleNFT {
     genesisPublicKey: any;
     totalSupply: BN;
     opreturnData?: any;
-    utxos?: ParamUtxo[];
+    utxos?: Utxo[];
     utxoPrivateKeys: any[];
     changeAddress?: any;
-  }): Promise<{ tx: any; genesis: string; codehash: string }> {
-    const utxoTxId = utxos[utxos.length - 1].txId;
-    const utxoOutputIndex = utxos[utxos.length - 1].outputIndex;
-
-    this.nft.setTxGenesisPart({
-      prevTxId: utxoTxId,
-      outputIndex: utxoOutputIndex,
-    });
-    let tx = await this.nft.makeTxGenesis({
-      genesisPublicKey,
-      tokenId: BN.Zero,
+  }): Promise<{
+    tx: any;
+    genesis: string;
+    codehash: string;
+  }> {
+    let genesisContract = NftGenesis.createContract(genesisPublicKey, {
       totalSupply,
-      opreturnData,
-
+      rabinPubKeyHashArrayHash: toHex(this.nft.rabinPubKeyHashArrayHash),
+    });
+    let tx = this.nft.createGenesisTx({
       utxos,
       changeAddress,
-      utxoPrivateKeys,
       feeb: this.feeb,
+      genesisContract,
+      utxoPrivateKeys,
+      opreturnData,
     });
 
-    let genesis = toHex(getGenesis(utxoTxId, utxoOutputIndex));
-    let codehash = toHex(Utils.getCodeHash(tx.outputs[0].script));
+    //calculate genesis/codehash
+    let genesis: string, codehash: string, sensibleId: string;
+    {
+      let genesisTxId = tx.id;
+      let genesisOutputIndex = 0;
+      let tokenContract = Nft.createContract(
+        genesisTxId,
+        genesisOutputIndex,
+        genesisContract.lockingScript,
+        this.nft.unlockContractCodeHashArray,
+        {
+          receiverAddress: new bsv.Address(this.zeroAddress), //dummy address
+          tokenIndex: BN.One,
+        }
+      );
+      let scriptBuf = tokenContract.lockingScript.toBuffer();
+      codehash = Utils.getCodeHash(tokenContract.lockingScript);
+      genesis = toHex(NftProto.getSensibleIDBuf(scriptBuf));
+    }
 
     const size = tx.toBuffer().length;
     const feePaid = tx._getUnspentValue();
     const feeRate = feePaid / size;
     if (feeRate < this.feeb) {
-      throw new Error(
+      throw new CodeError(
+        ErrCode.EC_INSUFFICENT_BSV,
         `Insufficient balance.The fee rate should not be less than ${this.feeb}, but in the end it is ${feeRate}.`
       );
     }
@@ -377,7 +554,7 @@ export class SensibleNFT {
    * @param utxos (可选)指定utxos
    * @param changeAddress (可选)指定找零地址
    * @param noBroadcast (可选)是否不广播交易，默认false
-   * @returns {Object} {txid,tokenid}
+   * @returns {Object} {txid,tokenIndex}
    */
   public async issue({
     genesis,
@@ -522,6 +699,35 @@ export class SensibleNFT {
     return { tx, sigHashList };
   }
 
+  private async getIssueUtxo(
+    codehash: string,
+    genesisTxId: string,
+    genesisOutputIndex: number
+  ): Promise<NonFungibleTokenUnspent> {
+    let originGenesis = Buffer.alloc(36, 0).toString("hex");
+    let genesisUtxos = await this.sensibleApi.getNonFungibleTokenUnspents(
+      codehash,
+      originGenesis,
+      this.zeroAddress.toString()
+    );
+    let genesisUtxo = genesisUtxos.find((v) => v.txId == genesisTxId);
+    if (genesisUtxo) {
+      return genesisUtxo;
+    }
+
+    let issueGenesis = toHex(
+      TokenUtil.getOutpointBuf(genesisTxId, genesisOutputIndex)
+    );
+    let issueUtxos = await this.sensibleApi.getNonFungibleTokenUnspents(
+      codehash,
+      issueGenesis,
+      this.zeroAddress.toString()
+    );
+    if (issueUtxos.length > 0) {
+      return issueUtxos[0];
+    }
+  }
+
   private async _issue({
     genesis,
     codehash,
@@ -544,42 +750,81 @@ export class SensibleNFT {
     utxos: any[];
     utxoPrivateKeys?: any[];
     changeAddress: any;
-  }): Promise<{ tx: any; tokenid: BN }> {
-    const issuerAddress = genesisPublicKey.toAddress(this.network);
-
-    let { genesisTxId, genesisOutputIndex } = parseGenesis(genesis);
-
-    let issueNftUnspents = await this.sensibleApi.getNonFungibleTokenUnspents(
-      codehash,
-      genesis,
-      issuerAddress.toString()
+  }): Promise<{ tx: any; tokenIndex: BN }> {
+    let genesisContract = NftGenesis.createContract(genesisPublicKey);
+    let genesisContractCodehash = Utils.getCodeHash(
+      genesisContract.lockingScript
     );
 
-    let issueNftUnspent = issueNftUnspents[0];
-    if (!issueNftUnspent) {
-      throw new Error("No issue-utxo available to continue");
-    }
-    let spendByTxId = issueNftUnspent.txId;
-    let spendByOutputIndex = issueNftUnspent.outputIndex;
-    let spendByTxHex = await this.sensibleApi.getRawTxData(spendByTxId);
+    //寻找发行用的UTXO
+    let { genesisTxId, genesisOutputIndex } = parseSensibleID(genesis);
+    let issueUtxo = await this.getIssueUtxo(
+      genesisContractCodehash,
+      genesisTxId,
+      genesisOutputIndex
+    );
 
-    const preTx = new bsv.Transaction(spendByTxHex);
-    const preInputIndex = preTx.inputs.length - 1; //最后一个输入必定能够作为前序输入
-    let preUtxoTxId = preTx.inputs[preInputIndex].prevTxId.toString("hex");
-    let preUtxoOutputIndex = preTx.inputs[preInputIndex].outputIndex;
+    if (!issueUtxo) {
+      throw new CodeError(
+        ErrCode.EC_FIXED_TOKEN_SUPPLY,
+        "token supply is fixed"
+      );
+    }
+
+    let spendByTxId = issueUtxo.txId;
+    let spendByOutputIndex = issueUtxo.outputIndex;
+
+    //查询前序交易的信息
+    let spendByTxHex = await this.sensibleApi.getRawTxData(spendByTxId);
+    const spendByTx = new bsv.Transaction(spendByTxHex);
+    let preUtxoTxId = spendByTx.inputs[0].prevTxId.toString("hex"); //第一个输入必定能够作为前序输入
+    let preUtxoOutputIndex = spendByTx.inputs[0].outputIndex;
     let preUtxoTxHex = await this.sensibleApi.getRawTxData(preUtxoTxId);
 
-    const preIssueTx = new bsv.Transaction(spendByTxHex);
-    const issuerLockingScript = preIssueTx.outputs[spendByOutputIndex].script;
+    let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
+    if (balance == 0)
+      throw new CodeError(ErrCode.EC_INSUFFICENT_BSV, "Insufficient balance.");
 
-    this.nft.setTxGenesisPart({
-      prevTxId: genesisTxId,
-      outputIndex: genesisOutputIndex,
+    let estimateSatoshis = await this.getIssueEstimateFee({
+      opreturnData,
     });
-    let { tx, tokenid } = await this.nft.makeTxIssue({
-      issuerTxId: spendByTxId,
-      issuerOutputIndex: spendByOutputIndex,
-      issuerLockingScript,
+    if (balance < estimateSatoshis) {
+      throw new CodeError(
+        ErrCode.EC_INSUFFICENT_BSV,
+        `Insufficient balance.It take more than ${estimateSatoshis}, but only ${balance}.`
+      );
+    }
+
+    //构造token合约
+    const spendByLockingScript = spendByTx.outputs[spendByOutputIndex].script;
+    let dataPartObj = NftProto.parseDataPart(spendByLockingScript.toBuffer());
+    const dataPart = NftProto.newDataPart(dataPartObj);
+    genesisContract.setDataPart(toHex(dataPart));
+    let tokenContract = Nft.createContract(
+      genesisTxId,
+      genesisOutputIndex,
+      genesisContract.lockingScript,
+      this.nft.unlockContractCodeHashArray,
+      {
+        receiverAddress,
+        tokenIndex: dataPartObj.tokenIndex,
+      }
+    );
+
+    //构造发行交易
+    let tx = await this.nft.createIssueTx({
+      genesisContract,
+
+      spendByTxId,
+      spendByOutputIndex,
+      spendByLockingScript,
+
+      opreturnData,
+      utxos,
+      changeAddress,
+      feeb: this.feeb,
+      tokenContract,
+      allowIncreaseIssues: true,
       satotxData: {
         index: preUtxoOutputIndex,
         txId: preUtxoTxId,
@@ -587,18 +832,11 @@ export class SensibleNFT {
         byTxId: spendByTxId,
         byTxHex: spendByTxHex,
       },
+      signers: this.signers,
+      signerSelecteds: this.signerSelecteds,
 
       genesisPrivateKey,
-      genesisPublicKey,
-      metaTxId,
-      receiverAddress,
-      opreturnData,
-
-      signers: this.signers,
-      utxos,
-      changeAddress,
       utxoPrivateKeys,
-      feeb: this.feeb,
       debug: this.debug,
     });
 
@@ -606,18 +844,19 @@ export class SensibleNFT {
     const feePaid = tx._getUnspentValue();
     const feeRate = feePaid / size;
     if (feeRate < this.feeb) {
-      throw new Error(
+      throw new CodeError(
+        ErrCode.EC_INSUFFICENT_BSV,
         `Insufficient balance.The fee rate should not be less than ${this.feeb}, but in the end it is ${feeRate}.`
       );
     }
-    return { tx, tokenid };
+    return { tx, tokenIndex: BN.Zero };
   }
 
   /**
    * 构造一笔转移NFT的交易并进行广播
    * @param genesis NFT的genesis
    * @param codehash NFT的genesis
-   * @param tokenid NFT的tokenid
+   * @param tokenIndex NFT的tokenIndex
    * @param senderWif 发送者私钥wif
    * @param receiverAddress 接受者的地址
    * @param opreturnData (可选)追加一个opReturn输出
@@ -629,8 +868,12 @@ export class SensibleNFT {
   public async transfer({
     genesis,
     codehash,
-    tokenid,
+    tokenIndex,
+
     senderWif,
+    senderPrivateKey,
+    senderPublicKey,
+
     receiverAddress,
     opreturnData,
     utxos,
@@ -639,8 +882,10 @@ export class SensibleNFT {
   }: {
     genesis: string;
     codehash: string;
-    tokenid: string;
-    senderWif: string;
+    tokenIndex: string;
+    senderWif?: string;
+    senderPrivateKey?: any;
+    senderPublicKey?: any;
     receiverAddress: string | bsv.Address;
     opreturnData?: any;
     utxos?: any[];
@@ -650,8 +895,18 @@ export class SensibleNFT {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
 
-    const senderPrivateKey = new bsv.PrivateKey(senderWif);
-    const senderPublicKey = senderPrivateKey.toPublicKey();
+    if (senderWif) {
+      senderPrivateKey = new bsv.PrivateKey(senderWif);
+    }
+
+    let nftInfo = await this._pretreatNftUtxo(
+      tokenIndex,
+      codehash,
+      genesis,
+      senderPrivateKey,
+      senderPublicKey
+    );
+
     let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
@@ -663,9 +918,9 @@ export class SensibleNFT {
     let { tx } = await this._transfer({
       genesis,
       codehash,
-      tokenid,
-      senderPrivateKey,
-      senderPublicKey,
+      tokenIndex,
+      nftUtxo: nftInfo.nftUtxo,
+      nftPrivateKey: nftInfo.nftUtxoPrivateKey,
       receiverAddress,
       opreturnData,
       utxos: utxoInfo.utxos,
@@ -684,7 +939,7 @@ export class SensibleNFT {
    * 构造一笔转移NFT的交易
    * @param genesis NFT的genesis
    * @param codehash NFT的genesis
-   * @param tokenid NFT的tokenid
+   * @param tokenIndex NFT的tokenIndex
    * @param senderPublicKey 发送者公钥
    * @param receiverAddress 接受者的地址
    * @param opreturnData (可选)追加一个opReturn输出
@@ -695,7 +950,7 @@ export class SensibleNFT {
   public async unsignTransfer({
     genesis,
     codehash,
-    tokenid,
+    tokenIndex,
     senderPublicKey,
     receiverAddress,
     opreturnData,
@@ -704,7 +959,7 @@ export class SensibleNFT {
   }: {
     genesis: string;
     codehash: string;
-    tokenid: string;
+    tokenIndex: string;
     senderPublicKey: any;
     receiverAddress: string | bsv.Address;
     opreturnData?: any;
@@ -714,7 +969,14 @@ export class SensibleNFT {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
 
-    senderPublicKey = new bsv.PublicKey(senderPublicKey);
+    let nftInfo = await this._pretreatNftUtxo(
+      tokenIndex,
+      codehash,
+      genesis,
+      null,
+      senderPublicKey
+    );
+
     let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
@@ -726,8 +988,8 @@ export class SensibleNFT {
     let { tx } = await this._transfer({
       genesis,
       codehash,
-      tokenid,
-      senderPublicKey,
+      tokenIndex,
+      nftUtxo: nftInfo.nftUtxo,
       receiverAddress,
       opreturnData,
       utxos: utxoInfo.utxos,
@@ -765,12 +1027,78 @@ export class SensibleNFT {
     return { tx, sigHashList };
   }
 
+  private async supplyNftUtxosInfo(
+    nftUtxo: NftUtxo,
+    codehash: string,
+    genesis: string
+  ) {
+    nftUtxo.txHex = await this.sensibleApi.getRawTxData(nftUtxo.txId);
+
+    //获取前序tx raw，必须的吗？
+    let curDataPartObj: NftProto.NftDataPart;
+    let curGenesisHash: Buffer;
+
+    const tx = new bsv.Transaction(nftUtxo.txHex);
+    if (!curDataPartObj) {
+      let tokenScript = tx.outputs[nftUtxo.outputIndex].script;
+      curDataPartObj = NftProto.parseDataPart(tokenScript.toBuffer());
+      curGenesisHash = TokenUtil.getGenesisHashFromLockingScript(tokenScript);
+    }
+    let input = tx.inputs.find((input) => {
+      let script = new bsv.Script(input.script);
+      if (script.chunks.length > 0) {
+        const lockingScriptBuf = TokenUtil.getLockingScriptFromPreimage(
+          script.chunks[0].buf
+        );
+        if (lockingScriptBuf) {
+          let lockingScript = new bsv.Script(lockingScriptBuf);
+          let sensibleId = NftProto.getSensibleIDBuf(
+            lockingScript.toBuffer()
+          ).toString("hex");
+          if (sensibleId == genesis) {
+            return true;
+          }
+          let genesisHash = toHex(
+            bsv.crypto.Hash.sha256ripemd160(lockingScriptBuf)
+          );
+          if (genesisHash == curDataPartObj.genesisHash) {
+            return true;
+          }
+        }
+      }
+    });
+    if (!input) throw new CodeError(ErrCode.EC_INNER_ERROR, "invalid nftUtxo");
+    let preTxId = input.prevTxId.toString("hex");
+    let preOutputIndex = input.outputIndex;
+    nftUtxo.preTxId = preTxId;
+    nftUtxo.preOutputIndex = preOutputIndex;
+
+    nftUtxo.preTxHex = await this.sensibleApi.getRawTxData(preTxId);
+
+    const preTx = new bsv.Transaction(nftUtxo.preTxHex);
+    let preDataPartObj = NftProto.parseDataPart(
+      preTx.outputs[nftUtxo.preOutputIndex].script.toBuffer()
+    );
+    if (
+      preDataPartObj.nftAddress == "0000000000000000000000000000000000000000"
+    ) {
+      nftUtxo.preNftAddress = this.zeroAddress; //genesis 情况下为了让preTokenAddress成为合法地址，但最后并不会使用 dummy
+    } else {
+      nftUtxo.preNftAddress = bsv.Address.fromPublicKeyHash(
+        Buffer.from(preDataPartObj.nftAddress, "hex"),
+        this.network
+      );
+    }
+
+    return nftUtxo;
+  }
+
   private async _transfer({
     genesis,
     codehash,
-    tokenid,
-    senderPrivateKey,
-    senderPublicKey,
+    tokenIndex,
+    nftUtxo,
+    nftPrivateKey,
     receiverAddress,
     opreturnData,
     utxos,
@@ -779,9 +1107,9 @@ export class SensibleNFT {
   }: {
     genesis: string;
     codehash: string;
-    tokenid: string;
-    senderPrivateKey?: any;
-    senderPublicKey: any;
+    tokenIndex: string;
+    nftUtxo: NftUtxo;
+    nftPrivateKey?: bsv.PrivateKey;
     receiverAddress: any;
     opreturnData?: any;
     utxos: any[];
@@ -791,15 +1119,10 @@ export class SensibleNFT {
     let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
     if (balance == 0) {
       //检查余额
-      throw new Error("Insufficient balance.");
+      throw new CodeError(ErrCode.EC_INSUFFICENT_BSV, "Insufficient balance.");
     }
 
-    let { genesisTxId, genesisOutputIndex } = parseGenesis(genesis);
-    let nftUtxo = await this.sensibleApi.getNonFungibleTokenUnspentDetail(
-      codehash,
-      genesis,
-      tokenid
-    );
+    nftUtxo = await this.supplyNftUtxosInfo(nftUtxo, codehash, genesis);
 
     let spendByTxId = nftUtxo.txId;
     let spendByOutputIndex = nftUtxo.outputIndex;
@@ -815,35 +1138,53 @@ export class SensibleNFT {
       utxo.address = new bsv.Address(utxo.address, this.network);
     });
 
-    this.nft.setTxGenesisPart({
-      prevTxId: genesisTxId,
-      outputIndex: genesisOutputIndex,
-    });
-
     const transferLockingScript = spendByTx.outputs[spendByOutputIndex].script;
 
-    let tx = await this.nft.makeTxTransfer({
-      transferTxId: spendByTxId,
-      transferOutputIndex: spendByOutputIndex,
-      transferLockingScript,
-      satotxData: {
-        index: preUtxoOutputIndex,
-        txId: preUtxoTxId,
-        txHex: preUtxoTxHex,
-        byTxId: spendByTxId,
-        byTxHex: spendByTxHex,
-      },
+    let rabinPubKeyVerifyArray: Int[] = [];
+    for (let j = 0; j < SIGNER_VERIFY_NUM; j++) {
+      const signerIndex = this.signerSelecteds[j];
+      rabinPubKeyVerifyArray.push(this.nft.rabinPubKeyArray[signerIndex]);
+    }
 
-      senderPrivateKey,
-      senderPublicKey,
+    let sigReqArray = [];
+    for (let j = 0; j < SIGNER_VERIFY_NUM; j++) {
+      const signerIndex = this.signerSelecteds[j];
+      sigReqArray[j] = this.signers[signerIndex].satoTxSigUTXOSpendBy({
+        txId: nftUtxo.preTxId,
+        index: nftUtxo.preOutputIndex,
+        txHex: nftUtxo.preTxHex,
+        byTxId: nftUtxo.txId,
+        byTxHex: nftUtxo.txHex,
+      });
+    }
+    let rabinMsg: Buffer;
+    let rabinSigArray: Int[] = [];
+    let rabinPaddingArray: Bytes[] = [];
+    for (let j = 0; j < sigReqArray.length; j++) {
+      let sigInfo = await sigReqArray[j];
+      if (j == 0) {
+        rabinMsg = Buffer.from(sigInfo.payload, "hex");
+      }
+      rabinSigArray.push(
+        new Int(BN.fromString(sigInfo.sigBE, 16).toString(10))
+      );
+      rabinPaddingArray.push(new Bytes(sigInfo.padding));
+    }
+
+    let tx = await this.nft.createTransferTx({
+      nftUtxo,
+      rabinPubKeyIndexArray: this.signerSelecteds,
+      rabinPubKeyVerifyArray,
+      rabinMsg,
+      rabinPaddingArray,
+      rabinSigArray,
       receiverAddress,
+      senderPrivateKey: nftPrivateKey,
       opreturnData,
-
       utxos,
       utxoPrivateKeys,
       changeAddress,
       feeb: this.feeb,
-      signers: this.signers,
       debug: this.debug,
     });
 
@@ -851,7 +1192,8 @@ export class SensibleNFT {
     const feePaid = tx._getUnspentValue();
     const feeRate = feePaid / size;
     if (feeRate < this.feeb) {
-      throw new Error(
+      throw new CodeError(
+        ErrCode.EC_INSUFFICENT_BSV,
         `Insufficient balance.The fee rate should not be less than ${this.feeb}, but in the end it is ${feeRate}.`
       );
     }
@@ -903,7 +1245,7 @@ export class SensibleNFT {
       p2pkhOutputNum * (8 + 1 + 25) +
       4;
 
-    let dust = Utils.getDustThreshold(sizeOfNft);
+    let dust = Utils.getDustThreshold(sizeOfNft, this.dustRate);
     let fee = Math.ceil(size * this.feeb) + dust;
     return fee;
   }
@@ -930,7 +1272,7 @@ export class SensibleNFT {
       p2pkhOutputNum * (8 + 1 + 25) +
       4;
 
-    let dust = Utils.getDustThreshold(sizeOfNft);
+    let dust = Utils.getDustThreshold(sizeOfNft, this.dustRate);
     let fee = Math.ceil(size * this.feeb) + dust;
     return fee;
   }

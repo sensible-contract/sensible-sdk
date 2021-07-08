@@ -1,107 +1,143 @@
 import "util.scrypt";
-import "rabin.scrypt";
-import "satotx.scrypt";
-import "payload_nft.scrypt";
+import "txUtil.scrypt";
+import "rabinUtil.scrypt";
+import "nftProto.scrypt";
 
 /**
- * A safty NFT protocol
- *
- * 该合约实现了一个UTXO模式的NFT协议，可发行任意多种采用该协议的NFT。
- * 协议支持NFT发行、所有权转移、和某具体Token协议之间兑换、和bsv兑换等功能。
- *
- * 当前合约支持函数如下:
- *    issue: 发行新的NFT
- *    transfer: 将NFT所有权转移给他人
- *
- * 各个函数详细处理逻辑见各自文档。
- * 暂约定合约的函数花费utxo和产生utxo时，用箭头符号(->)来区分Tx内的input和output，(->)上为input花费的UTXO数据，下为output产生的UTXO数据。
- */
+ * Nft contract
+ * @constructor
+ * @param unlockContractCodeHashArray {bytes[]} nftUnlockContractCheck contract code hash
+*/
+contract Nft {
 
-contract NFT {
-  int rabinPubKey;
+  bytes[5] unlockContractCodeHashArray;
 
   /**
-   * issue 函数允许发行人按tokenId从0递增发行nft，输出为一个ISSUE，一个TRANSFER
-   *
-   * issue:
-   *   codePart, GenesisPart, issuerPkh, totalSupply , tokenId, ISSUE
-   *    ->
-   *   codePart, GenesisPart, issuerPkh, totalSupply , tokenId+1, ISSUE
-   *   codePart, GenesisPart, ownerPkh, totalSupply , tokenId+1, TRANSFER
-   */
-  public function issue(
+   * @function unlock
+   * @param txPreimage {SigHashPreimage} preimage
+   * @param nftInputIndex {int} this nft contract input index
+   * @param prevouts {bytes} previous outputs
+   * @param rabinMsg {bytes} sensible contract rabin algo msg for nft contract
+   * @param rabinPaddingArray {bytes[]} rabin algo padding array of different rabin pubkeys for nft contract
+   * @param rabinSigArray {int[]} rabin algo sig of different rabin pubkeys for nft contract
+   * @param rabinPubKeyIndexArray {int[]} the rabin pubkey index used by signatures in rabinPubKeyArray.
+   * @param rabinPubKeyVerifyArray {int[]} the rabin pubkey array which is used to verify the rabin sig msg
+   * @param rabinPubKeyHashArray {bytes} all rabin pubkey hash array
+   * @param prevNftAddress {bytes} the owner address of previous nft contract
+   * @param senderPubKey {PubKey} the owner's pubkey, only transfer need
+   * @param senderSig {Sig} the sig of owner private key, only transfer need
+   * @param receiverAddress {bytes} the receiverAddress, only transfer need
+   * @param nftOutputSatoshis {int} the nft output contract satoshis, only transfer need
+   * @param opReturnScript {bytes} op_false op_return script, optional, only transfer need
+   * @param changeAddress {Ripemd160} change bsv address, only transfer need
+   * @param checkInputIndex {int} nftUnlockContractCheck contract input index, only unlockFromContract need
+   * @param checkScriptTx {bytes} nftUnlockContractCheck contract raw tx, only unlockFromContract need
+   * @param checkScriptTxOutIndex {int} the output index of nftUnlockContractCheck contract in checkScriptTx, only unlockFromContract need
+   * @param lockContractInputIndex {int} lock contract input index, only unlockFromContract need
+   * @param lockContractTx {bytes} lock contract raw tx, only unlockFromContract need
+   * @param lockContractTxOutIndex {int} the output index of lock contract in lockContractTx, only unlockFromContract need
+   * @param opration {int} 1 transfer, 2 unlockFromContract
+  */
+  public function unlock(
     SigHashPreimage txPreimage,
-    int preTxOutpointSig,
-    bytes preTxOutpointPayload,
-    bytes preTxOutpointPadding,
-    bytes preTxOutpointDataPart,
-    bytes opreturnScript,
-    Sig issuerSig, PubKey issuer,
-    bytes metaTxId,
-    Ripemd160 receiverPkh, int satoshiAmount1,
-    Ripemd160 changePkh, int satoshiAmount2) {
+    int nftInputIndex,
+    bytes prevouts,
+    bytes rabinMsg,
+    bytes[RabinUtil.ORACLE_VERIFY_NUM] rabinPaddingArray,
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinSigArray,
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyIndexArray,
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyVerifyArray,
+    bytes rabinPubKeyHashArray,
+    bytes prevNftAddress,
+    PubKey senderPubKey, // only transfer need
+    Sig senderSig, // only transfer need
+    bytes receiverAddress, // only transfer need
+    int nftOutputSatoshis, // only transfer need
+    bytes opReturnScript, // only transfer need
+    Ripemd160 changeAddress, // only transfer need
+    int changeSatoshis, // only transfer need
+    int checkInputIndex, // only unlockFromContract need
+    bytes checkScriptTx, // only unlockFromContract need
+    int checkScriptTxOutIndex, // only unlockFromContract need
+    int lockContractInputIndex, // only unlockFromContract need
+    bytes lockContractTx, // only unlockFromContract need
+    int lockContractTxOutIndex, // only unlockFromContract need
+    int operation // operation: 1 transfer, 2 unlockFromContract
+  ) {
 
-    SigHashType sigHashType = SigHash.ANYONECANPAY | SigHash.ALL | SigHash.FORKID;
-    // this ensures the preimage is for the current tx
-    require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
+    require(Tx.checkPreimage(txPreimage));
+    require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
 
-    // read previous locking script
-    bytes lockingScript = Util.scriptCode(txPreimage);
-    PayloadNFT pl = new PayloadNFT(lockingScript);
+    bytes nftScript = Util.scriptCode(txPreimage);
+    int scriptLen = len(nftScript);
 
-    // 溯源
-    SatoTx st = new SatoTx();
-    require(st.verifyGenesis(
-        txPreimage,
-        pl.codeWithGenesisPart,
-        pl.genesisOutpoint,
-        pl.genesisOutputIdx,
-        preTxOutpointSig,
-        preTxOutpointPayload,
-        preTxOutpointPadding,
-        preTxOutpointDataPart,
-        this.rabinPubKey
-        ));
+    require(NftProto.getTokenIndex(nftScript, scriptLen) < NftProto.getTotalSupply(nftScript, scriptLen));
 
-    bytes outputs = b'';
-    // 如果需要解锁的是ISSUE脚本
-    if (pl.dataType == PayloadNFT.ISSUE) {
-      int satoshiIssue = Util.value(txPreimage);
-      require(pl.tokenId < pl.totalSupply);
-
-      pl.setTokenId(pl.tokenId+1);
-
-      if (pl.tokenId < pl.totalSupply) {
-        bytes outputScript0 = pl.dump();
-        bytes output0 = Util.buildOutput(outputScript0, satoshiIssue);
-        outputs = outputs + output0;
+    if (operation == NftProto.OP_TRANSFER) {
+      // authorize
+      bytes senderAddress = NftProto.getNftAddress(nftScript, scriptLen);
+      require(hash160(senderPubKey) == senderAddress);
+      require(checkSig(senderSig, senderPubKey));
+      // check output
+      bytes outputs = b'';
+      bytes nftOutputScript = NftProto.getNewNftScript(nftScript, scriptLen, receiverAddress);
+      outputs += Util.buildOutput(nftOutputScript, nftOutputSatoshis);
+      if (len(opReturnScript) > 0) {
+        require(opReturnScript[:2] == b'006a');
+        bytes opReturnOutput = Util.buildOutput(opReturnScript, 0);
+        outputs = outputs + opReturnOutput;
       }
-      pl.setMetaTxId(metaTxId);
-    }
-    //authorize
-    require(hash160(issuer) == pl.ownerPkh);
-    require(checkSig(issuerSig, issuer));
+      if (changeSatoshis > 0) {
+        bytes outputScript = Util.buildPublicKeyHashScript(changeAddress);
+        bytes output = Util.buildOutput(outputScript, changeSatoshis);
+        outputs = outputs + output;
+      }
+      bytes hashOutputs = hash256(outputs);
+      require(hashOutputs == Util.hashOutputs(txPreimage));
+    } else {
 
-    pl.setOwnerPkh(receiverPkh);
-    pl.setDataType(PayloadNFT.TRANSFER);
-    
-    bytes outputScript1 = pl.dump();
-    bytes output1 = Util.buildOutput(outputScript1, satoshiAmount1);
-    outputs = outputs + output1;
+      bytes contractHash = NftProto.getNftAddress(nftScript, scriptLen);
 
-    if (len(opreturnScript) > 0) {
-      require(opreturnScript[0:2]==b'006a');
-      bytes output2 =  Util.buildOutput(opreturnScript, 0);
-      outputs = outputs + output2;
+      // verify lockContract
+      if (contractHash != NftProto.BURN_ADDRESS) {
+        // verify the lockContractTx
+        bytes lockContractTxId = prevouts[lockContractInputIndex * TxUtil.OUTPOINT_LEN: lockContractInputIndex * TxUtil.OUTPOINT_LEN + TxUtil.TX_ID_LEN];
+        require(hash256(lockContractTx) == lockContractTxId);
+        bytes lockContractScript = TxUtil.readOutputScript(lockContractTx, lockContractTxOutIndex);
+
+        require(hash160(lockContractScript) == contractHash);
+      }
+      // verify script
+      bytes checkScriptTxId = prevouts[checkInputIndex * TxUtil.OUTPOINT_LEN: checkInputIndex * TxUtil.OUTPOINT_LEN + TxUtil.TX_ID_LEN];
+      require(hash256(checkScriptTx) == checkScriptTxId);
+
+      bytes checkScriptCode = TxUtil.readOutputScript(checkScriptTx, checkScriptTxOutIndex);
+      int checkScriptLen = len(checkScriptCode);
+
+      // check sensibleID and nftCodeHash
+      bytes nftID = NftProto.getNftID(nftScript, scriptLen);
+      require(nftID == checkScriptCode[checkScriptLen - NftProto.NFT_ID_LEN: checkScriptLen]);
+
+      bytes nftCodeHash = NftProto.getContractCodeHash(nftScript, scriptLen);
+      require(nftCodeHash == checkScriptCode[checkScriptLen - 20 - NftProto.NFT_ID_LEN: checkScriptLen - NftProto.NFT_ID_LEN]);
+
+      // code hash do not count op_return + data length + data
+      int pos = NftProto.NFT_ID_LEN + 20;
+      int dataOffset = 42; // opreturn + 0x28 + 20 + 20
+
+      bytes hash = hash160(checkScriptCode[: checkScriptLen - dataOffset]);
+
+      require(hash == this.unlockContractCodeHashArray[0] || hash == this.unlockContractCodeHashArray[1] || hash == this.unlockContractCodeHashArray[2] || hash == this.unlockContractCodeHashArray[3] || hash == this.unlockContractCodeHashArray[4]);
     }
 
-    if(satoshiAmount2>0){
-      bytes lockingScript2 = Util.buildPublicKeyHashScript(changePkh);
-      bytes output3 = Util.buildOutput(lockingScript2, satoshiAmount2);
-      outputs = outputs + output3;
-    }
-   
-    Sha256 hashOutputs = hash256(outputs);
-    require(hashOutputs == Util.hashOutputs(txPreimage));
+    bytes rabinPubKeyHashArrayHash = NftProto.getRabinPubKeyHashArrayHash(nftScript, scriptLen);
+    RabinUtil.verifyRabinPubKey(rabinPubKeyHashArrayHash,rabinPubKeyHashArray, rabinPubKeyVerifyArray, rabinPubKeyIndexArray);
+
+    // verify rabin signature
+    bytes thisOutpoint = Util.outpoint(txPreimage);
+    bytes sensibleID = NftProto.getSensibleID(nftScript, scriptLen);
+    bytes genesisHash = NftProto.getGenesisHash(nftScript, scriptLen);
+    bool res = RabinUtil.verifyNftMsg(rabinPubKeyVerifyArray, rabinMsg, rabinPaddingArray, rabinSigArray, thisOutpoint, sensibleID, nftScript, prevNftAddress, genesisHash);
+    require(res == true);
   }
 }

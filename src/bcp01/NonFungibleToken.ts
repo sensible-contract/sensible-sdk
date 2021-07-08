@@ -1,8 +1,7 @@
 import {
-  buildContractClass,
   Bytes,
   getPreimage,
-  num2bin,
+  Int,
   PubKey,
   Ripemd160,
   Sig,
@@ -12,51 +11,88 @@ import {
 } from "scryptlib";
 import * as BN from "../bn.js";
 import * as bsv from "../bsv";
+import { CodeError, ErrCode } from "../common/error";
+import * as TokenUtil from "../common/tokenUtil";
 import * as Utils from "../common/utils";
-import { P2PKH_UNLOCK_SIZE, SIG_PLACE_HOLDER } from "../common/utils";
-import { ISSUE, PayloadNFT, TRANSFER } from "./PayloadNFT";
-const DataLen4 = 4;
+import { PUBKEY_PLACE_HOLDER, SIG_PLACE_HOLDER } from "../common/utils";
+import {
+  ContractUtil,
+  genesisTokenIDTxid,
+  Nft,
+  NftGenesis,
+} from "./contractUtil";
+import * as NftProto from "./nftProto";
 const Signature = bsv.crypto.Signature;
-export const sighashType =
-  Signature.SIGHASH_ANYONECANPAY |
-  Signature.SIGHASH_ALL |
-  Signature.SIGHASH_FORKID;
-const nftContractClass = buildContractClass(
-  require("./contract-desc/nft_desc.json")
-);
+export const sighashType = Signature.SIGHASH_ALL | Signature.SIGHASH_FORKID;
+export const SIGNER_NUM = 5;
+export const SIGNER_VERIFY_NUM = 3;
+
+const P2PKH_UNLOCK_SIZE = 1 + 1 + 71 + 1 + 33;
+
+export type Utxo = {
+  txId: string;
+  outputIndex: number;
+  satoshis: number;
+  address: bsv.Address;
+};
+
+export type NftUtxo = {
+  txId: string;
+  outputIndex: number;
+  nftAddress: bsv.Address;
+
+  txHex?: string;
+  satoshis?: number;
+  preTxId?: string;
+  preOutputIndex?: number;
+  preTxHex?: string;
+  preNftAddress?: bsv.Address;
+
+  publicKey: bsv.PublicKey;
+};
+
 export class NonFungibleToken {
-  nftContract: any;
-  nftCodePart: string;
-  nftGenesisPart: string;
+  rabinPubKeyArray: Int[];
+  rabinPubKeyHashArray: Buffer;
+  rabinPubKeyHashArrayHash: Buffer;
+  unlockContractCodeHashArray: Bytes[];
+  dustRate: number;
+  constructor(rabinPubKeys: BN[], dustRate?: number) {
+    this.rabinPubKeyHashArray = TokenUtil.getRabinPubKeyHashArray(rabinPubKeys);
+    this.rabinPubKeyHashArrayHash = bsv.crypto.Hash.sha256ripemd160(
+      this.rabinPubKeyHashArray
+    );
+    this.rabinPubKeyArray = rabinPubKeys.map((v) => new Int(v.toString(10))); //scryptlib 需要0x开头
+    this.unlockContractCodeHashArray = ContractUtil.unlockContractCodeHashArray;
+    this.dustRate = dustRate;
+  }
+
   /**
-   * @param {BN} rabinPubKey
-   * @constructor NFT合约
+   * create a tx for genesis
+   * @param {bsv.PrivateKey} privateKey the privatekey that utxos belong to
+   * @param {Object[]} utxos utxos
+   * @param {bsv.Address} changeAddress the change address
+   * @param {number} feeb feeb
+   * @param {Object} genesisScript genesis contract's locking scriptsatoshis
+   * @param {Array=} utxoPrivateKeys
+   * @param {string|Array=} opreturnData
    */
-  constructor(rabinPubKey: BN) {
-    this.nftContract = new nftContractClass(rabinPubKey.toString());
-    this.nftCodePart = this.nftContract.codePart.toASM();
-  }
-
-  setTxGenesisPart({ prevTxId, outputIndex, issueOutputIndex = 0 }) {
-    this.nftGenesisPart =
-      Utils.reverseEndian(prevTxId) +
-      num2bin(outputIndex, DataLen4) +
-      num2bin(issueOutputIndex, DataLen4);
-  }
-
-  async makeTxGenesis({
-    genesisPublicKey,
-    tokenId,
-    totalSupply,
-    opreturnData,
-
-    utxoPrivateKeys,
+  createGenesisTx({
     utxos,
     changeAddress,
     feeb,
+    genesisContract,
+    utxoPrivateKeys,
+    opreturnData,
+  }: {
+    utxos: Utxo[];
+    changeAddress: bsv.Address;
+    feeb: number;
+    genesisContract: any;
+    utxoPrivateKeys?: bsv.PrivateKey[];
+    opreturnData?: any;
   }) {
-    let tx = new bsv.Transaction();
-
+    const tx = new bsv.Transaction();
     //添加utxo作为输入
     utxos.forEach((utxo) => {
       tx.addInput(
@@ -72,29 +108,23 @@ export class NonFungibleToken {
       );
     });
 
-    let pl = new PayloadNFT({
-      dataType: ISSUE,
-      ownerPkh: genesisPublicKey._getID(),
-      totalSupply: totalSupply,
-      tokenId: tokenId,
-    });
-    const lockingScript = bsv.Script.fromASM(
-      [this.nftCodePart, this.nftGenesisPart, pl.dump()].join(" ")
-    );
-
-    //第一个输出为发行合约
+    //第一项输出为genesis合约
     tx.addOutput(
       new bsv.Transaction.Output({
-        script: lockingScript,
-        satoshis: Utils.getDustThreshold(lockingScript.toBuffer().length),
+        script: genesisContract.lockingScript,
+        satoshis: Utils.getDustThreshold(
+          genesisContract.lockingScript.toBuffer().length,
+          this.dustRate
+        ),
       })
     );
 
-    //第二个输出可能为opReturn
+    //如果有opReturn则添加到第二项输出
     if (opreturnData) {
+      let script = bsv.Script.buildSafeDataOut(opreturnData);
       tx.addOutput(
         new bsv.Transaction.Output({
-          script: bsv.Script.buildSafeDataOut(opreturnData),
+          script,
           satoshis: 0,
         })
       );
@@ -117,43 +147,59 @@ export class NonFungibleToken {
     }
 
     if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+      //如果提供私钥就进行解锁
       tx.inputs.forEach((input, inputIndex) => {
-        if (input.script.toBuffer().length == 0) {
-          let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-          Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
-        }
+        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+        Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
       });
     }
     return tx;
   }
 
-  async makeTxIssue({
-    issuerTxId,
-    issuerOutputIndex,
-    issuerLockingScript,
-    satotxData,
+  async createIssueTx({
+    genesisContract,
+    spendByTxId,
+    spendByOutputIndex,
+    spendByLockingScript,
 
-    genesisPrivateKey,
-    genesisPublicKey,
-    receiverAddress,
-    metaTxId,
     opreturnData,
-
-    signers,
     utxos,
-    utxoPrivateKeys,
     changeAddress,
     feeb,
+    tokenContract,
+    allowIncreaseIssues,
+    satotxData,
+    signers,
+    signerSelecteds,
+
+    genesisPrivateKey,
+    utxoPrivateKeys,
     debug,
   }) {
-    let tx = new bsv.Transaction();
+    const tx = new bsv.Transaction();
 
-    //添加utxo作为输入
+    //第一个输入为发行合约
+    tx.addInput(
+      new bsv.Transaction.Input({
+        output: new bsv.Transaction.Output({
+          script: spendByLockingScript,
+          satoshis: Utils.getDustThreshold(
+            spendByLockingScript.toBuffer().length,
+            this.dustRate
+          ),
+        }),
+        prevTxId: spendByTxId,
+        outputIndex: spendByOutputIndex,
+        script: bsv.Script.empty(),
+      })
+    );
+
+    //随后添加utxo作为输入
     utxos.forEach((utxo) => {
       tx.addInput(
-        new bsv.Transaction.Input.PublicKeyHash({
+        new bsv.Transaction.Input({
           output: new bsv.Transaction.Output({
-            script: bsv.Script.buildPublicKeyHashOut(utxo.address),
+            script: bsv.Script.buildPublicKeyHashOut(utxo.address).toHex(),
             satoshis: utxo.satoshis,
           }),
           prevTxId: utxo.txId,
@@ -163,74 +209,124 @@ export class NonFungibleToken {
       );
     });
 
-    let pl = new PayloadNFT();
-    pl.read(issuerLockingScript.toBuffer());
-    this.nftContract.setDataPart(this.nftGenesisPart + " " + pl.dump());
-
-    pl.tokenId = pl.tokenId.add(BN.One);
-
-    let reachTotalSupply = pl.tokenId.eq(pl.totalSupply);
-
-    const newLockingScript0 = bsv.Script.fromASM(
-      [this.nftCodePart, this.nftGenesisPart, pl.dump()].join(" ")
+    const tokenDataPartObj = NftProto.parseDataPart(
+      tokenContract.lockingScript.toBuffer()
+    );
+    const genesisDataPartObj = NftProto.parseDataPart(
+      genesisContract.lockingScript.toBuffer()
     );
 
-    pl.dataType = TRANSFER;
-    pl.ownerPkh = receiverAddress.hashBuffer;
-    pl.metaTxId = metaTxId;
-    const newLockingScript1 = bsv.Script.fromASM(
-      [this.nftCodePart, this.nftGenesisPart, pl.dump()].join(" ")
-    );
+    const isFirstGenesis =
+      genesisDataPartObj.sensibleID.txid == genesisTokenIDTxid;
 
-    tx.addInput(
-      new bsv.Transaction.Input({
-        output: new bsv.Transaction.Output({
-          script: issuerLockingScript,
-          satoshis: Utils.getDustThreshold(
-            issuerLockingScript.toBuffer().length
-          ),
-        }),
-        prevTxId: issuerTxId,
-        outputIndex: issuerOutputIndex,
-        script: bsv.Script.empty(),
-      })
-    );
-
-    if (!reachTotalSupply) {
+    //如果允许增发，则添加新的发行合约作为第一个输出
+    let tokenIndex = genesisDataPartObj.tokenIndex;
+    let genesisContractSatoshis = 0;
+    if (tokenIndex.lt(genesisDataPartObj.totalSupply.sub(BN.One))) {
+      genesisDataPartObj.tokenIndex = genesisDataPartObj.tokenIndex.add(BN.One);
+      genesisDataPartObj.sensibleID = tokenDataPartObj.sensibleID;
+      let newGenesislockingScript = bsv.Script.fromBuffer(
+        NftProto.updateScript(
+          spendByLockingScript.toBuffer(),
+          genesisDataPartObj
+        )
+      );
+      genesisContractSatoshis = Utils.getDustThreshold(
+        newGenesislockingScript.toBuffer().length,
+        this.dustRate
+      );
       tx.addOutput(
         new bsv.Transaction.Output({
-          script: newLockingScript0,
-          satoshis: Utils.getDustThreshold(newLockingScript0.toBuffer().length),
+          script: newGenesislockingScript,
+          satoshis: genesisContractSatoshis,
         })
       );
     }
 
+    const tokenContractSatoshis = Utils.getDustThreshold(
+      tokenContract.lockingScript.toBuffer().length,
+      this.dustRate
+    );
+    //添加token合约作为输出
     tx.addOutput(
       new bsv.Transaction.Output({
-        script: newLockingScript1,
-        satoshis: Utils.getDustThreshold(newLockingScript1.toBuffer().length),
+        script: tokenContract.lockingScript,
+        satoshis: tokenContractSatoshis,
       })
     );
 
+    //如果有opReturn,则添加输出
+    let opreturnScriptHex = "";
     if (opreturnData) {
+      let script = bsv.Script.buildSafeDataOut(opreturnData);
+      opreturnScriptHex = script.toHex();
       tx.addOutput(
         new bsv.Transaction.Output({
-          script: bsv.Script.buildSafeDataOut(opreturnData),
+          script,
           satoshis: 0,
         })
       );
     }
 
-    const curInputIndex = tx.inputs.length - 1;
-    const curInputLockingScript = tx.inputs[curInputIndex].output.script;
-    const curInputSatoshis = tx.inputs[curInputIndex].output.satoshis;
-    const nftOutputSatoshis = tx.outputs[reachTotalSupply ? 0 : 1].satoshis;
+    const genesisInputIndex = 0;
+    const genesisInputSatoshis = tx.inputs[genesisInputIndex].output.satoshis;
+    const genesisInputLockingScript =
+      tx.inputs[genesisInputIndex].output.script;
 
-    let sigInfo = await signers[0].satoTxSigUTXOSpendBy(satotxData);
-    const preTx = new bsv.Transaction(satotxData.txHex);
-    let script = preTx.outputs[satotxData.index].script;
-    let preDataPartHex = this.getDataPartFromScript(script);
+    let rabinMsg;
+    let rabinPaddingArray: Bytes[] = [];
+    let rabinSigArray: Int[] = [];
+    let rabinPubKeyIndexArray: number[] = [];
+    if (isFirstGenesis) {
+      //如果是首次发行，则不需要查询签名器
+      rabinMsg = Buffer.alloc(1, 0);
+      for (let i = 0; i < SIGNER_VERIFY_NUM; i++) {
+        rabinPaddingArray.push(new Bytes("00"));
+        rabinSigArray.push(new Int("0"));
+        rabinPubKeyIndexArray.push(i);
+      }
+    } else {
+      //查询签名器
+      for (let i = 0; i < signerSelecteds.length; i++) {
+        try {
+          let idx = signerSelecteds[i];
+          let sigInfo = await signers[idx].satoTxSigUTXOSpendBy(satotxData);
+          rabinMsg = sigInfo.payload;
+          rabinPaddingArray.push(new Bytes(sigInfo.padding));
+          rabinSigArray.push(
+            new Int(BN.fromString(sigInfo.sigBE, 16).toString(10))
+          );
+        } catch (e) {
+          console.log(e);
+        }
+      }
 
+      rabinPubKeyIndexArray = signerSelecteds;
+    }
+    let rabinPubKeyArray = [];
+    for (let j = 0; j < SIGNER_VERIFY_NUM; j++) {
+      const signerIndex = signerSelecteds[j];
+      rabinPubKeyArray.push(this.rabinPubKeyArray[signerIndex]);
+    }
+
+    if (
+      genesisContract.lockingScript.toHex() != genesisInputLockingScript.toHex()
+    ) {
+      //如果构造出来的发行合约与要进行解锁的发行合约不一致
+      //则可能是签名器公钥不一致
+      if (debug) {
+        console.log(genesisContract.lockingScript.toASM());
+        console.log(genesisInputLockingScript.toASM());
+      }
+      throw new CodeError(
+        ErrCode.EC_INNER_ERROR,
+        "genesisContract lockingScript unmatch "
+      );
+    }
+
+    //第一轮运算获取最终交易准确的大小，然后重新找零
+    //由于重新找零了，需要第二轮重新进行脚本解锁
+    //let the fee to be exact in the second round
     let changeAmount = 0;
     let extraSigLen = 0;
     for (let c = 0; c < 2; c++) {
@@ -274,7 +370,7 @@ export class NonFungibleToken {
           let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
           let _feeb = fee / tx.toBuffer().length;
           if (_feeb > 1) {
-            throw new Error("unsupport feeb");
+            throw new CodeError(ErrCode.EC_INNER_ERROR, "unsupport feeb");
           }
           changeAmount = 0;
         }
@@ -286,65 +382,56 @@ export class NonFungibleToken {
         sig = signTx(
           tx,
           genesisPrivateKey,
-          curInputLockingScript.toASM(),
-          curInputSatoshis,
-          curInputIndex,
+          genesisInputLockingScript.toASM(),
+          genesisInputSatoshis,
+          genesisInputIndex,
           sighashType
         );
       } else {
         //如果没有提供私钥就使用72字节的占位符
         sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
       }
-      extraSigLen = 72 - sig.length;
+      extraSigLen += 72 - sig.length;
 
-      const preimage = getPreimage(
+      let preimage = getPreimage(
         tx,
-        curInputLockingScript.toASM(),
-        curInputSatoshis,
-        curInputIndex,
+        genesisInputLockingScript.toASM(),
+        genesisInputSatoshis,
+        genesisInputIndex,
         sighashType
       );
 
-      if (
-        this.nftContract.lockingScript.toHex() != curInputLockingScript.toHex()
-      ) {
-        if (debug) {
-          console.log(this.nftContract.lockingScript.toASM());
-          console.log(curInputLockingScript.toASM());
-        }
-        throw new Error("nftContract lockingScript unmatch ");
-      }
-
-      let contractObj = this.nftContract.issue(
+      //解锁发行合约
+      let contractObj = NftGenesis.unlock(
+        genesisContract,
         new SigHashPreimage(toHex(preimage)),
-        "0x" + sigInfo.sigBE,
-        new Bytes(sigInfo.payload),
-        new Bytes(sigInfo.padding),
-        new Bytes(preDataPartHex),
-        new Bytes(
-          opreturnData ? bsv.Script.buildSafeDataOut(opreturnData).toHex() : ""
-        ),
         new Sig(toHex(sig)),
-        new PubKey(toHex(genesisPublicKey)),
-        new Bytes(metaTxId),
-        new Ripemd160(toHex(receiverAddress.hashBuffer)),
-        nftOutputSatoshis,
+        new Bytes(toHex(rabinMsg)),
+        rabinPaddingArray,
+        rabinSigArray,
+        rabinPubKeyIndexArray,
+        rabinPubKeyArray,
+        new Bytes(toHex(this.rabinPubKeyHashArray)),
+        genesisContractSatoshis,
+        new Bytes(tokenContract.lockingScript.toHex()),
+        tokenContractSatoshis,
         new Ripemd160(toHex(changeAddress.hashBuffer)),
-        changeAmount
+        changeAmount,
+        new Bytes(opreturnScriptHex)
       );
+
       let txContext = {
         tx,
-        inputIndex: curInputIndex,
-        inputSatoshis: curInputSatoshis,
+        inputIndex: genesisInputIndex,
+        inputSatoshis: genesisInputSatoshis,
       };
       if (debug && genesisPrivateKey) {
+        //提供了私钥的情况下才能进行校验，否则会在签名校验时出错
         let ret = contractObj.verify(txContext);
-        if (ret.success == false) {
-          throw ret;
-        }
+        if (ret.success == false) throw ret;
       }
 
-      tx.inputs[curInputIndex].setScript(contractObj.toScript());
+      tx.inputs[genesisInputIndex].setScript(contractObj.toScript());
     }
 
     if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
@@ -355,101 +442,162 @@ export class NonFungibleToken {
         }
       });
     }
+
+    return tx;
+  }
+
+  getNftInputFromNftUtxo(nftUtxo: NftUtxo) {
+    const preTx = new bsv.Transaction(nftUtxo.preTxHex);
+    const preLockingScript = preTx.outputs[nftUtxo.preOutputIndex].script;
+    const tx = new bsv.Transaction(nftUtxo.txHex);
+    const lockingScript = tx.outputs[nftUtxo.outputIndex].script;
+    const satoshis = tx.outputs[nftUtxo.outputIndex].satoshis;
     return {
-      tx,
-      tokenid: pl.tokenId,
+      satoshis,
+      txId: nftUtxo.txId,
+      outputIndex: nftUtxo.outputIndex,
+      lockingScript,
+      preTxId: nftUtxo.preTxId,
+      preOutputIndex: nftUtxo.preOutputIndex,
+      preLockingScript,
+      preNftAddress: nftUtxo.preNftAddress,
+      publicKey: nftUtxo.publicKey,
+      inputIndex: 0,
     };
   }
 
-  async makeTxTransfer({
-    transferTxId,
-    transferOutputIndex,
-    transferLockingScript,
-    satotxData,
-
-    senderPrivateKey,
-    senderPublicKey,
-    receiverAddress,
-    opreturnData,
-
+  createTransferTx({
+    nftUtxo,
     utxos,
+    rabinPubKeyIndexArray,
+    rabinPubKeyVerifyArray,
+    rabinMsg,
+    rabinPaddingArray,
+    rabinSigArray,
+    receiverAddress,
+    senderPrivateKey,
     utxoPrivateKeys,
     changeAddress,
     feeb,
-    signers,
+    opreturnData,
     debug,
+  }: {
+    nftUtxo: NftUtxo;
+    utxos: Utxo[];
+    rabinPubKeyIndexArray: number[];
+    rabinPubKeyVerifyArray: Int[];
+    rabinMsg: Buffer;
+    rabinPaddingArray: Bytes[];
+    rabinSigArray: Int[];
+    receiverAddress: bsv.Address;
+    senderPrivateKey: bsv.PrivateKey;
+    utxoPrivateKeys: bsv.PrivateKey[];
+    changeAddress: bsv.Address;
+    feeb: number;
+    opreturnData?: any;
+    debug?: boolean;
   }) {
-    let tx = new bsv.Transaction();
+    const tx = new bsv.Transaction();
 
-    //添加utxo作为输入
-    utxos.forEach((utxo) => {
-      tx.addInput(
-        new bsv.Transaction.Input.PublicKeyHash({
-          output: new bsv.Transaction.Output({
-            script: bsv.Script.buildPublicKeyHashOut(utxo.address),
-            satoshis: utxo.satoshis,
-          }),
-          prevTxId: utxo.txId,
-          outputIndex: utxo.outputIndex,
-          script: bsv.Script.empty(),
-        })
-      );
-    });
+    let nftInput = this.getNftInputFromNftUtxo(nftUtxo);
 
-    let pl = new PayloadNFT();
-    pl.read(transferLockingScript.toBuffer());
+    //首先添加token作为输入
+    let prevouts = Buffer.alloc(0);
 
-    this.nftContract.setDataPart(this.nftGenesisPart + " " + pl.dump());
-
-    pl.ownerPkh = receiverAddress.hashBuffer;
-    const newLockingScript0 = bsv.Script.fromASM(
-      [this.nftCodePart, this.nftGenesisPart, pl.dump()].join(" ")
-    );
-
+    // token contract input
     tx.addInput(
       new bsv.Transaction.Input({
         output: new bsv.Transaction.Output({
-          script: transferLockingScript,
-          satoshis: Utils.getDustThreshold(
-            transferLockingScript.toBuffer().length
-          ),
+          script: nftInput.lockingScript,
+          satoshis: nftInput.satoshis,
         }),
-        prevTxId: transferTxId,
-        outputIndex: transferOutputIndex,
+        prevTxId: nftInput.txId,
+        outputIndex: nftInput.outputIndex,
         script: bsv.Script.empty(),
       })
     );
+    nftInput.inputIndex = 0;
+    // add outputpoint to prevouts
+    const indexBuf = TokenUtil.getUInt32Buf(nftInput.outputIndex);
+    const txidBuf = TokenUtil.getTxIdBuf(nftInput.txId);
+    prevouts = Buffer.concat([prevouts, txidBuf, indexBuf]);
 
+    //tx addInput utxo
+    const satoshiInputArray = utxos.map((v) => ({
+      lockingScript: bsv.Script.buildPublicKeyHashOut(v.address).toHex(),
+      satoshis: v.satoshis,
+      txId: v.txId,
+      outputIndex: v.outputIndex,
+    }));
+    for (let i = 0; i < satoshiInputArray.length; i++) {
+      const satoshiInput = satoshiInputArray[i];
+      const lockingScript = bsv.Script.fromBuffer(
+        Buffer.from(satoshiInput.lockingScript, "hex")
+      );
+      const inputSatoshis = satoshiInput.satoshis;
+      const txId = satoshiInput.txId;
+      const outputIndex = satoshiInput.outputIndex;
+      // bsv input to provide fee
+      tx.addInput(
+        new bsv.Transaction.Input.PublicKeyHash({
+          output: new bsv.Transaction.Output({
+            script: lockingScript,
+            satoshis: inputSatoshis,
+          }),
+          prevTxId: txId,
+          outputIndex: outputIndex,
+          script: bsv.Script.empty(),
+        })
+      );
+
+      // add outputpoint to prevouts
+      const indexBuf = Buffer.alloc(4, 0);
+      indexBuf.writeUInt32LE(outputIndex);
+      const txidBuf = Buffer.from([...Buffer.from(txId, "hex")].reverse());
+      prevouts = Buffer.concat([prevouts, txidBuf, indexBuf]);
+    }
+
+    //tx addOutput nft
+    const nftScriptBuf = nftInput.lockingScript.toBuffer();
+    let dataPartObj = NftProto.parseDataPart(nftScriptBuf);
+    dataPartObj.nftAddress = toHex(receiverAddress.hashBuffer);
+    const lockingScriptBuf = NftProto.updateScript(nftScriptBuf, dataPartObj);
+    const nftOutput = {
+      lockingScript: bsv.Script.fromBuffer(lockingScriptBuf),
+      satoshis: Utils.getDustThreshold(lockingScriptBuf.length, this.dustRate),
+    };
     tx.addOutput(
       new bsv.Transaction.Output({
-        script: newLockingScript0,
-        satoshis: Utils.getDustThreshold(newLockingScript0.toBuffer().length),
+        script: nftOutput.lockingScript,
+        satoshis: nftOutput.satoshis,
       })
     );
 
+    const satoshiBuf = BN.fromNumber(nftOutput.satoshis).toBuffer({
+      endian: "little",
+      size: 8,
+    });
+
+    //tx addOutput OpReturn
+    let opreturnScriptHex = "";
     if (opreturnData) {
+      let script = bsv.Script.buildSafeDataOut(opreturnData);
+      opreturnScriptHex = script.toHex();
       tx.addOutput(
         new bsv.Transaction.Output({
-          script: bsv.Script.buildSafeDataOut(opreturnData),
+          script,
           satoshis: 0,
         })
       );
     }
 
-    const curInputIndex = tx.inputs.length - 1;
-    const curInputLockingScript = tx.inputs[curInputIndex].output.script;
-    const curInputSatoshis = tx.inputs[curInputIndex].output.satoshis;
-    const nftOutputSatoshis = tx.outputs[0].satoshis;
-
-    let sigInfo = await signers[0].satoTxSigUTXOSpendBy(satotxData);
-    const preTx = new bsv.Transaction(satotxData.txHex);
-    let script = preTx.outputs[satotxData.index].script;
-    let preDataPartHex = this.getDataPartFromScript(script);
-
+    //第一轮运算获取最终交易准确的大小，然后重新找零
+    //由于重新找零了，需要第二轮重新进行脚本解锁
+    //let the fee to be exact in the second round
     let changeAmount = 0;
     let extraSigLen = 0;
     for (let c = 0; c < 2; c++) {
-      const unlockSize = utxos.length * P2PKH_UNLOCK_SIZE;
+      const unlockSize = satoshiInputArray.length * P2PKH_UNLOCK_SIZE;
       tx.fee(
         Math.ceil((tx.toBuffer().length + extraSigLen + unlockSize) * feeb)
       );
@@ -489,17 +637,17 @@ export class NonFungibleToken {
           let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
           let _feeb = fee / tx.toBuffer().length;
           if (_feeb > 1) {
-            throw new Error("unsupport feeb");
+            throw new CodeError(ErrCode.EC_INNER_ERROR, "unsupport feeb");
           }
           changeAmount = 0;
         }
       }
 
-      this.nftContract.txContext = {
-        tx: tx,
-        inputIndex: curInputIndex,
-        inputSatoshis: curInputSatoshis,
-      };
+      let rabinPubKeyArray = [];
+      for (let j = 0; j < SIGNER_VERIFY_NUM; j++) {
+        const signerIndex = rabinPubKeyIndexArray[j];
+        rabinPubKeyArray.push(this.rabinPubKeyArray[signerIndex]);
+      }
 
       let sig: Buffer;
       if (senderPrivateKey) {
@@ -507,54 +655,88 @@ export class NonFungibleToken {
         sig = signTx(
           tx,
           senderPrivateKey,
-          curInputLockingScript.toASM(),
-          curInputSatoshis,
-          curInputIndex,
+          nftInput.lockingScript.toASM(),
+          nftInput.satoshis,
+          nftInput.inputIndex,
           sighashType
         );
       } else {
         //如果没有提供私钥就使用72字节的占位符
         sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
       }
-      extraSigLen = 72 - sig.length;
 
+      let pubkey: Buffer;
+      if (nftInput.publicKey) {
+        pubkey = nftInput.publicKey.toBuffer();
+      } else {
+        pubkey = Buffer.from(PUBKEY_PLACE_HOLDER, "hex");
+      }
+
+      extraSigLen += 72 - sig.length;
       const preimage = getPreimage(
         tx,
-        transferLockingScript.toASM(),
-        curInputSatoshis,
-        curInputIndex,
+        nftInput.lockingScript.toASM(),
+        nftInput.satoshis,
+        nftInput.inputIndex,
         sighashType
       );
 
-      let contractObj = this.nftContract.issue(
+      let dataPartObj = NftProto.parseDataPart(
+        nftInput.lockingScript.toBuffer()
+      );
+      const dataPart = NftProto.newDataPart(dataPartObj);
+      const nftContract = Nft.newContract(this.unlockContractCodeHashArray);
+      nftContract.setDataPart(toHex(dataPart));
+      //check preimage
+      if (nftContract.lockingScript.toHex() != nftInput.lockingScript.toHex()) {
+        if (debug) {
+          console.log(nftContract.lockingScript.toASM());
+          console.log(nftInput.lockingScript.toASM());
+        }
+        throw new CodeError(
+          ErrCode.EC_INNER_ERROR,
+          "tokenContract lockingScript unmatch "
+        );
+      }
+
+      const unlockingContract = Nft.unlock(
+        nftContract,
         new SigHashPreimage(toHex(preimage)),
-        "0x" + sigInfo.sigBE,
-        new Bytes(sigInfo.payload),
-        new Bytes(sigInfo.padding),
-        new Bytes(preDataPartHex),
-        new Bytes(
-          opreturnData ? bsv.Script.buildSafeDataOut(opreturnData).toHex() : ""
-        ),
+        nftInput.inputIndex,
+        new Bytes(toHex(prevouts)),
+        new Bytes(toHex(rabinMsg)),
+        rabinPaddingArray,
+        rabinSigArray,
+        rabinPubKeyIndexArray,
+        rabinPubKeyVerifyArray,
+        new Bytes(toHex(this.rabinPubKeyHashArray)),
+        new Bytes(toHex(nftInput.preNftAddress.hashBuffer)),
+        new PubKey(toHex(pubkey)),
         new Sig(toHex(sig)),
-        new PubKey(toHex(senderPublicKey)),
-        new Bytes(""),
-        new Ripemd160(toHex(receiverAddress.hashBuffer)),
-        nftOutputSatoshis,
+        new Bytes(toHex(receiverAddress.hashBuffer)),
+        new Int(nftOutput.satoshis),
+        new Bytes(opreturnScriptHex),
         new Ripemd160(toHex(changeAddress.hashBuffer)),
-        changeAmount
+        new Int(changeAmount),
+        0,
+        new Bytes("00"),
+        0,
+        0,
+        new Bytes("00"),
+        0,
+        NftProto.OP_TRANSFER
       );
 
       let txContext = {
         tx,
-        inputIndex: curInputIndex,
-        inputSatoshis: curInputSatoshis,
+        inputIndex: nftInput.inputIndex,
+        inputSatoshis: nftInput.satoshis,
       };
       if (debug && senderPrivateKey) {
-        let ret = contractObj.verify(txContext);
+        let ret = unlockingContract.verify(txContext);
         if (ret.success == false) throw ret;
       }
-
-      tx.inputs[curInputIndex].setScript(contractObj.toScript());
+      tx.inputs[nftInput.inputIndex].setScript(unlockingContract.toScript());
     }
 
     if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
@@ -565,27 +747,23 @@ export class NonFungibleToken {
         }
       });
     }
+
     return tx;
   }
 
-  getDataPartFromScript(script) {
-    let chunks = script.chunks;
-    let opreturnIdx = -1;
-    for (let i = 0; i < chunks.length; i++) {
-      if (chunks[i].opcodenum == 106) {
-        opreturnIdx = i;
-        break;
-      }
+  _getPreimageSize(lockingScript) {
+    let n = lockingScript.toBuffer().length;
+    let prefix = 0;
+    if (n < 0xfd) {
+      prefix = 0 + 1;
+    } else if (n < 0x10000) {
+      prefix = 1 + 2;
+    } else if (n < 0x100000000) {
+      prefix = 1 + 4;
+    } else if (n < 0x10000000000000000) {
+      prefix = 1 + 8;
     }
-
-    if (opreturnIdx == -1) return "";
-    let parts = chunks.splice(opreturnIdx, chunks.length);
-    let genesisPart = parts[1];
-    let dataPart = parts[2];
-    if (!dataPart) return "";
-    return Buffer.concat([
-      Utils.numberToBuffer(dataPart.len),
-      dataPart.buf,
-    ]).toString("hex");
+    const preimageSize = 4 + 32 + 32 + 36 + prefix + n + 8 + 4 + 32 + 4 + 4;
+    return preimageSize;
   }
 }

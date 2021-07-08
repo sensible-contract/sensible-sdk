@@ -1,0 +1,41 @@
+import "util.scrypt";
+import "nftProto.scrypt";
+
+contract NftSell {
+  Ripemd160 senderAddress;
+  int bsvRecAmount;
+  bytes nftCodeHash;
+  bytes nftID;
+
+  public function unlock(
+    SigHashPreimage txPreimage,
+    bytes nftScript, // only cancel need
+    PubKey senderPubKey, // only cancel need
+    Sig senderSig, // only cancel need
+    int nftOutputSatoshis, // only cancel need
+    int op // 1 sell 2 cancel
+  ) {
+    SigHashType sigHashType = SigHash.SINGLE | SigHash.FORKID;
+    require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
+
+    bytes outputs = b'';
+    if (op == 1) {
+      bytes outputScript = Util.buildPublicKeyHashScript(this.senderAddress);
+      outputs = Util.buildOutput(outputScript, this.bsvRecAmount);
+    } else {
+      // check sig
+      require(hash160(senderPubKey) == this.senderAddress);
+      require(checkSig(senderSig, senderPubKey));
+
+      // verify nft
+      int nftScriptLen = len(nftScript);
+      require(NftProto.getContractCodeHash(nftScript, nftScriptLen) == this.nftCodeHash);
+      require(NftProto.getNftID(nftScript, nftScriptLen) == this.nftID);
+
+      bytes outputScript = NftProto.getNewNftScript(nftScript, nftScriptLen, this.senderAddress);
+      outputs = Util.buildOutput(outputScript, nftOutputSatoshis);
+    }
+
+    require(hash256(outputs) == Util.hashOutputs(txPreimage));
+  }
+}

@@ -1,0 +1,132 @@
+import "util.scrypt";
+import "nftProto.scrypt";
+import "rabinUtil.scrypt";
+
+/**
+ * Nft contract
+ * @constructor
+ * @param pubKey {PubKey} the pubkey of issuer
+*/
+contract NftGenesis {
+  PubKey pubKey;
+
+  /**
+   * @function unlock
+   * @param txPreimage {SigHashPreimage} preimage
+   * @param sig {Sig} the sig of issuer private key
+   * @param rabinMsg {bytes} sensible contract rabin algo msg for NftGenesis contract
+   * @param rabinPaddingArray {bytes[]} rabin algo padding array of different rabin pubkeys for NftGenesis contract
+   * @param rabinSigArray {int[]} rabin algo sig of different rabin pubkeys for NftGenesis contract
+   * @param rabinPubKeyIndexArray {int[]} the rabin pubkey index used by signatures in rabinPubKeyArray.
+   * @param rabinPubKeyVerifyArray {int[]} the rabin pubkey array which is used to verify the rabin sig msg
+   * @param rabinPubKeyHashArray {bytes} all rabin pubkey hash array
+   * @param genesisSatoshis {int} the nft genesis contract output satoshis
+   * @param nftScript {bytes} the nft contract output script
+   * @param nftSatoshis {int} the nft contract output satoshis
+   * @param changeAddress {Ripemd160} the bsv change address
+   * @param changeSatoshis {int} the bsv change satoshis
+   * @param opReturnScript {bytes} the op_false op_return script, optional
+  */
+  public function unlock(
+    SigHashPreimage txPreimage,
+    Sig sig,
+    bytes rabinMsg,
+    bytes[RabinUtil.ORACLE_VERIFY_NUM] rabinPaddingArray,
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinSigArray,
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyIndexArray,
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyVerifyArray,
+    bytes rabinPubKeyHashArray,
+    int genesisSatoshis,
+    bytes nftScript,
+    int nftSatoshis,
+    Ripemd160 changeAddress,
+    int changeSatoshis,
+    bytes opReturnScript
+    ) {
+
+    require(Tx.checkPreimage(txPreimage));
+
+    // check sig
+    require(checkSig(sig, this.pubKey));
+
+    // check input script oracle data
+    bytes genesisScript = Util.scriptCode(txPreimage);
+    int genesisScriptLen = len(genesisScript);
+    int isGenesis = NftProto.getGenesisFlag(genesisScript, genesisScriptLen);
+    require(isGenesis == 1);
+    bytes address = NftProto.getNftAddress(genesisScript, genesisScriptLen);
+    require(address == b'0000000000000000000000000000000000000000');
+    bytes sensibleID = NftProto.getSensibleID(genesisScript, genesisScriptLen);
+    int totalSupply = NftProto.getTotalSupply(genesisScript, genesisScriptLen);
+    int tokenIndex = NftProto.getTokenIndex(genesisScript, genesisScriptLen);
+    require(tokenIndex < totalSupply);
+
+    bool isFirst = false;
+    bytes genesisHash = hash160(genesisScript);
+    if (sensibleID == b'000000000000000000000000000000000000000000000000000000000000000000000000') {
+      isFirst = true;
+      sensibleID = Util.outpoint(txPreimage);
+    } 
+    int protoType = NftProto.getProtoType(genesisScript, genesisScriptLen);
+    require(protoType == NftProto.PROTO_TYPE);
+    bytes flag = NftProto.getProtoFlag(genesisScript, genesisScriptLen);
+    require(flag == NftProto.PROTO_FLAG);
+    // check opreturn
+    require(NftProto.checkDataLen(genesisScript, genesisScriptLen));
+    require(NftProto.checkOpReturn(genesisScript, genesisScriptLen));
+
+    // check the rabin msg
+    if (!isFirst) {
+      bytes thisOutpoint = Util.outpoint(txPreimage);
+
+      bytes rabinPubKeyHashArrayHash = NftProto.getRabinPubKeyHashArrayHash(genesisScript, genesisScriptLen);
+      RabinUtil.verifyRabinPubKey(rabinPubKeyHashArrayHash,rabinPubKeyHashArray, rabinPubKeyVerifyArray, rabinPubKeyIndexArray);
+
+      RabinUtil.verifyRabinMsg(rabinPubKeyVerifyArray, rabinMsg, rabinPaddingArray, rabinSigArray);
+
+      PayloadU4SpendByData pl = RabinUtil.loadPayloadU4SpendBy(rabinMsg);
+      bytes prevGenesisScript = NftProto.getNewGenesisScript(genesisScript, genesisScriptLen, sensibleID, tokenIndex - 1);
+      require(pl.byTxId == thisOutpoint[ : 32]);
+      require(pl.outpoint == sensibleID || hash160(prevGenesisScript) == pl.scriptHash);
+    }
+
+    // check nftScript oracle data
+    int nftScriptLen = len(nftScript);
+
+    require(0 == NftProto.getGenesisFlag(nftScript, nftScriptLen));
+    require(sensibleID == NftProto.getSensibleID(nftScript, nftScriptLen));
+    require(tokenIndex == NftProto.getTokenIndex(nftScript, nftScriptLen));
+    require(totalSupply == NftProto.getTotalSupply(nftScript, nftScriptLen));
+    protoType = NftProto.getProtoType(nftScript, nftScriptLen);
+    require(protoType == NftProto.PROTO_TYPE);
+    require(NftProto.PROTO_FLAG == NftProto.getProtoFlag(nftScript, nftScriptLen));
+    // check opreturn
+    require(NftProto.checkDataLen(nftScript, nftScriptLen));
+    require(NftProto.checkOpReturn(nftScript, nftScriptLen));
+
+    //check genesisHash
+    require(NftProto.getGenesisHash(nftScript, nftScriptLen) == genesisHash);
+
+    bytes genesisOutput = b'';
+    if (tokenIndex != totalSupply - 1) {
+      bytes newGenesisScript = NftProto.getNewGenesisScript(genesisScript, len(genesisScript), sensibleID, tokenIndex + 1);
+      genesisOutput = Util.buildOutput(newGenesisScript, genesisSatoshis);
+    }
+    bytes nftOutput = Util.buildOutput(nftScript, nftSatoshis);
+
+    // op_false op_return output
+    bytes opReturnOutput = b'';
+    if (len(opReturnScript) > 0) {
+      require(opReturnScript[:2] == b'006a');
+      opReturnOutput = Util.buildOutput(opReturnScript, 0);
+    }
+
+    bytes changeOutput = b'';
+    if (changeSatoshis > 0) {
+      bytes changeScript = Util.buildPublicKeyHashScript(changeAddress);
+      changeOutput = Util.buildOutput(changeScript, changeSatoshis);
+    }
+    bytes hashOutput = hash256(genesisOutput + nftOutput + opReturnOutput + changeOutput);
+    require(hashOutput == Util.hashOutputs(txPreimage));
+  }
+}

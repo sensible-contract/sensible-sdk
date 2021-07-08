@@ -1,0 +1,58 @@
+{
+    "version": 4,
+    "compilerVersion": "1.0.3+commit.48afe59",
+    "contract": "RabinUtil",
+    "md5": "3c0235409d1bda127fdd08d8cd8d4bbb",
+    "structs": [
+        {
+            "name": "PayloadU4Data",
+            "params": [
+                {
+                    "name": "outpoint",
+                    "type": "bytes"
+                },
+                {
+                    "name": "satoshis",
+                    "type": "int"
+                },
+                {
+                    "name": "scriptHash",
+                    "type": "bytes"
+                }
+            ]
+        },
+        {
+            "name": "PayloadU4SpendByData",
+            "params": [
+                {
+                    "name": "outpoint",
+                    "type": "bytes"
+                },
+                {
+                    "name": "satoshis",
+                    "type": "int"
+                },
+                {
+                    "name": "scriptHash",
+                    "type": "bytes"
+                },
+                {
+                    "name": "byTxId",
+                    "type": "Sha256"
+                }
+            ]
+        }
+    ],
+    "alias": [],
+    "abi": [
+        {
+            "type": "constructor",
+            "params": []
+        }
+    ],
+    "buildType": "release",
+    "file": "",
+    "asm": "OP_4 OP_8 OP_2DUP OP_ADD OP_DUP 24 OP_ADD OP_DUP 14 OP_ADD OP_DUP 14 OP_ADD OP_DUP OP_8 OP_ADD OP_DUP OP_8 OP_ADD OP_DUP 14 OP_ADD OP_DUP OP_1ADD OP_DUP 24 OP_ADD 8001",
+    "sources": [],
+    "sourceMap": []
+}
