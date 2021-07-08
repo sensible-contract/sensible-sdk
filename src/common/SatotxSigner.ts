@@ -24,10 +24,13 @@ function fixApiPrefix(api: string) {
  */
 
 export class SatotxSigner {
-  satotxApiPrefix: string;
+  satotxApiPrefix?: string;
   satotxPubKey?: string;
-  constructor(satotxApiPrefix: string, satotxPubKey?: string) {
-    this.satotxApiPrefix = fixApiPrefix(satotxApiPrefix);
+  constructor(satotxApiPrefix?: string, satotxPubKey?: string) {
+    if (satotxApiPrefix) {
+      satotxApiPrefix = fixApiPrefix(satotxApiPrefix);
+    }
+    this.satotxApiPrefix = satotxApiPrefix;
     this.satotxPubKey = satotxPubKey;
   }
 

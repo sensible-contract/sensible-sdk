@@ -1,6 +1,8 @@
 import * as bsv from "../bsv";
 import * as proto from "../common/protoheader";
 import BN = require("../bn.js");
+export const SIGNER_NUM = 5;
+export const SIGNER_VERIFY_NUM = 3;
 export type SensibleID = {
   txid: string;
   index: number;
@@ -46,7 +48,6 @@ const TOKEN_HEADER_LEN = TOKEN_NAME_OFFSET;
 
 export const GENESIS_TOKEN_ID = Buffer.alloc(TOKEN_ID_LEN, 0);
 export const EMPTY_ADDRESS = Buffer.alloc(TOKEN_ADDRESS_LEN, 0);
-export const PROTO_TYPE = 1;
 export const nonGenesisFlag = Buffer.alloc(1, 0);
 export const OP_TRANSFER = 1;
 export const OP_UNLOCK_FROM_CONTRACT = 2;
@@ -92,8 +93,8 @@ export function getSensibleID(script0: Buffer) {
   );
   let txid = sensibleIDBuf.slice(0, 32).reverse().toString("hex"); //reverse会改变原对象
   let index = sensibleIDBuf.readUIntLE(32, 4);
-  let tokenID = { txid, index };
-  return tokenID;
+  let sensibleID = { txid, index };
+  return sensibleID;
 }
 
 export function getRabinPubKeyHashArrayHash(script: Buffer) {

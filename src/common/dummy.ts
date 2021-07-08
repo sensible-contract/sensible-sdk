@@ -1,4 +1,4 @@
-import { SIGNER_NUM } from "../bcp02/FungibleToken";
+import { SIGNER_NUM } from "../bcp02/tokenProto";
 import { BN } from "../bn.js";
 import * as bsv from "../bsv";
 import * as TokenUtil from "./tokenUtil";

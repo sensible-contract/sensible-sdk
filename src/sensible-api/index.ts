@@ -15,7 +15,7 @@ export type NonFungibleTokenUnspent = {
   txId: string;
   outputIndex: number;
   tokenAddress: string;
-  tokenId: number;
+  tokenIndex: string;
   metaTxId: string;
 };
 
@@ -23,7 +23,7 @@ export type FungibleTokenUnspent = {
   txId: string;
   outputIndex: number;
   tokenAddress: string;
-  tokenAmount: bigint;
+  tokenAmount: string;
 };
 
 export type SA_utxo = {
@@ -85,7 +85,7 @@ export interface SensibleApiBase {
   getNonFungibleTokenUnspentDetail(
     codehash: string,
     genesis: string,
-    tokenid: string
+    tokenIndex: string
   ): Promise<NonFungibleTokenUnspent>;
 
   getNonFungibleTokenSummary(
@@ -174,12 +174,12 @@ export class SensibleApi implements SensibleApiBase {
   async getNonFungibleTokenUnspentDetail(
     codehash: string,
     genesis: string,
-    tokenid: string
+    tokenIndex: string
   ) {
     return this.apiHandler.getNonFungibleTokenUnspentDetail(
       codehash,
       genesis,
-      tokenid
+      tokenIndex
     );
   }
 

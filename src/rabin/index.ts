@@ -141,7 +141,6 @@ export function generatePrivKeyFromSeed(seed: string) {
       BN.fromNumber(2).pow(BN.fromNumber(501)).add(BN.One)
     )
   );
-  console.log(p.mul(q).toBuffer().length);
   return {
     p: p,
     q: q,

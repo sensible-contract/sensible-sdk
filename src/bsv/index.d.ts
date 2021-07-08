@@ -728,6 +728,8 @@ export namespace Script {
     static SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS: number;
     static SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY: number;
     static SCRIPT_VERIFY_CHECKSEQUENCEVERIFY: number;
+    static MAX_SCRIPT_ELEMENT_SIZE: number;
+    static MAXIMUM_ELEMENT_SIZE: number;
     stepListener?: Interpreter.StepListenerFunction;
     errstr?: string;
     verify: (

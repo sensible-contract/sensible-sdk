@@ -22,10 +22,11 @@ import {
   dummyTx,
   dummyTxId,
 } from "../common/dummy";
+import { PROTO_TYPE } from "../common/protoheader";
 import * as TokenUtil from "../common/tokenUtil";
 import { isNull, SIG_PLACE_HOLDER } from "../common/utils";
-import { SIGNER_VERIFY_NUM } from "./FungibleToken";
 import * as TokenProto from "./tokenProto";
+import { SIGNER_VERIFY_NUM } from "./tokenProto";
 import BN = require("../bn.js");
 export const genesisTokenIDTxid =
   "0000000000000000000000000000000000000000000000000000000000000000";
@@ -204,7 +205,7 @@ export class TokenGenesis {
         genesisFlag,
         decimalNum,
         rabinPubKeyHashArrayHash,
-        tokenType: TokenProto.OP_TRANSFER,
+        tokenType: PROTO_TYPE.FT,
       });
       genesisContract.setDataPart(toHex(dataPart));
     }

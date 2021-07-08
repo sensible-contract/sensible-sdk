@@ -4,6 +4,12 @@ export const TYPE_LEN = 4;
 export const TYPE_OFFSET = PROTO_FLAG_LEN + TYPE_LEN;
 export const HEADER_LEN = TYPE_OFFSET;
 
+export enum PROTO_TYPE {
+  FT = 1,
+  UNIQUE = 2,
+  NFT = 3,
+}
+
 export function getHeaderLen() {
   return HEADER_LEN;
 }

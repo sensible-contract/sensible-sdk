@@ -1,3 +1,4 @@
+import { CodeError, ErrCode } from "../common/error";
 import { Net } from "../net";
 import {
   API_NET,
@@ -59,7 +60,10 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
     }
     let ret = data.map((v: SensibleQueryUtxo) => ({
       txId: v.txid,
@@ -92,7 +96,10 @@ export class Sensible implements SensibleApiBase {
       });
       const { code, data, msg } = _res as ResData;
       if (code != 0) {
-        throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
+        throw new CodeError(
+          ErrCode.EC_SENSIBLE_API_ERROR,
+          `request api failed. [url]:${url} [msg]:${msg}`
+        );
       }
       return data;
     }
@@ -106,7 +113,10 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
     }
     if (!data) {
       console.log("getRawfailed", url);
@@ -127,7 +137,10 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
     }
     if (!data) return [];
     let ret: FungibleTokenUnspent[] = data.map((v: SensibleQueryUtxo) => ({
@@ -151,7 +164,10 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
     }
 
     let ret: FungibleTokenBalance = {
@@ -176,7 +192,10 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
     }
 
     if (!data) return [];
@@ -202,14 +221,17 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
     }
     if (!data) return null;
     let ret = [data].map((v) => ({
       txId: v.txid,
       outputIndex: v.vout,
       tokenAddress: v.address,
-      tokenId: v.tokenId,
+      tokenIndex: v.tokenId,
       metaTxId: v.metaTxId,
     }))[0];
     return ret;
@@ -225,7 +247,10 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
     }
     let ret: FungibleTokenSummary[] = [];
     data.forEach((v) => {
@@ -260,7 +285,10 @@ export class Sensible implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
     }
 
     return data;

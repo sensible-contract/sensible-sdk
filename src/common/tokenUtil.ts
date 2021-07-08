@@ -114,3 +114,11 @@ export let getRabinPubKeyHashArray = function (rabinPubKeys: BN[]) {
   }
   return buf;
 };
+
+export function getOutpointBuf(txid: string, index: number): Buffer {
+  const txidBuf = Buffer.from(txid, "hex").reverse();
+  const indexBuf = Buffer.alloc(4, 0);
+  indexBuf.writeUInt32LE(index);
+  let buf = Buffer.concat([txidBuf, indexBuf]);
+  return buf;
+}

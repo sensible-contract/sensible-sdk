@@ -1,4 +1,5 @@
 import { bsv } from "scryptlib";
+import { CodeError, ErrCode } from "../common/error";
 import { Net } from "../net";
 import {
   API_NET,
@@ -42,7 +43,10 @@ export class MetaSV implements SensibleApiBase {
     if (apiNet == API_NET.MAIN) {
       this.serverBase = "https://apiv2.metasv.com";
     } else {
-      throw "metasv only support mainnet";
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        "metasv only support mainnet"
+      );
     }
   }
 
@@ -81,7 +85,10 @@ export class MetaSV implements SensibleApiBase {
         "MetaSV-Signature": sigEncoded,
       };
     } else {
-      throw "MetaSV should be authorized to access api.";
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        "MetaSV should be authorized to access api."
+      );
     }
     return headers;
   }
@@ -228,7 +235,10 @@ export class MetaSV implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
     }
 
     if (!data) return [];
@@ -236,7 +246,7 @@ export class MetaSV implements SensibleApiBase {
       txId: v.txid,
       outputIndex: v.vout,
       tokenAddress: address,
-      tokenId: v.tokenId,
+      tokenIndex: v.tokenId,
       metaTxId: v.metaTxId,
     }));
     return ret;
@@ -248,20 +258,23 @@ export class MetaSV implements SensibleApiBase {
   public async getNonFungibleTokenUnspentDetail(
     codehash: string,
     genesis: string,
-    tokenid: string
+    tokenIndex: string
   ) {
-    let url = `https://api.sensiblequery.com/nft/utxo-detail/${codehash}/${genesis}/${tokenid}`;
+    let url = `https://api.sensiblequery.com/nft/utxo-detail/${codehash}/${genesis}/${tokenIndex}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
     }
     if (!data) return null;
     let ret = [data].map((v) => ({
       txId: v.txid,
       outputIndex: v.vout,
       tokenAddress: v.address,
-      tokenId: v.tokenId,
+      tokenIndex: v.tokenId,
       metaTxId: v.metaTxId,
     }))[0];
     return ret;
@@ -285,7 +298,10 @@ export class MetaSV implements SensibleApiBase {
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
-      throw new Error(`request api failed. [url]:${url} [msg]:${msg}`);
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
     }
 
     return data;

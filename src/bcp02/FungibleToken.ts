@@ -11,21 +11,21 @@ import {
 } from "scryptlib";
 import * as BN from "../bn.js";
 import * as bsv from "../bsv";
+import { DustCalculator } from "../common/DustCalculator";
+import { CodeError, ErrCode } from "../common/error";
 import * as TokenUtil from "../common/tokenUtil";
 import * as Utils from "../common/utils";
 import { PUBKEY_PLACE_HOLDER, SIG_PLACE_HOLDER } from "../common/utils";
 import {
   ContractUtil,
-  genesisTokenIDTxid,
   Token,
   TokenGenesis,
   TokenTransferCheck,
 } from "./contractUtil";
 import * as TokenProto from "./tokenProto";
+import { SIGNER_VERIFY_NUM } from "./tokenProto";
 const Signature = bsv.crypto.Signature;
 export const sighashType = Signature.SIGHASH_ALL | Signature.SIGHASH_FORKID;
-export const SIGNER_NUM = 5;
-export const SIGNER_VERIFY_NUM = 3;
 
 const P2PKH_UNLOCK_SIZE = 1 + 1 + 71 + 1 + 33;
 
@@ -44,11 +44,13 @@ export type FtUtxo = {
 
   txHex?: string;
   satoshis?: number;
+  lockingScript?: bsv.Script;
   preTxId?: string;
   preOutputIndex?: number;
   preTxHex?: string;
   preTokenAddress?: bsv.Address;
   preTokenAmount?: BN;
+  preLockingScript?: bsv.Script;
 
   publicKey: bsv.PublicKey;
 };
@@ -59,25 +61,31 @@ export class FungibleToken {
   rabinPubKeyHashArrayHash: Buffer;
   transferCheckCodeHashArray: Bytes[];
   unlockContractCodeHashArray: Bytes[];
-  constructor(rabinPubKeys: BN[]) {
+  dustCalculator: DustCalculator;
+  constructor(rabinPubKeys: BN[], dustCalculator: DustCalculator) {
     this.rabinPubKeyHashArray = TokenUtil.getRabinPubKeyHashArray(rabinPubKeys);
     this.rabinPubKeyHashArrayHash = bsv.crypto.Hash.sha256ripemd160(
       this.rabinPubKeyHashArray
     );
-    this.rabinPubKeyArray = rabinPubKeys.map((v) => new Int(v.toString(10))); //scryptlib 需要0x开头
+    this.rabinPubKeyArray = rabinPubKeys.map((v) => new Int(v.toString(10)));
     this.transferCheckCodeHashArray = ContractUtil.transferCheckCodeHashArray;
     this.unlockContractCodeHashArray = ContractUtil.unlockContractCodeHashArray;
+
+    this.dustCalculator = dustCalculator;
   }
 
+  getDustThreshold(size: number) {
+    return this.dustCalculator.getDustThreshold(size);
+  }
   /**
    * create a tx for genesis
-   * @param {bsv.PrivateKey} privateKey the privatekey that utxos belong to
-   * @param {Object[]} utxos utxos
-   * @param {bsv.Address} changeAddress the change address
-   * @param {number} feeb feeb
-   * @param {Object} genesisScript genesis contract's locking scriptsatoshis
-   * @param {Array=} utxoPrivateKeys
-   * @param {string|Array=} opreturnData
+   * @param privateKey the privatekey that utxos belong to
+   * @param utxos bsv utxos for fee
+   * @param changeAddress the bsv change address
+   * @param feeb feeb
+   * @param genesisScript genesis contract's locking scriptsatoshis
+   * @param utxoPrivateKeys the private key of bsv utxos
+   * @param opreturnData
    */
   createGenesisTx({
     utxos,
@@ -95,7 +103,7 @@ export class FungibleToken {
     opreturnData?: any;
   }) {
     const tx = new bsv.Transaction();
-    //添加utxo作为输入
+    //Add utxo as input
     utxos.forEach((utxo) => {
       tx.addInput(
         new bsv.Transaction.Input.PublicKeyHash({
@@ -110,17 +118,17 @@ export class FungibleToken {
       );
     });
 
-    //第一项输出为genesis合约
+    //The first output is the genesis contract
     tx.addOutput(
       new bsv.Transaction.Output({
         script: genesisContract.lockingScript,
-        satoshis: Utils.getDustThreshold(
+        satoshis: this.getDustThreshold(
           genesisContract.lockingScript.toBuffer().length
         ),
       })
     );
 
-    //如果有opReturn则添加到第二项输出
+    //If there is opReturn, add it to the second output
     if (opreturnData) {
       let script = bsv.Script.buildSafeDataOut(opreturnData);
       tx.addOutput(
@@ -131,24 +139,23 @@ export class FungibleToken {
       );
     }
 
-    //计算手续费并判断是否找零
-    //如果有找零将在最后一项输出
+    //Calculate the fee and determine whether to change
+    //If there is change, it will be output in the last item
     const unlockSize = utxos.length * P2PKH_UNLOCK_SIZE;
     tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
     let changeAmount = tx._getUnspentValue() - tx.getFee();
-    //足够dust才找零，否则归为手续费
     if (
       changeAmount >=
       bsv.Transaction.DUST_AMOUNT +
         bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
     ) {
       tx.change(changeAddress);
-      //添加找零后要重新计算手续费
+      //After adding change, the handling fee will be recalculated
       tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
     }
 
     if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
-      //如果提供私钥就进行解锁
+      //Unlock if private key is provided
       tx.inputs.forEach((input, inputIndex) => {
         let privateKey = utxoPrivateKeys.splice(0, 1)[0];
         Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
@@ -157,11 +164,9 @@ export class FungibleToken {
     return tx;
   }
 
-  async createIssueTx({
+  createIssueTx({
     genesisContract,
-    spendByTxId,
-    spendByOutputIndex,
-    spendByLockingScript,
+    genesisUtxo,
 
     opreturnData,
     utxos,
@@ -169,32 +174,56 @@ export class FungibleToken {
     feeb,
     tokenContract,
     allowIncreaseIssues,
-    satotxData,
-    signers,
-    signerSelecteds,
+
+    rabinMsg,
+    rabinPaddingArray,
+    rabinSigArray,
+    rabinPubKeyIndexArray,
+    rabinPubKeyArray,
 
     genesisPrivateKey,
     utxoPrivateKeys,
     debug,
+  }: {
+    genesisContract;
+    genesisUtxo: {
+      txId: string;
+      outputIndex: number;
+      satoshis: number;
+      script: bsv.Script;
+    };
+
+    opreturnData: any;
+    utxos;
+    changeAddress: bsv.Address;
+    feeb: number;
+    tokenContract;
+    allowIncreaseIssues: boolean;
+    rabinMsg: Bytes;
+    rabinPaddingArray: Bytes[];
+    rabinSigArray: Int[];
+    rabinPubKeyIndexArray: number[];
+    rabinPubKeyArray: Int[];
+    genesisPrivateKey: bsv.PrivateKey;
+    utxoPrivateKeys: bsv.PrivateKey[];
+    debug: boolean;
   }) {
     const tx = new bsv.Transaction();
 
-    //第一个输入为发行合约
+    //The first input is the genesis contract
     tx.addInput(
       new bsv.Transaction.Input({
         output: new bsv.Transaction.Output({
-          script: spendByLockingScript,
-          satoshis: Utils.getDustThreshold(
-            spendByLockingScript.toBuffer().length
-          ),
+          script: genesisUtxo.script,
+          satoshis: genesisUtxo.satoshis,
         }),
-        prevTxId: spendByTxId,
-        outputIndex: spendByOutputIndex,
+        prevTxId: genesisUtxo.txId,
+        outputIndex: genesisUtxo.outputIndex,
         script: bsv.Script.empty(),
       })
     );
 
-    //随后添加utxo作为输入
+    //The following inputs are bsv utxos
     utxos.forEach((utxo) => {
       tx.addInput(
         new bsv.Transaction.Input({
@@ -215,21 +244,17 @@ export class FungibleToken {
     const genesisDataPartObj = TokenProto.parseDataPart(
       genesisContract.lockingScript.toBuffer()
     );
-
-    const isFirstGenesis =
-      genesisDataPartObj.sensibleID.txid == genesisTokenIDTxid;
-
-    //如果允许增发，则添加新的发行合约作为第一个输出
+    //If increase issues is allowed, add a new issue contract as the first output
     let genesisContractSatoshis = 0;
     if (allowIncreaseIssues) {
       genesisDataPartObj.sensibleID = tokenDataPartObj.sensibleID;
       let newGenesislockingScript = bsv.Script.fromBuffer(
         TokenProto.updateScript(
-          spendByLockingScript.toBuffer(),
+          genesisUtxo.script.toBuffer(),
           genesisDataPartObj
         )
       );
-      genesisContractSatoshis = Utils.getDustThreshold(
+      genesisContractSatoshis = this.getDustThreshold(
         newGenesislockingScript.toBuffer().length
       );
       tx.addOutput(
@@ -240,10 +265,10 @@ export class FungibleToken {
       );
     }
 
-    const tokenContractSatoshis = Utils.getDustThreshold(
+    const tokenContractSatoshis = this.getDustThreshold(
       tokenContract.lockingScript.toBuffer().length
     );
-    //添加token合约作为输出
+    //The following output is the Token
     tx.addOutput(
       new bsv.Transaction.Output({
         script: tokenContract.lockingScript,
@@ -251,7 +276,7 @@ export class FungibleToken {
       })
     );
 
-    //如果有opReturn,则添加输出
+    //If there is opReturn, add it to the output
     let opreturnScriptHex = "";
     if (opreturnData) {
       let script = bsv.Script.buildSafeDataOut(opreturnData);
@@ -269,110 +294,36 @@ export class FungibleToken {
     const genesisInputLockingScript =
       tx.inputs[genesisInputIndex].output.script;
 
-    let rabinMsg;
-    let rabinPaddingArray: Bytes[] = [];
-    let rabinSigArray: Int[] = [];
-    let rabinPubKeyIndexArray: number[] = [];
-    if (isFirstGenesis) {
-      //如果是首次发行，则不需要查询签名器
-      rabinMsg = Buffer.alloc(1, 0);
-      for (let i = 0; i < SIGNER_VERIFY_NUM; i++) {
-        rabinPaddingArray.push(new Bytes("00"));
-        rabinSigArray.push(new Int("0"));
-        rabinPubKeyIndexArray.push(i);
-      }
-    } else {
-      //查询签名器
-      for (let i = 0; i < signerSelecteds.length; i++) {
-        try {
-          let idx = signerSelecteds[i];
-          let sigInfo = await signers[idx].satoTxSigUTXOSpendBy(satotxData);
-          rabinMsg = sigInfo.payload;
-          rabinPaddingArray.push(new Bytes(sigInfo.padding));
-          rabinSigArray.push(
-            new Int(BN.fromString(sigInfo.sigBE, 16).toString(10))
-          );
-        } catch (e) {}
-      }
-
-      rabinPubKeyIndexArray = signerSelecteds;
-    }
-
-    let rabinPubKeyArray = [];
-    for (let j = 0; j < SIGNER_VERIFY_NUM; j++) {
-      const signerIndex = signerSelecteds[j];
-      rabinPubKeyArray.push(this.rabinPubKeyArray[signerIndex]);
-    }
-
-    let rabinPubKeyHashArray = [];
-
     if (
       genesisContract.lockingScript.toHex() != genesisInputLockingScript.toHex()
     ) {
-      //如果构造出来的发行合约与要进行解锁的发行合约不一致
-      //则可能是签名器公钥不一致
       if (debug) {
         console.log(genesisContract.lockingScript.toASM());
         console.log(genesisInputLockingScript.toASM());
       }
-      throw new Error("genesisContract lockingScript unmatch ");
+      throw new CodeError(
+        ErrCode.EC_INNER_ERROR,
+        "genesisContract lockingScript unmatch "
+      );
     }
 
-    //第一轮运算获取最终交易准确的大小，然后重新找零
-    //由于重新找零了，需要第二轮重新进行脚本解锁
+    //The first round of calculations get the exact size of the final transaction, and then change again
+    //Due to the change, the script needs to be unlocked again in the second round
     //let the fee to be exact in the second round
-    let changeAmount = 0;
     let extraSigLen = 0;
-    for (let c = 0; c < 2; c++) {
-      const unlockSize = utxos.length * P2PKH_UNLOCK_SIZE;
-      tx.fee(
-        Math.ceil((tx.toBuffer().length + extraSigLen + unlockSize) * feeb)
+    for (let i = 0; i < 2; i++) {
+      let changeAmount = this._setTxFee(
+        tx,
+        changeAddress,
+        feeb,
+        utxos.length,
+        extraSigLen,
+        i
       );
-      //足够dust才找零，否则归为手续费
-      if (c == 1) {
-        let leftAmount = tx._getUnspentValue() - tx.getFee();
-        if (
-          leftAmount >=
-          bsv.Transaction.DUST_AMOUNT +
-            bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
-        ) {
-          tx.addOutput(
-            new bsv.Transaction.Output({
-              script: new bsv.Script(changeAddress),
-              satoshis: 0,
-            })
-          );
-          //添加找零后要重新计算手续费
-          let fee = Math.ceil(
-            (tx.toBuffer().length +
-              extraSigLen +
-              unlockSize +
-              Utils.numberToBuffer(leftAmount).length +
-              1) *
-              feeb
-          );
-
-          tx._fee = fee;
-          tx._outputAmount = undefined;
-          changeAmount = tx._getUnspentValue() - fee;
-          tx.outputs[tx.outputs.length - 1].satoshis = changeAmount;
-        } else {
-          if (!Utils.isNull(tx._changeIndex)) {
-            tx._removeOutput(tx._changeIndex);
-          }
-          //无找零是很危险的事情，禁止大于1的费率
-          let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
-          let _feeb = fee / tx.toBuffer().length;
-          if (_feeb > 1) {
-            throw new Error("unsupport feeb");
-          }
-          changeAmount = 0;
-        }
-      }
 
       let sig: Buffer;
       if (genesisPrivateKey) {
-        //如果提供了私钥就进行签名
+        //Sign if the private key is provided
         sig = signTx(
           tx,
           genesisPrivateKey,
@@ -382,7 +333,7 @@ export class FungibleToken {
           sighashType
         );
       } else {
-        //如果没有提供私钥就使用72字节的占位符
+        //If no private key is provided, use a 72-byte placeholder
         sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
       }
       extraSigLen += 72 - sig.length;
@@ -395,12 +346,11 @@ export class FungibleToken {
         sighashType
       );
 
-      //解锁发行合约
       let contractObj = TokenGenesis.unlock(
         genesisContract,
         new SigHashPreimage(toHex(preimage)),
         new Sig(toHex(sig)),
-        new Bytes(toHex(rabinMsg)),
+        rabinMsg,
         rabinPaddingArray,
         rabinSigArray,
         rabinPubKeyIndexArray,
@@ -420,7 +370,6 @@ export class FungibleToken {
         inputSatoshis: genesisInputSatoshis,
       };
       if (debug && genesisPrivateKey) {
-        //提供了私钥的情况下才能进行校验，否则会在签名校验时出错
         let ret = contractObj.verify(txContext);
         if (ret.success == false) throw ret;
       }
@@ -467,7 +416,7 @@ export class FungibleToken {
     tx.addOutput(
       new bsv.Transaction.Output({
         script: tokenTransferCheckContract.lockingScript,
-        satoshis: Utils.getDustThreshold(
+        satoshis: this.getDustThreshold(
           tokenTransferCheckContract.lockingScript.toBuffer().length
         ),
       })
@@ -502,7 +451,7 @@ export class FungibleToken {
 
   createTransferTx({
     routeCheckTx,
-    ftUtxos,
+    tokenInputArray,
     utxos,
     rabinPubKeyIndexArray,
     rabinPubKeyVerifyArray,
@@ -520,7 +469,7 @@ export class FungibleToken {
     debug,
   }: {
     routeCheckTx: bsv.Transaction;
-    ftUtxos: FtUtxo[];
+    tokenInputArray: FtUtxo[];
     utxos: Utxo[];
     rabinPubKeyIndexArray: number[];
     rabinPubKeyVerifyArray: Int[];
@@ -538,26 +487,6 @@ export class FungibleToken {
     debug?: boolean;
   }) {
     const tx = new bsv.Transaction();
-
-    const tokenInputArray = ftUtxos.map((v) => {
-      const preTx = new bsv.Transaction(v.preTxHex);
-      const preLockingScript = preTx.outputs[v.preOutputIndex].script;
-      const tx = new bsv.Transaction(v.txHex);
-      const lockingScript = tx.outputs[v.outputIndex].script;
-      const satoshis = tx.outputs[v.outputIndex].satoshis;
-      return {
-        satoshis,
-        txId: v.txId,
-        outputIndex: v.outputIndex,
-        lockingScript,
-        preTxId: v.preTxId,
-        preOutputIndex: v.preOutputIndex,
-        preLockingScript,
-        preTokenAddress: v.preTokenAddress,
-        preTokenAmount: v.preTokenAmount,
-        publicKey: v.publicKey,
-      };
-    });
 
     const satoshiInputArray = utxos.map((v) => ({
       lockingScript: bsv.Script.buildPublicKeyHashOut(v.address).toHex(),
@@ -673,7 +602,7 @@ export class FungibleToken {
         address.hashBuffer,
         outputTokenAmount
       );
-      const outputSatoshis = Utils.getDustThreshold(lockingScriptBuf.length);
+      const outputSatoshis = this.getDustThreshold(lockingScriptBuf.length);
       tx.addOutput(
         new bsv.Transaction.Output({
           script: bsv.Script.fromBuffer(lockingScriptBuf),
@@ -708,58 +637,19 @@ export class FungibleToken {
       );
     }
 
-    //第一轮运算获取最终交易准确的大小，然后重新找零
-    //由于重新找零了，需要第二轮重新进行脚本解锁
+    //The first round of calculations get the exact size of the final transaction, and then change again
+    //Due to the change, the script needs to be unlocked again in the second round
     //let the fee to be exact in the second round
-    let changeAmount = 0;
     let extraSigLen = 0;
     for (let c = 0; c < 2; c++) {
-      const unlockSize = satoshiInputArray.length * P2PKH_UNLOCK_SIZE;
-      tx.fee(
-        Math.ceil((tx.toBuffer().length + extraSigLen + unlockSize) * feeb)
+      let changeAmount = this._setTxFee(
+        tx,
+        changeAddress,
+        feeb,
+        utxos.length,
+        extraSigLen,
+        c
       );
-      //足够dust才找零，否则归为手续费
-      if (c == 1) {
-        let leftAmount = tx._getUnspentValue() - tx.getFee();
-        if (
-          leftAmount >=
-          bsv.Transaction.DUST_AMOUNT +
-            bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
-        ) {
-          tx.addOutput(
-            new bsv.Transaction.Output({
-              script: new bsv.Script(changeAddress),
-              satoshis: 0,
-            })
-          );
-          //添加找零后要重新计算手续费
-          let fee = Math.ceil(
-            (tx.toBuffer().length +
-              extraSigLen +
-              unlockSize +
-              Utils.numberToBuffer(leftAmount).length +
-              1) *
-              feeb
-          );
-
-          tx._fee = fee;
-          tx._outputAmount = undefined;
-          changeAmount = tx._getUnspentValue() - fee;
-          tx.outputs[tx.outputs.length - 1].satoshis = changeAmount;
-        } else {
-          if (!Utils.isNull(tx._changeIndex)) {
-            tx._removeOutput(tx._changeIndex);
-          }
-          //无找零是很危险的事情，禁止大于1的费率
-          let fee = tx._getUnspentValue(); //未花费的金额都会成为手续费
-          let _feeb = fee / tx.toBuffer().length;
-          if (_feeb > 1) {
-            throw new Error("unsupport feeb");
-          }
-          changeAmount = 0;
-        }
-      }
-
       let rabinPubKeyArray = [];
       for (let j = 0; j < SIGNER_VERIFY_NUM; j++) {
         const signerIndex = rabinPubKeyIndexArray[j];
@@ -774,7 +664,7 @@ export class FungibleToken {
         const senderPrivateKey = ftPrivateKeys[i];
         let sig: Buffer;
         if (senderPrivateKey) {
-          //如果提供了私钥就进行签名
+          //Sign if the private key is provided
           sig = signTx(
             tx,
             senderPrivateKey,
@@ -784,7 +674,7 @@ export class FungibleToken {
             sighashType
           );
         } else {
-          //如果没有提供私钥就使用72字节的占位符
+          //If no private key is provided, use a 72-byte placeholder
           sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
         }
 
@@ -826,7 +716,10 @@ export class FungibleToken {
             console.log(tokenContract.lockingScript.toASM());
             console.log(tokenInputLockingScript.toASM());
           }
-          throw new Error("tokenContract lockingScript unmatch ");
+          throw new CodeError(
+            ErrCode.EC_INNER_ERROR,
+            "tokenContract lockingScript unmatch "
+          );
         }
 
         const unlockingContract = Token.unlock(
@@ -931,5 +824,60 @@ export class FungibleToken {
     }
     const preimageSize = 4 + 32 + 32 + 36 + prefix + n + 8 + 4 + 32 + 4 + 4;
     return preimageSize;
+  }
+
+  _setTxFee(
+    tx: bsv.Transaction,
+    changeAddress: bsv.Address,
+    feeb: number,
+    utxosCount: number,
+    extraSigLen: number,
+    index: number
+  ) {
+    let changeAmount = 0;
+    const unlockSize = utxosCount * P2PKH_UNLOCK_SIZE;
+    tx.fee(Math.ceil((tx.toBuffer().length + extraSigLen + unlockSize) * feeb));
+    if (index == 1) {
+      let leftAmount = tx._getUnspentValue() - tx.getFee();
+      //Change if there is enough leftAmount, otherwise it will be classified as fee
+      if (
+        leftAmount >=
+        bsv.Transaction.DUST_AMOUNT +
+          bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
+      ) {
+        tx.addOutput(
+          new bsv.Transaction.Output({
+            script: new bsv.Script(changeAddress),
+            satoshis: 0,
+          })
+        );
+        //After adding change, the fee should be recalculated
+        let fee = Math.ceil(
+          (tx.toBuffer().length +
+            extraSigLen +
+            unlockSize +
+            Utils.numberToBuffer(leftAmount).length +
+            1) *
+            feeb
+        );
+
+        tx._fee = fee;
+        tx._outputAmount = undefined;
+        changeAmount = tx._getUnspentValue() - fee;
+        tx.outputs[tx.outputs.length - 1].satoshis = changeAmount;
+      } else {
+        if (!Utils.isNull(tx._changeIndex)) {
+          tx._removeOutput(tx._changeIndex);
+        }
+        //No change is very dangerous. Rates greater than 1 are forbidden
+        let fee = tx._getUnspentValue();
+        let _feeb = fee / tx.toBuffer().length;
+        if (_feeb > 1) {
+          throw new CodeError(ErrCode.EC_INNER_ERROR, "unsupport feeb");
+        }
+        changeAmount = 0;
+      }
+    }
+    return changeAmount;
   }
 }
