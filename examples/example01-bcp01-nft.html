@@ -57,7 +57,7 @@
         for (let i = 0; i < 3; i++) {
           await sleep(3);
           {
-            let { txid, tokenid } = await nft.issue({
+            let { txid, tokenIndex } = await nft.issue({
               genesis,
               codehash,
               genesisWif: CoffeeShop.wif,
@@ -65,7 +65,7 @@
               metaTxId:
                 "8424d5efb0c11f574d7f045959bdc233c17804312c9ca1e196cebdae2b2646ea", //dummy
             });
-            console.log(`mint coffee card success: ${txid} ${tokenid}`);
+            console.log(`mint coffee card success: ${txid} ${tokenIndex}`);
           }
         }
 
@@ -76,7 +76,7 @@
             receiverAddress: Alice.address,
             codehash: codehash,
             genesis: genesis,
-            tokenid: "1",
+            tokenIndex: "1",
           });
           console.log(
             `CoffeeShop transfer a coffee card to Alice success: ${txid}`

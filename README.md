@@ -17,33 +17,7 @@ npm install sensible-sdk --save
 ```js
 const { SensibleFT } = require("sensible-sdk");
 
-const { signers, signerSelecteds } = await SensibleFT.selectSigners([
-  {
-    satotxApiPrefix: "https://api.satotx.com",
-    satotxPubKey:
-      "25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5",
-  },
-  {
-    satotxApiPrefix: "https://api.satotx.com",
-    satotxPubKey:
-      "25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5",
-  },
-  {
-    satotxApiPrefix: "https://api.satotx.com",
-    satotxPubKey:
-      "25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5",
-  },
-  {
-    satotxApiPrefix: "https://api.satotx.com",
-    satotxPubKey:
-      "25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5",
-  },
-  {
-    satotxApiPrefix: "https://api.satotx.com",
-    satotxPubKey:
-      "25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5",
-  },
-]);
+const { signers, signerSelecteds } = await SensibleFT.selectSigners();
 const ft = new SensibleFT({
   network: "testnet", //mainnet or testnet
   purse: "", //the wif of a bsv address to offer transaction fees
@@ -123,17 +97,13 @@ let balance = await ft.getBalance({
 
 ```js
 const { SensibleNFT } = require("sensible-sdk");
+const { signers, signerSelecteds } = await SensibleNFT.selectSigners();
 const nft = new SensibleNFT({
   network: "testnet", //mainnet or testnet
   purse: "", //the wif of a bsv address to offer transaction fees
   feeb: 0.5,
-  signers: [
-    {
-      satotxApiPrefix: "https://api.satotx.com",
-      satotxPubKey:
-        "25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5",
-    },
-  ],
+  signers,
+  signerSelecteds,
 });
 ```
 
@@ -155,13 +125,14 @@ Mint a NFT to CoffeeShop's address
 metaTxId is created by metaid which stands for NFT State
 
 ```js
-let { txid, tokenid } = await nft.issue({
+let { txid, tokenIndex } = await nft.issue({
   genesis,
   codehash,
   sensibleId,
   genesisWif: CoffeeShop.wif,
   receiverAddress: CoffeeShop.address,
   metaTxId: "8424d5efb0c11f574d7f045959bdc233c17804312c9ca1e196cebdae2b2646ea",
+  metaOutputIndex: 0,
 });
 ```
 
@@ -175,7 +146,7 @@ let { txid } = await nft.transfer({
   receiverAddress: Alice.address,
   codehash: codehash,
   genesis: genesis,
-  tokenid: "1",
+  tokenIndex: "1",
 });
 ```
 

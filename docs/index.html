@@ -120,8 +120,8 @@
 					<h3>Genesis</h3>
 				</a>
 				<p>Define a token with name,symbol,decimal number.
-				You should save the returned values.(genesis、codehash)</p>
-				<pre><code class="language-js"><span style="color: #0000FF">let</span><span style="color: #000000"> { </span><span style="color: #001080">txid</span><span style="color: #000000">, </span><span style="color: #001080">genesis</span><span style="color: #000000">, </span><span style="color: #001080">codehash</span><span style="color: #000000"> } = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">ft</span><span style="color: #000000">.</span><span style="color: #795E26">genesis</span><span style="color: #000000">({</span>
+				You should save the returned values.(genesis、codehash、sensibleId)</p>
+				<pre><code class="language-js"><span style="color: #0000FF">let</span><span style="color: #000000"> { </span><span style="color: #001080">txid</span><span style="color: #000000">, </span><span style="color: #001080">genesis</span><span style="color: #000000">, </span><span style="color: #001080">codehash</span><span style="color: #000000">, </span><span style="color: #001080">sensibleId</span><span style="color: #000000"> } = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">ft</span><span style="color: #000000">.</span><span style="color: #795E26">genesis</span><span style="color: #000000">({</span>
 <span style="color: #000000">  </span><span style="color: #001080">genesisWif:</span><span style="color: #000000"> </span><span style="color: #001080">CoffeeShop</span><span style="color: #000000">.</span><span style="color: #001080">wif</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">tokenName:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;COFFEE COIN&quot;</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">tokenSymbol:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;CC&quot;</span><span style="color: #000000">,</span>
@@ -135,6 +135,7 @@
 				<pre><code class="language-js"><span style="color: #0000FF">let</span><span style="color: #000000"> { </span><span style="color: #001080">txid</span><span style="color: #000000"> } = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">ft</span><span style="color: #000000">.</span><span style="color: #795E26">issue</span><span style="color: #000000">({</span>
 <span style="color: #000000">  </span><span style="color: #001080">genesis:</span><span style="color: #000000"> </span><span style="color: #001080">genesis</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">codehash:</span><span style="color: #000000"> </span><span style="color: #001080">codehash</span><span style="color: #000000">,</span>
+<span style="color: #000000">  </span><span style="color: #001080">sensibleId:</span><span style="color: #000000"> </span><span style="color: #001080">sensibleId</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">genesisWif:</span><span style="color: #000000"> </span><span style="color: #001080">CoffeeShop</span><span style="color: #000000">.</span><span style="color: #001080">wif</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">receiverAddress:</span><span style="color: #000000"> </span><span style="color: #001080">CoffeeShop</span><span style="color: #000000">.</span><span style="color: #001080">address</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">tokenAmount:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;1000000000000&quot;</span><span style="color: #000000">,</span>
@@ -196,7 +197,7 @@
 				</a>
 				<p>Define the NFT with totalSupply
 				You should save the returned values.(genesis、codehash)</p>
-				<pre><code class="language-js"><span style="color: #0000FF">let</span><span style="color: #000000"> { </span><span style="color: #001080">txid</span><span style="color: #000000">, </span><span style="color: #001080">genesis</span><span style="color: #000000">, </span><span style="color: #001080">codehash</span><span style="color: #000000"> } = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">nft</span><span style="color: #000000">.</span><span style="color: #795E26">genesis</span><span style="color: #000000">({</span>
+				<pre><code class="language-js"><span style="color: #0000FF">let</span><span style="color: #000000"> { </span><span style="color: #001080">txid</span><span style="color: #000000">, </span><span style="color: #001080">genesis</span><span style="color: #000000">, </span><span style="color: #001080">codehash</span><span style="color: #000000">, </span><span style="color: #001080">sensibleId</span><span style="color: #000000"> } = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">nft</span><span style="color: #000000">.</span><span style="color: #795E26">genesis</span><span style="color: #000000">({</span>
 <span style="color: #000000">  </span><span style="color: #001080">genesisWif:</span><span style="color: #000000"> </span><span style="color: #001080">CoffeeShop</span><span style="color: #000000">.</span><span style="color: #001080">wif</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">totalSupply:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;3&quot;</span><span style="color: #000000">,</span>
 <span style="color: #000000">});</span>
@@ -209,6 +210,7 @@
 				<pre><code class="language-js"><span style="color: #0000FF">let</span><span style="color: #000000"> { </span><span style="color: #001080">txid</span><span style="color: #000000">, </span><span style="color: #001080">tokenid</span><span style="color: #000000"> } = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">nft</span><span style="color: #000000">.</span><span style="color: #795E26">issue</span><span style="color: #000000">({</span>
 <span style="color: #000000">  </span><span style="color: #001080">genesis</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">codehash</span><span style="color: #000000">,</span>
+<span style="color: #000000">  </span><span style="color: #001080">sensibleId</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">genesisWif:</span><span style="color: #000000"> </span><span style="color: #001080">CoffeeShop</span><span style="color: #000000">.</span><span style="color: #001080">wif</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">receiverAddress:</span><span style="color: #000000"> </span><span style="color: #001080">CoffeeShop</span><span style="color: #000000">.</span><span style="color: #001080">address</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">metaTxId:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;8424d5efb0c11f574d7f045959bdc233c17804312c9ca1e196cebdae2b2646ea&quot;</span><span style="color: #000000">,</span>
@@ -236,27 +238,99 @@
 			<nav class="tsd-navigation primary">
 				<ul>
 					<li class=" ">
-						<a href="modules.html">Exports</a>
+						<a href="modules.html">Modules</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp01.html">bcp01</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp01_nonfungibletoken.html">bcp01/<wbr>Non<wbr>Fungible<wbr>Token</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp01_contractutil.html">bcp01/contract<wbr>Util</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp01_nftproto.html">bcp01/nft<wbr>Proto</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp02.html">bcp02</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp02_fungibletoken.html">bcp02/<wbr>Fungible<wbr>Token</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp02_contractutil.html">bcp02/contract<wbr>Util</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp02_tokenproto.html">bcp02/token<wbr>Proto</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bn_js.html">bn.js</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bsv.html">bsv</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/common_dustcalculator.html">common/<wbr>Dust<wbr>Calculator</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/common_satotxsigner.html">common/<wbr>Satotx<wbr>Signer</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/common_sizetransaction.html">common/<wbr>Size<wbr>Transaction</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/common_argumentcheck.html">common/argument<wbr>Check</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/common_dummy.html">common/dummy</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/common_error.html">common/error</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/common_protoheader.html">common/protoheader</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/common_tokenutil.html">common/token<wbr>Util</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/common_utils.html">common/utils</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/index.html">index</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/net.html">net</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/net_browsernet.html">net/<wbr>Browser<wbr>Net</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/net_servernet.html">net/<wbr>Server<wbr>Net</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/net_utils.html">net/utils</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/rabin.html">rabin</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/rabin_utils.html">rabin/utils</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/sensible_api.html">sensible-<wbr>api</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/sensible_api_metasv.html">sensible-<wbr>api/<wbr>MetaSV</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/sensible_api_sensible.html">sensible-<wbr>api/<wbr>Sensible</a>
 					</li>
 				</ul>
 			</nav>
 			<nav class="tsd-navigation secondary menu-sticky">
 				<ul class="before-current">
-					<li class=" tsd-kind-enum">
-						<a href="enums/api_net.html" class="tsd-kind-icon">API_<wbr>NET</a>
-					</li>
-					<li class=" tsd-kind-enum">
-						<a href="enums/api_target.html" class="tsd-kind-icon">API_<wbr>TARGET</a>
-					</li>
-					<li class=" tsd-kind-class">
-						<a href="classes/sensibleapi.html" class="tsd-kind-icon">Sensible<wbr>Api</a>
-					</li>
-					<li class=" tsd-kind-class">
-						<a href="classes/sensibleft.html" class="tsd-kind-icon">SensibleFT</a>
-					</li>
-					<li class=" tsd-kind-class">
-						<a href="classes/sensiblenft.html" class="tsd-kind-icon">SensibleNFT</a>
-					</li>
 				</ul>
 			</nav>
 		</div>
@@ -267,12 +341,19 @@
 		<h2>Legend</h2>
 		<div class="tsd-legend-group">
 			<ul class="tsd-legend">
-				<li class="tsd-kind-constructor tsd-parent-kind-class"><span class="tsd-kind-icon">Constructor</span></li>
-				<li class="tsd-kind-property tsd-parent-kind-class"><span class="tsd-kind-icon">Property</span></li>
-				<li class="tsd-kind-method tsd-parent-kind-class"><span class="tsd-kind-icon">Method</span></li>
+				<li class="tsd-kind-namespace"><span class="tsd-kind-icon">Namespace</span></li>
+				<li class="tsd-kind-variable"><span class="tsd-kind-icon">Variable</span></li>
+				<li class="tsd-kind-function"><span class="tsd-kind-icon">Function</span></li>
+				<li class="tsd-kind-type-alias"><span class="tsd-kind-icon">Type alias</span></li>
 			</ul>
 			<ul class="tsd-legend">
-				<li class="tsd-kind-method tsd-parent-kind-class tsd-is-static"><span class="tsd-kind-icon">Static method</span></li>
+				<li class="tsd-kind-enum"><span class="tsd-kind-icon">Enumeration</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-interface"><span class="tsd-kind-icon">Interface</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-class"><span class="tsd-kind-icon">Class</span></li>
 			</ul>
 		</div>
 	</div>

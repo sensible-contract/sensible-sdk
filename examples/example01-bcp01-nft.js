@@ -49,7 +49,7 @@ async function main() {
   for (let i = 0; i < 3; i++) {
     await sleep(3);
     {
-      let { txid, tokenid } = await nft.issue({
+      let { txid, tokenIndex } = await nft.issue({
         genesis,
         codehash,
         genesisWif: CoffeeShop.wif,
@@ -57,8 +57,9 @@ async function main() {
         opreturnData: "mint",
         metaTxId:
           "8424d5efb0c11f574d7f045959bdc233c17804312c9ca1e196cebdae2b2646ea", //dummy
+        metaOutputIndex: 1,
       });
-      console.log(`mint coffee card success: ${txid} ${tokenid}`);
+      console.log(`mint coffee card success: ${txid} ${tokenIndex}`);
     }
   }
 
@@ -69,7 +70,7 @@ async function main() {
       receiverAddress: Alice.address,
       codehash: codehash,
       genesis: genesis,
-      tokenid: "1",
+      tokenIndex: "1",
       opreturnData: "Transfer from CoffeShop to Alice",
     });
     console.log(`CoffeeShop transfer a coffee card to Alice success: ${txid}`);
@@ -82,7 +83,7 @@ async function main() {
       receiverAddress: Bob.address,
       codehash: codehash,
       genesis: genesis,
-      tokenid: "1",
+      tokenIndex: "1",
       opreturnData: "Transfer from Alice to Bob",
     });
     console.log(`Alice transfer a coffee card to Bob success: ${txid}`);
