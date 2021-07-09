@@ -11,7 +11,8 @@
     "compile-bcp01-dev": "node tools/compiler.js --bcp01 --debug",
     "compile-bcp02": "node tools/compiler.js --bcp02",
     "compile-bcp02-dev": "node tools/compiler.js --bcp02  --debug",
-    "build": "npx gulp"
+    "build": "npx gulp",
+    "test": "mocha -r ts-node/register test/**/*.test.ts --timeout 600000"
   },
   "keywords": [
     "sCrypt",
