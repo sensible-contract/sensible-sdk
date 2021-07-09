@@ -11,6 +11,7 @@ import {
 } from "scryptlib";
 import * as BN from "../bn.js";
 import * as bsv from "../bsv";
+import { DustCalculator } from "../common/DustCalculator.js";
 import { CodeError, ErrCode } from "../common/error";
 import * as TokenUtil from "../common/tokenUtil";
 import * as Utils from "../common/utils";
@@ -53,13 +54,19 @@ export class NonFungibleToken {
   rabinPubKeyHashArray: Buffer;
   rabinPubKeyHashArrayHash: Buffer;
   unlockContractCodeHashArray: Bytes[];
-  constructor(rabinPubKeys: BN[]) {
+  dustCalculator: DustCalculator;
+  constructor(rabinPubKeys: BN[], dustCalculator: DustCalculator) {
     this.rabinPubKeyHashArray = TokenUtil.getRabinPubKeyHashArray(rabinPubKeys);
     this.rabinPubKeyHashArrayHash = bsv.crypto.Hash.sha256ripemd160(
       this.rabinPubKeyHashArray
     );
     this.rabinPubKeyArray = rabinPubKeys.map((v) => new Int(v.toString(10)));
     this.unlockContractCodeHashArray = ContractUtil.unlockContractCodeHashArray;
+    this.dustCalculator = dustCalculator;
+  }
+
+  getDustThreshold(size: number) {
+    return this.dustCalculator.getDustThreshold(size);
   }
 
   /**
@@ -107,7 +114,7 @@ export class NonFungibleToken {
     tx.addOutput(
       new bsv.Transaction.Output({
         script: genesisContract.lockingScript,
-        satoshis: Utils.getDustThreshold(
+        satoshis: this.getDustThreshold(
           genesisContract.lockingScript.toBuffer().length
         ),
       })
@@ -238,7 +245,7 @@ export class NonFungibleToken {
       let newGenesislockingScript = bsv.Script.fromBuffer(
         NftProto.updateScript(genesisUtxo.script.toBuffer(), genesisDataPartObj)
       );
-      genesisContractSatoshis = Utils.getDustThreshold(
+      genesisContractSatoshis = this.getDustThreshold(
         newGenesislockingScript.toBuffer().length
       );
       tx.addOutput(
@@ -249,7 +256,7 @@ export class NonFungibleToken {
       );
     }
 
-    const tokenContractSatoshis = Utils.getDustThreshold(
+    const tokenContractSatoshis = this.getDustThreshold(
       tokenContract.lockingScript.toBuffer().length
     );
     //添加token合约作为输出
@@ -473,7 +480,7 @@ export class NonFungibleToken {
     const lockingScriptBuf = NftProto.updateScript(nftScriptBuf, dataPartObj);
     const nftOutput = {
       lockingScript: bsv.Script.fromBuffer(lockingScriptBuf),
-      satoshis: Utils.getDustThreshold(lockingScriptBuf.length),
+      satoshis: this.getDustThreshold(lockingScriptBuf.length),
     };
     tx.addOutput(
       new bsv.Transaction.Output({
@@ -614,6 +621,56 @@ export class NonFungibleToken {
       });
     }
 
+    return tx;
+  }
+
+  createStatelessTx({ utxos, changeAddress, feeb, contract, utxoPrivateKeys }) {
+    const tx = new bsv.Transaction();
+
+    utxos.forEach((utxo) => {
+      tx.addInput(
+        new bsv.Transaction.Input.PublicKeyHash({
+          output: new bsv.Transaction.Output({
+            script: bsv.Script.buildPublicKeyHashOut(utxo.address),
+            satoshis: utxo.satoshis,
+          }),
+          prevTxId: utxo.txId,
+          outputIndex: utxo.outputIndex,
+          script: bsv.Script.empty(),
+        })
+      );
+    });
+
+    tx.addOutput(
+      new bsv.Transaction.Output({
+        script: contract.lockingScript,
+        satoshis: this.getDustThreshold(
+          contract.lockingScript.toBuffer().length
+        ),
+      })
+    );
+
+    const unlockSize = utxos.length * P2PKH_UNLOCK_SIZE;
+    tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
+    let changeAmount = tx._getUnspentValue() - tx.getFee();
+
+    if (
+      changeAmount >=
+      bsv.Transaction.DUST_AMOUNT +
+        bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
+    ) {
+      tx.change(changeAddress);
+      tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
+    }
+
+    if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+      tx.inputs.forEach((input, inputIndex) => {
+        if (input.script.toBuffer().length == 0) {
+          let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+          Utils.unlockP2PKHInput(privateKey, tx, inputIndex, sighashType);
+        }
+      });
+    }
     return tx;
   }
 

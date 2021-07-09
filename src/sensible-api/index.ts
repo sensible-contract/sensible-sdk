@@ -17,6 +17,7 @@ export type NonFungibleTokenUnspent = {
   tokenAddress: string;
   tokenIndex: string;
   metaTxId: string;
+  metaOutputIndex: number;
 };
 
 export type FungibleTokenUnspent = {
@@ -40,6 +41,13 @@ export type FungibleTokenSummary = {
   balance: string;
   symbol: string;
   decimal: number;
+};
+
+export type NonFungibleTokenSummary = {
+  codehash: string;
+  genesis: string;
+  count: string;
+  pendingCount: string;
 };
 
 export type FungibleTokenBalance = {
@@ -90,13 +98,7 @@ export interface SensibleApiBase {
 
   getNonFungibleTokenSummary(
     address: string
-  ): Promise<{
-    codehash: string;
-    genesis: string;
-    count: number;
-    pendingCount: number;
-    symbol: string;
-  }>;
+  ): Promise<NonFungibleTokenSummary[]>;
 }
 
 export class SensibleApi implements SensibleApiBase {

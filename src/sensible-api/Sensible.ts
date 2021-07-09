@@ -6,6 +6,7 @@ import {
   FungibleTokenBalance,
   FungibleTokenSummary,
   FungibleTokenUnspent,
+  NonFungibleTokenSummary,
   NonFungibleTokenUnspent,
   SensibleApiBase,
 } from "./index";
@@ -27,10 +28,11 @@ type SensibleQueryUtxo = {
   scriptType?: string;
   tokenAmount?: number;
   tokenDecimal?: number;
-  tokenId?: string;
+  tokenIndex?: string;
   txid?: string;
   vout?: number;
   metaTxId?: string;
+  metaOutputIndex?: number;
 };
 export class Sensible implements SensibleApiBase {
   serverBase: string;
@@ -203,8 +205,9 @@ export class Sensible implements SensibleApiBase {
       txId: v.txid,
       outputIndex: v.vout,
       tokenAddress: address,
-      tokenId: v.tokenId,
+      tokenIndex: v.tokenIndex,
       metaTxId: v.metaTxId,
+      metaOutputIndex: v.metaOutputIndex,
     }));
     return ret;
   }
@@ -215,9 +218,9 @@ export class Sensible implements SensibleApiBase {
   public async getNonFungibleTokenUnspentDetail(
     codehash: string,
     genesis: string,
-    tokenid: string
+    tokenIndex: string
   ) {
-    let url = `${this.serverBase}/nft/utxo-detail/${codehash}/${genesis}/${tokenid}`;
+    let url = `${this.serverBase}/nft/utxo-detail/${codehash}/${genesis}/${tokenIndex}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
@@ -231,8 +234,9 @@ export class Sensible implements SensibleApiBase {
       txId: v.txid,
       outputIndex: v.vout,
       tokenAddress: v.address,
-      tokenIndex: v.tokenId,
+      tokenIndex: v.tokenIndex,
       metaTxId: v.metaTxId,
+      metaOutputIndex: v.metaOutputIndex,
     }))[0];
     return ret;
   }
@@ -274,13 +278,7 @@ export class Sensible implements SensibleApiBase {
    */
   public async getNonFungibleTokenSummary(
     address: string
-  ): Promise<{
-    codehash: string;
-    genesis: string;
-    count: number;
-    pendingCount: number;
-    symbol: string;
-  }> {
+  ): Promise<NonFungibleTokenSummary[]> {
     let url = `${this.serverBase}/nft/summary/${address}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -291,6 +289,15 @@ export class Sensible implements SensibleApiBase {
       );
     }
 
-    return data;
+    let ret: NonFungibleTokenSummary[] = [];
+    data.forEach((v) => {
+      ret.push({
+        codehash: v.codehash,
+        genesis: v.genesis,
+        count: v.count,
+        pendingCount: v.pendingCount,
+      });
+    });
+    return ret;
   }
 }

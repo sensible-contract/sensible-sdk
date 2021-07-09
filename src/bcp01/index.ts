@@ -266,7 +266,8 @@ export class SensibleNFT {
     }
 
     this.nft = new NonFungibleToken(
-      this.signers.map((v) => BN.fromString(v.satotxPubKey, 16))
+      this.signers.map((v) => BN.fromString(v.satotxPubKey, 16)),
+      this.dustCalculator
     );
 
     if (purse) {

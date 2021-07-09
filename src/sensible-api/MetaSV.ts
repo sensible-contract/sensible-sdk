@@ -7,6 +7,7 @@ import {
   FungibleTokenBalance,
   FungibleTokenSummary,
   FungibleTokenUnspent,
+  NonFungibleTokenSummary,
   NonFungibleTokenUnspent,
   SA_utxo,
   SensibleApiBase,
@@ -29,10 +30,11 @@ type SensibleQueryUtxo = {
   scriptType?: string;
   tokenAmount?: string;
   tokenDecimal?: number;
-  tokenId?: string;
+  tokenIndex?: string;
   txid?: string;
   vout?: number;
   metaTxId?: string;
+  metaOutputIndex?: number;
 };
 export class MetaSV implements SensibleApiBase {
   serverBase: string;
@@ -246,8 +248,9 @@ export class MetaSV implements SensibleApiBase {
       txId: v.txid,
       outputIndex: v.vout,
       tokenAddress: address,
-      tokenIndex: v.tokenId,
+      tokenIndex: v.tokenIndex,
       metaTxId: v.metaTxId,
+      metaOutputIndex: v.metaOutputIndex,
     }));
     return ret;
   }
@@ -274,8 +277,9 @@ export class MetaSV implements SensibleApiBase {
       txId: v.txid,
       outputIndex: v.vout,
       tokenAddress: v.address,
-      tokenIndex: v.tokenId,
+      tokenIndex: v.tokenIndex,
       metaTxId: v.metaTxId,
+      metaOutputIndex: v.metaOutputIndex,
     }))[0];
     return ret;
   }
@@ -287,13 +291,7 @@ export class MetaSV implements SensibleApiBase {
    */
   public async getNonFungibleTokenSummary(
     address: string
-  ): Promise<{
-    codehash: string;
-    genesis: string;
-    count: number;
-    pendingCount: number;
-    symbol: string;
-  }> {
+  ): Promise<NonFungibleTokenSummary[]> {
     let url = `https://api.sensiblequery.com/nft/summary/${address}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
@@ -304,6 +302,15 @@ export class MetaSV implements SensibleApiBase {
       );
     }
 
-    return data;
+    let ret: NonFungibleTokenSummary[] = [];
+    data.forEach((v) => {
+      ret.push({
+        codehash: v.codehash,
+        genesis: v.genesis,
+        count: v.count,
+        pendingCount: v.pendingCount,
+      });
+    });
+    return ret;
   }
 }
