@@ -40,20 +40,12 @@ function getConractCodeHash(contract): string {
 }
 
 function getNftUnlockContractCheckCodeHashArray(): string[] {
-  let class1 = NftUnlockContractCheck.getClass(
-    NFT_UNLOCK_CONTRACT_TYPE.IN_2_OUT_5
-  );
-  let class2 = NftUnlockContractCheck.getClass(
-    NFT_UNLOCK_CONTRACT_TYPE.IN_4_OUT_8
-  );
-  let class3 = NftUnlockContractCheck.getClass(
-    NFT_UNLOCK_CONTRACT_TYPE.IN_8_OUT_12
-  );
-  let class4 = NftUnlockContractCheck.getClass(
-    NFT_UNLOCK_CONTRACT_TYPE.IN_20_OUT_5
-  );
+  let class1 = NftUnlockContractCheck.getClass(NFT_UNLOCK_CONTRACT_TYPE.OUT_3);
+  let class2 = NftUnlockContractCheck.getClass(NFT_UNLOCK_CONTRACT_TYPE.OUT_6);
+  let class3 = NftUnlockContractCheck.getClass(NFT_UNLOCK_CONTRACT_TYPE.OUT_10);
+  let class4 = NftUnlockContractCheck.getClass(NFT_UNLOCK_CONTRACT_TYPE.OUT_20);
   let class5 = NftUnlockContractCheck.getClass(
-    NFT_UNLOCK_CONTRACT_TYPE.IN_3_OUT_100
+    NFT_UNLOCK_CONTRACT_TYPE.OUT_100
   );
   let contractArray = [
     new class1(),
@@ -331,7 +323,6 @@ export class Nft {
 
     let genesisHash = bsv.crypto.Hash.sha256ripemd160(scriptBuffer);
     if (dataPartObj.sensibleID.txid == genesisTokenIDTxid) {
-      //首发
       dataPartObj.sensibleID = {
         txid: genesisTxId,
         index: genesisTxOutputIndex,
@@ -435,26 +426,26 @@ export class Nft {
 }
 
 export enum NFT_UNLOCK_CONTRACT_TYPE {
-  IN_2_OUT_5 = 1,
-  IN_4_OUT_8,
-  IN_8_OUT_12,
-  IN_3_OUT_100,
-  IN_20_OUT_5,
+  OUT_3 = 1,
+  OUT_6,
+  OUT_10,
+  OUT_20,
+  OUT_100,
   UNSUPPORT,
 }
 export class NftUnlockContractCheck {
   public static getDesc(checkType: NFT_UNLOCK_CONTRACT_TYPE) {
     switch (checkType) {
-      case NFT_UNLOCK_CONTRACT_TYPE.IN_2_OUT_5:
+      case NFT_UNLOCK_CONTRACT_TYPE.OUT_3:
         return require("./contract-desc/nftUnlockContractCheck_desc.json");
-      case NFT_UNLOCK_CONTRACT_TYPE.IN_4_OUT_8:
-        return require("./contract-desc/nftUnlockContractCheck_desc.json");
-      case NFT_UNLOCK_CONTRACT_TYPE.IN_8_OUT_12:
-        return require("./contract-desc/nftUnlockContractCheck_desc.json");
-      case NFT_UNLOCK_CONTRACT_TYPE.IN_3_OUT_100:
-        return require("./contract-desc/nftUnlockContractCheck_desc.json");
-      case NFT_UNLOCK_CONTRACT_TYPE.IN_20_OUT_5:
-        return require("./contract-desc/nftUnlockContractCheck_desc.json");
+      case NFT_UNLOCK_CONTRACT_TYPE.OUT_6:
+        return require("./contract-desc/nftUnlockContractCheck_6_desc.json");
+      case NFT_UNLOCK_CONTRACT_TYPE.OUT_10:
+        return require("./contract-desc/nftUnlockContractCheck_10_desc.json");
+      case NFT_UNLOCK_CONTRACT_TYPE.OUT_20:
+        return require("./contract-desc/nftUnlockContractCheck_20_desc.json");
+      case NFT_UNLOCK_CONTRACT_TYPE.OUT_100:
+        return require("./contract-desc/nftUnlockContractCheck_100_desc.json");
       default:
         throw "invalid checkType";
     }
@@ -463,17 +454,17 @@ export class NftUnlockContractCheck {
     return buildContractClass(this.getDesc(checkType));
   }
 
-  public static getOptimumType(inCount: number, outCount: number) {
-    if (inCount <= 2 && outCount <= 5) {
-      return NFT_UNLOCK_CONTRACT_TYPE.IN_2_OUT_5;
-    } else if (inCount <= 4 && outCount <= 8) {
-      return NFT_UNLOCK_CONTRACT_TYPE.IN_4_OUT_8;
-    } else if (inCount <= 8 && outCount <= 12) {
-      return NFT_UNLOCK_CONTRACT_TYPE.IN_8_OUT_12;
-    } else if (inCount <= 20 && outCount <= 5) {
-      return NFT_UNLOCK_CONTRACT_TYPE.IN_20_OUT_5;
-    } else if (inCount <= 3 && outCount <= 100) {
-      return NFT_UNLOCK_CONTRACT_TYPE.IN_3_OUT_100;
+  public static getOptimumType(outCount: number) {
+    if (outCount <= 3) {
+      return NFT_UNLOCK_CONTRACT_TYPE.OUT_3;
+    } else if (outCount <= 6) {
+      return NFT_UNLOCK_CONTRACT_TYPE.OUT_6;
+    } else if (outCount <= 10) {
+      return NFT_UNLOCK_CONTRACT_TYPE.OUT_10;
+    } else if (outCount <= 20) {
+      return NFT_UNLOCK_CONTRACT_TYPE.OUT_20;
+    } else if (outCount <= 100) {
+      return NFT_UNLOCK_CONTRACT_TYPE.OUT_100;
     } else {
       return NFT_UNLOCK_CONTRACT_TYPE.UNSUPPORT;
     }

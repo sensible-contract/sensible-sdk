@@ -1,0 +1,80 @@
+import "util.scrypt";
+import "nftProto.scrypt";
+import "rabinUtil.scrypt";
+
+// opreturn + nftCodeHash + nftID
+contract NftUnlockContractCheck {
+
+  static const int MAX_OUTPUT = 6;
+    
+  public function unlock(
+    SigHashPreimage txPreimage,
+    int nftInputIndex,
+    bytes nftScript,
+    bytes prevouts,
+    bytes rabinMsg,
+    bytes[RabinUtil.ORACLE_VERIFY_NUM] rabinPaddingArray,
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinSigArray,
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyIndexArray,
+    int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyVerifyArray,
+    bytes rabinPubKeyHashArray,
+    int nOutputs,
+    int nftOutputIndex,
+    bytes nftOutputAddress,
+    int nftOutputSatoshis,
+    bytes otherOutputArray
+  ) {
+
+    require(Tx.checkPreimage(txPreimage));
+
+    require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
+
+    bytes scriptCode = Util.scriptCode(txPreimage);
+    int scriptLen = len(scriptCode);
+    bytes nftID = scriptCode[scriptLen - NftProto.NFT_ID_LEN: ];
+    bytes nftCodeHash = scriptCode[scriptLen - NftProto.NFT_ID_LEN - 20: scriptLen - NftProto.NFT_ID_LEN];
+
+    int nftScriptLen = len(nftScript);
+    require(nftCodeHash == NftProto.getContractCodeHash(nftScript, nftScriptLen));
+    require(nftID == NftProto.getNftID(nftScript, nftScriptLen));
+    bytes nftAddress = NftProto.getNftAddress(nftScript, nftScriptLen);
+
+    // verify rabin signature
+    bytes rabinPubKeyHashArrayHash = NftProto.getRabinPubKeyHashArrayHash(nftScript, nftScriptLen);
+    RabinUtil.verifyRabinPubKey(rabinPubKeyHashArrayHash,rabinPubKeyHashArray, rabinPubKeyVerifyArray, rabinPubKeyIndexArray);
+
+    RabinUtil.verifyOtherInput(rabinPubKeyVerifyArray, rabinMsg, rabinPaddingArray, rabinSigArray, prevouts, nftInputIndex, nftScript);
+
+    bool isBurn = false;
+    if (nftAddress == NftProto.BURN_ADDRESS) {
+      isBurn = true;
+    }
+
+    // check the outputs
+    bytes outputs = b'';
+    // max support loop num receiver, you can change this num, but will cause the contrac size increase. you can customize your output
+    int otherOutputIndex = 0;
+    require(nOutputs <= MAX_OUTPUT);
+    loop(MAX_OUTPUT): i {
+      if (i < nOutputs) {
+        if (i == nftOutputIndex && isBurn == false) {
+          bytes outputScript = NftProto.getNewNftScript(nftScript, nftScriptLen, nftOutputAddress);
+          bytes output = Util.buildOutput(outputScript, nftOutputSatoshis);
+          outputs += output;
+        } else {
+          int outputLen = Util.fromLEUnsigned(otherOutputArray[otherOutputIndex: otherOutputIndex + 4]);
+          bytes output = otherOutputArray[otherOutputIndex + 4: otherOutputIndex + 4 + outputLen];
+          outputs += output;
+          otherOutputIndex += 4 + outputLen;
+          // check if other output is the same nft output
+          bytes script = TxUtil.getScriptCodeFromOutput(output);
+          if (len(script) == nftScriptLen) {
+            require(NftProto.getNftID(script, nftScriptLen) != nftID);
+          }
+        }
+      }
+    }
+    bytes hashOutputs = hash256(outputs);
+    require(hashOutputs == Util.hashOutputs(txPreimage));
+  }
+}
