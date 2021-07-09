@@ -20,7 +20,8 @@ export type NftDataPart = {
   sensibleID?: SensibleID;
   tokenType?: number;
 };
-
+export const SIGNER_NUM = 5;
+export const SIGNER_VERIFY_NUM = 3;
 export const OP_TRANSFER = 1;
 export const OP_UNLOCK_FROM_CONTRACT = 2;
 

@@ -9,6 +9,7 @@ import {
   SigHashPreimage,
   toHex,
 } from "scryptlib";
+import * as BN from "../bn.js";
 import * as bsv from "../bsv";
 import {
   dummyAddress,
@@ -26,8 +27,7 @@ import { PROTO_TYPE } from "../common/protoheader";
 import * as TokenUtil from "../common/tokenUtil";
 import { isNull, SIG_PLACE_HOLDER } from "../common/utils";
 import * as NftProto from "./nftProto";
-import { SIGNER_VERIFY_NUM } from "./NonFungibleToken";
-import BN = require("../bn.js");
+import { SIGNER_VERIFY_NUM } from "./nftProto";
 export const genesisTokenIDTxid =
   "0000000000000000000000000000000000000000000000000000000000000000";
 const genesisFlag = 1;
@@ -317,7 +317,14 @@ export class Nft {
     {
       receiverAddress,
       tokenIndex,
-    }: { receiverAddress: bsv.Address; tokenIndex: BN }
+      metaTxId = toHex(Buffer.alloc(32, 0)),
+      metaOutputIndex = 0,
+    }: {
+      receiverAddress: bsv.Address;
+      tokenIndex: BN;
+      metaTxId?: string;
+      metaOutputIndex?: number;
+    }
   ) {
     const scriptBuffer = genesisLockingScript.toBuffer();
     const dataPartObj = NftProto.parseDataPart(scriptBuffer);
@@ -337,6 +344,7 @@ export class Nft {
       dataPartObj.nftAddress = toHex(receiverAddress.hashBuffer);
       dataPartObj.genesisHash = toHex(genesisHash);
       dataPartObj.tokenIndex = tokenIndex;
+      dataPartObj.metaidOutpoint = { txid: metaTxId, index: metaOutputIndex };
       const dataPart = NftProto.newDataPart(dataPartObj);
       nftContract.setDataPart(toHex(dataPart));
     }
@@ -363,12 +371,9 @@ export class Nft {
   }
 
   public static calUnlockingScriptSize(
-    routeCheckContact: any,
     bsvInputLen: number,
-    tokenInputLen: number,
-    tokenOutputLen: number,
     opreturnData: any
-  ) {
+  ): number {
     let opreturnScriptHex = "";
     if (opreturnData) {
       let script = bsv.Script.buildSafeDataOut(opreturnData);
@@ -378,7 +383,7 @@ export class Nft {
     let contract = this.getDummyInstance();
     const preimage = getPreimage(dummyTx, contract.lockingScript.toASM(), 1);
     const sig = Buffer.from(SIG_PLACE_HOLDER, "hex");
-    const rabinMsg = dummyPayload;
+    const rabinMsg = new Bytes(dummyPayload);
     const rabinPaddingArray: Bytes[] = [];
     const rabinSigArray: Int[] = [];
     const rabinPubKeyIndexArray: number[] = [];
@@ -393,17 +398,9 @@ export class Nft {
     let prevouts = Buffer.alloc(0);
     const indexBuf = TokenUtil.getUInt32Buf(0);
     const txidBuf = TokenUtil.getTxIdBuf(dummyTxId);
-    for (let i = 0; i < tokenInputLen + bsvInputLen + 1; i++) {
+    for (let i = 0; i < 1 + bsvInputLen; i++) {
       prevouts = Buffer.concat([prevouts, txidBuf, indexBuf]);
     }
-    const routeCheckInputIndex = 0;
-    let routeCheckTx = new bsv.Transaction(dummyTx.serialize(true));
-    routeCheckTx.addOutput(
-      new bsv.Transaction.Output({
-        script: routeCheckContact.lockingScript,
-        satoshis: 10000,
-      })
-    );
 
     let changeSatoshis = 0;
     let unlockedContract = this.unlock(
@@ -411,7 +408,7 @@ export class Nft {
       new SigHashPreimage(toHex(preimage)),
       tokenInputIndex,
       new Bytes(toHex(prevouts)),
-      new Bytes(toHex(rabinMsg)),
+      rabinMsg,
       rabinPaddingArray,
       rabinSigArray,
       rabinPubKeyIndexArray,
@@ -423,7 +420,7 @@ export class Nft {
       new Bytes(toHex(dummyAddress.hashBuffer)),
       new Int(0),
       new Bytes(opreturnScriptHex),
-      new Bytes(toHex(dummyAddress.hashBuffer)),
+      new Ripemd160(toHex(dummyAddress.hashBuffer)),
       new Int(changeSatoshis),
       0,
       new Bytes("00"),
