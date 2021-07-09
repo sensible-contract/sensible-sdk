@@ -908,7 +908,7 @@ export class SensibleFT {
     let sigHashList: SigHashInfo[] = [];
     tx.inputs.forEach((input: bsv.Transaction.Input, inputIndex: number) => {
       let address = "";
-      let isP2PKH;
+      let isP2PKH: boolean;
       if (inputIndex == 0) {
         address = _genesisPublicKey.toAddress(this.network).toString();
         isP2PKH = false;
@@ -1121,7 +1121,7 @@ export class SensibleFT {
 
     let rabinPubKeyArray = [];
     for (let j = 0; j < SIGNER_VERIFY_NUM; j++) {
-      const signerIndex = this.signerSelecteds[j];
+      const signerIndex = rabinPubKeyIndexArray[j];
       rabinPubKeyArray.push(this.ft.rabinPubKeyArray[signerIndex]);
     }
 
@@ -1450,9 +1450,9 @@ export class SensibleFT {
     receivers?: TokenReceiver[];
 
     senderPublicKey?: any;
-    ftUtxos: ParamFtUtxo[];
+    ftUtxos?: ParamFtUtxo[];
     ftChangeAddress?: string | bsv.Address;
-    utxos: ParamUtxo[];
+    utxos?: ParamUtxo[];
     changeAddress?: string | bsv.Address;
     isMerge?: boolean;
     opreturnData?: any;
@@ -1896,7 +1896,9 @@ export class SensibleFT {
         address = transferPart2.middleChangeAddress.toString();
         isP2PKH = true;
       } else {
-        address = transferPart2.ftUtxos[inputIndex].tokenAddress.toString();
+        address = transferPart2.tokenInputArray[
+          inputIndex
+        ].tokenAddress.toString();
         isP2PKH = false;
       }
       sigHashList.push({

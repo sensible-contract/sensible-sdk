@@ -422,19 +422,16 @@ export class FungibleToken {
       })
     );
 
-    //计算手续费并判断是否找零
-    //如果有找零将在最后一项输出
     const unlockSize = utxos.length * P2PKH_UNLOCK_SIZE;
     tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
     let changeAmount = tx._getUnspentValue() - tx.getFee();
-    //足够dust才找零，否则归为手续费
+
     if (
       changeAmount >=
       bsv.Transaction.DUST_AMOUNT +
         bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE * feeb
     ) {
       tx.change(changeAddress);
-      //添加找零后要重新计算手续费
       tx.fee(Math.ceil((tx.toBuffer().length + unlockSize) * feeb));
     }
 
@@ -495,7 +492,6 @@ export class FungibleToken {
       outputIndex: v.outputIndex,
     }));
 
-    //首先添加token作为输入
     let prevouts = Buffer.alloc(0);
     const tokenInputLen = tokenInputArray.length;
     let inputTokenScript;

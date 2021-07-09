@@ -1,6 +1,6 @@
 import * as Utils from "./utils";
 export class DustCalculator {
-  dustLimitFactor: number = 300;
+  dustLimitFactor: number;
   dustAmount: number = null;
   constructor(dustLimitFactor: number, dustAmount: number) {
     this.dustLimitFactor = dustLimitFactor;

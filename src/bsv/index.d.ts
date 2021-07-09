@@ -205,7 +205,7 @@ export namespace crypto {
   }
 
   namespace ECDSA {
-    function sign(message: Buffer, key: PrivateKey): Signature;
+    function sign(message: Buffer, key: PrivateKey, endian: string): Signature;
     function verify(
       hashbuf: Buffer,
       sig: Signature,
@@ -255,6 +255,13 @@ export namespace crypto {
     isTxDER(buf: Buffer): boolean;
     hasLowS(): boolean;
     toTxFormat(): Buffer;
+    set(obj: {
+      r?: BN;
+      s?: BN;
+      i?: number;
+      compressed?: boolean;
+      nhashtype?: number;
+    }): this;
   }
 }
 

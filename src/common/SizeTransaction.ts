@@ -102,6 +102,6 @@ export class SizeTransaction {
       }
     });
 
-    return fee;
+    return Math.ceil(fee);
   }
 }
