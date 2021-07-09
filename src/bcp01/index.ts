@@ -593,7 +593,12 @@ export class SensibleNFT {
     utxos?: any[];
     changeAddress?: string | bsv.Address;
     noBroadcast?: boolean;
-  }): Promise<{ txHex: string; txid: string; tx: bsv.Transaction }> {
+  }): Promise<{
+    txHex: string;
+    txid: string;
+    tx: bsv.Transaction;
+    tokenIndex: string;
+  }> {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
 
@@ -608,7 +613,7 @@ export class SensibleNFT {
 
     receiverAddress = new bsv.Address(receiverAddress, this.network);
 
-    let { tx } = await this._issue({
+    let { tx, tokenIndex } = await this._issue({
       genesis,
       codehash,
       genesisPrivateKey,
@@ -627,7 +632,7 @@ export class SensibleNFT {
       await this.sensibleApi.broadcast(txHex);
     }
 
-    return { txHex, txid: tx.id, tx };
+    return { txHex, txid: tx.id, tx, tokenIndex };
   }
 
   /**
@@ -662,7 +667,11 @@ export class SensibleNFT {
     opreturnData?: any;
     utxos?: any[];
     changeAddress?: string | bsv.Address;
-  }): Promise<{ tx: bsv.Transaction; sigHashList: SigHashInfo[] }> {
+  }): Promise<{
+    tx: bsv.Transaction;
+    sigHashList: SigHashInfo[];
+    tokenIndex: string;
+  }> {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
 
@@ -676,7 +685,7 @@ export class SensibleNFT {
 
     receiverAddress = new bsv.Address(receiverAddress, this.network);
 
-    let { tx } = await this._issue({
+    let { tx, tokenIndex } = await this._issue({
       genesis,
       codehash,
       genesisPublicKey,
@@ -718,7 +727,7 @@ export class SensibleNFT {
       });
     });
 
-    return { tx, sigHashList };
+    return { tx, sigHashList, tokenIndex };
   }
 
   private async getIssueUtxo(
@@ -819,7 +828,7 @@ export class SensibleNFT {
     utxos: Utxo[];
     utxoPrivateKeys?: bsv.PrivateKey[];
     changeAddress: bsv.Address;
-  }): Promise<{ tx: bsv.Transaction; tokenIndex: BN }> {
+  }): Promise<{ tx: bsv.Transaction; tokenIndex: string }> {
     let {
       genesisContract,
       genesisTxId,
@@ -932,7 +941,7 @@ export class SensibleNFT {
     });
 
     this._checkTxFeeRate(tx);
-    return { tx, tokenIndex: BN.Zero };
+    return { tx, tokenIndex: dataPartObj.tokenIndex.toString(10) };
   }
 
   /**
