@@ -2228,7 +2228,7 @@ export class SensibleFT {
     } else if (senderPrivateKey) {
       senderPrivateKey = new bsv.PrivateKey(senderPrivateKey);
       senderPublicKey = senderPrivateKey.toPublicKey();
-    } else {
+    } else if (senderPublicKey) {
       senderPublicKey = new bsv.PublicKey(senderPublicKey);
     }
 
@@ -2247,7 +2247,7 @@ export class SensibleFT {
       codehash,
       genesis,
       senderPrivateKey as bsv.PrivateKey,
-      senderPublicKey
+      senderPublicKey as bsv.PublicKey
     );
     if (ftChangeAddress) {
       ftChangeAddress = new bsv.Address(ftChangeAddress, this.network);
