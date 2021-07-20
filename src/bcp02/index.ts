@@ -2697,7 +2697,7 @@ export class SensibleFT {
    * @param codehash
    * @returns
    */
-  public isSupportedToken(codehash: string): boolean {
+  public static isSupportedToken(codehash: string): boolean {
     return codehash == ContractUtil.tokenCodeHash;
   }
 

@@ -1732,7 +1732,7 @@ export class SensibleNFT {
    * @param codehash
    * @returns
    */
-  public isSupportedToken(codehash: string): boolean {
+  public static isSupportedToken(codehash: string): boolean {
     return codehash == ContractUtil.tokenCodeHash;
   }
 
