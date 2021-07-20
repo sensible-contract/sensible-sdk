@@ -1,83 +1,9 @@
 import { toHex } from "scryptlib";
 import * as bsv from "../bsv";
-// Helper functions
-export function checkIfValidHexString(hexString: string): boolean {
-  if (typeof hexString !== "string") return false;
-  let re = new RegExp("^(0x|0X)?[a-fA-F0-9]+$");
-  return re.test(hexString);
-}
-
-// Test functions
-/**
- * Returns a random integer between min (inclusive) and max (inclusive).
- * The value is no lower than min (or the next integer greater than min
- * if min isn't an integer) and no greater than max (or the next integer
- * lower than max if max isn't an integer).
- * Using Math.round() will give you a non-uniform distribution!
- */
-export function getRandomInt(min: number, max: number) {
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-// Random hex string generator
-export function getRandomHex(len: number) {
-  let output = "";
-  for (let i = 0; i < len; ++i) {
-    output += Math.floor(Math.random() * 16).toString(16);
-  }
-  return output;
-}
-
-export function unlockP2PKHInput(privateKey, tx, inputIndex, sigtype) {
-  const sig = new bsv.Transaction.Signature({
-    publicKey: privateKey.publicKey,
-    prevTxId: tx.inputs[inputIndex].prevTxId,
-    outputIndex: tx.inputs[inputIndex].outputIndex,
-    inputIndex,
-    signature: bsv.Transaction.Sighash.sign(
-      tx,
-      privateKey,
-      sigtype,
-      inputIndex,
-      tx.inputs[inputIndex].output.script,
-      tx.inputs[inputIndex].output.satoshisBN
-    ),
-    sigtype,
-  });
-
-  tx.inputs[inputIndex].setScript(
-    bsv.Script.buildPublicKeyHashIn(
-      sig.publicKey,
-      sig.signature.toDER(),
-      sig.sigtype
-    )
-  );
-}
-
-export function reverseEndian(hexStr: string): string {
-  let num = new bsv.crypto.BN(hexStr, "hex");
-  let buf = num.toBuffer();
-  return buf.toString("hex").match(/.{2}/g).reverse().join("");
-}
+import * as TokenUtil from "./tokenUtil";
 
 export function getDustThreshold(lockingScriptSize: number) {
   return 3 * Math.ceil((250 * (lockingScriptSize + 9 + 148)) / 1000);
-}
-
-export function getCodeHash(script) {
-  let codePartChunks = [];
-  for (let i = 0; i < script.chunks.length - 1; i++) {
-    if (script.chunks[i].opcodenum == 106) {
-      codePartChunks = script.chunks.slice(0, i);
-      break;
-    }
-  }
-  if (codePartChunks.length == 0) codePartChunks = script.chunks;
-  let codePartScript = new bsv.Script();
-  codePartScript.chunks = codePartChunks;
-  return toHex(bsv.crypto.Hash.sha256ripemd160(codePartScript.toBuffer()));
 }
 
 export function isNull(val: any) {
@@ -87,21 +13,52 @@ export function isNull(val: any) {
     return false;
   }
 }
+
+export function getVarPushdataHeader(buf: Buffer) {
+  let header = "";
+  let n = buf.length;
+  if (n == 0) {
+  } else if (n == 1) {
+    //不处理这种情况，这里只考虑长脚本
+  } else if (n < 76) {
+    // Use direct push
+    header = toHex(TokenUtil.getUInt8Buf(n));
+  } else if (n <= 255) {
+    header = "4c" + toHex(TokenUtil.getUInt8Buf(n));
+  } else if (n <= 65535) {
+    header = "4d" + toHex(TokenUtil.getUInt16Buf(n));
+  } else {
+    header = "4e" + toHex(TokenUtil.getUInt32Buf(n));
+  }
+  return header;
+}
+
+export enum CONTRACT_TYPE {
+  P2PKH,
+  BCP01_NFT,
+  BCP01_NFT_GENESIS,
+  BCP01_NFT_UNLOCK_CONTRACT_CHECK,
+  BCP02_TOKEN,
+  BCP02_TOKEN_GENESIS,
+  BCP02_TOKEN_TRANSFER_CHECK,
+  BCP02_TOKEN_UNLOCK_CONTRACT_CHECK,
+  OTHER,
+}
 export type SigHashInfo = {
   sighash: string;
   sighashType: number;
   address: string;
   inputIndex: number;
-  isP2PKH: boolean;
+  contractType: CONTRACT_TYPE;
 };
 
 export type SigInfo = {
   sig: string;
   publicKey: any;
 };
-export const SIG_PLACE_HOLDER =
+export const PLACE_HOLDER_SIG =
   "41682c2074686973206973206120706c61636520686f6c64657220616e642077696c6c206265207265706c6163656420696e207468652066696e616c207369676e61747572652e00";
-export const PUBKEY_PLACE_HOLDER =
+export const PLACE_HOLDER_PUBKEY =
   "41682c2074686973206973206120706c61636520686f6c64657220616e64207769";
 export const P2PKH_UNLOCK_SIZE = 1 + 1 + 72 + 1 + 33;
 
@@ -113,14 +70,18 @@ export function numberToBuffer(n: number) {
   return Buffer.from(str, "hex");
 }
 
-export function sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
-  sigHashList.forEach(({ inputIndex, isP2PKH, sighashType }, index) => {
+export function sign(
+  tx: bsv.Transaction,
+  sigHashList: SigHashInfo[],
+  sigList: SigInfo[]
+) {
+  sigHashList.forEach(({ inputIndex, contractType, sighashType }, index) => {
     let input = tx.inputs[inputIndex];
     let { publicKey, sig } = sigList[index];
     publicKey = new bsv.PublicKey(publicKey);
     let _sig = bsv.crypto.Signature.fromString(sig);
     _sig.nhashtype = sighashType;
-    if (isP2PKH) {
+    if (contractType == CONTRACT_TYPE.P2PKH) {
       const signature = new bsv.Transaction.Signature({
         publicKey,
         prevTxId: input.prevTxId,
@@ -139,8 +100,8 @@ export function sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
     } else {
       let _sig2 = _sig.toTxFormat();
       let oldSigHex = Buffer.concat([
-        numberToBuffer(SIG_PLACE_HOLDER.length / 2),
-        Buffer.from(SIG_PLACE_HOLDER, "hex"),
+        numberToBuffer(PLACE_HOLDER_SIG.length / 2),
+        Buffer.from(PLACE_HOLDER_SIG, "hex"),
       ]).toString("hex");
 
       let newSigHex = Buffer.concat([
@@ -149,8 +110,8 @@ export function sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
       ]).toString("hex");
 
       let oldPubKeyHex = Buffer.concat([
-        numberToBuffer(PUBKEY_PLACE_HOLDER.length / 2),
-        Buffer.from(PUBKEY_PLACE_HOLDER, "hex"),
+        numberToBuffer(PLACE_HOLDER_PUBKEY.length / 2),
+        Buffer.from(PLACE_HOLDER_PUBKEY, "hex"),
       ]).toString("hex");
 
       const pubkeyBuffer = publicKey.toBuffer();
@@ -160,10 +121,12 @@ export function sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
       ]).toString("hex");
 
       input.setScript(
-        input.script
-          .toHex()
-          .replace(oldSigHex, newSigHex)
-          .replace(oldPubKeyHex, newPubKeyHex)
+        new bsv.Script(
+          input.script
+            .toHex()
+            .replace(oldSigHex, newSigHex)
+            .replace(oldPubKeyHex, newPubKeyHex)
+        )
       );
     }
   });
@@ -172,11 +135,16 @@ export function sign(tx: any, sigHashList: SigHashInfo[], sigList: SigInfo[]) {
 function satoshisToBSV(satoshis) {
   return (satoshis / 100000000).toFixed(8);
 }
-export function dumpTx(tx, network = "mainnet") {
-  tx._outputAmount = undefined;
+export function dumpTx(tx: bsv.Transaction, network = "mainnet") {
   const version = tx.version;
   const size = tx.toBuffer().length;
-  const feePaid = tx._getUnspentValue();
+  const inputAmount = tx.inputs.reduce(
+    (pre, cur) => cur.output.satoshis + pre,
+    0
+  );
+  const outputAmount = tx.outputs.reduce((pre, cur) => cur.satoshis + pre, 0);
+  let feePaid = inputAmount - outputAmount;
+
   const feeRate = (feePaid / size).toFixed(4);
 
   console.log(`

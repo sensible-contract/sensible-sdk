@@ -1,5 +1,5 @@
+import * as BN from "../bn.js";
 import { Net } from "../net";
-
 type ResData = {
   code: number;
   data: any;
@@ -25,13 +25,15 @@ function fixApiPrefix(api: string) {
 
 export class SatotxSigner {
   satotxApiPrefix?: string;
-  satotxPubKey?: string;
+  satotxPubKey?: BN;
   constructor(satotxApiPrefix?: string, satotxPubKey?: string) {
     if (satotxApiPrefix) {
       satotxApiPrefix = fixApiPrefix(satotxApiPrefix);
     }
     this.satotxApiPrefix = satotxApiPrefix;
-    this.satotxPubKey = satotxPubKey;
+    if (satotxPubKey) {
+      this.satotxPubKey = BN.fromString(satotxPubKey, 16);
+    }
   }
 
   async getInfo(): Promise<{

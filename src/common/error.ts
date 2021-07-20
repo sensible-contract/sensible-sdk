@@ -24,8 +24,8 @@ export enum ErrCode {
   EC_FIXED_TOKEN_SUPPLY = -102,
 
   //金额不足
-  EC_INSUFFICENT_BSV = -200,
-  EC_INSUFFICENT_FT = -201,
+  EC_INSUFFICIENT_BSV = -200,
+  EC_INSUFFICIENT_FT = -201,
 }
 
 export const ErrInfo = {

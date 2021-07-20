@@ -1,6 +1,6 @@
-import * as bsv from "../bsv";
-import * as proto from "../common/protoheader";
-import BN = require("../bn.js/index.js");
+import * as bsv from "../../bsv";
+import * as proto from "../../common/protoheader";
+import BN = require("../../bn.js");
 export type MetaidOutpoint = {
   txid: string;
   index: number;
@@ -9,23 +9,31 @@ export type SensibleID = {
   txid: string;
   index: number;
 };
-export type NftDataPart = {
+export type FormatedDataPart = {
   metaidOutpoint?: MetaidOutpoint;
-  genesisFlag?: number;
+  genesisFlag?: GENESIS_FLAG;
   nftAddress?: string;
   totalSupply?: BN;
   tokenIndex?: BN;
   genesisHash?: string;
   rabinPubKeyHashArrayHash?: string;
   sensibleID?: SensibleID;
-  tokenType?: number;
+  protoVersion?: number;
+  protoType?: proto.PROTO_TYPE;
 };
 export const SIGNER_NUM = 5;
 export const SIGNER_VERIFY_NUM = 3;
-export const OP_TRANSFER = 1;
-export const OP_UNLOCK_FROM_CONTRACT = 2;
+export enum NFT_OP_TYPE {
+  TRANSFER = 1,
+  UNLOCK_FROM_CONTRACT = 2,
+}
+export const PROTO_VERSION = 1;
 
-export const PROTO_TYPE_NFT = 3;
+export enum GENESIS_FLAG {
+  FALSE = 0,
+  TRUE = 1,
+}
+
 // <type specific data> + <proto header>
 // <proto header> = <type(4 bytes)> + <'sensible'(8 bytes)>
 //<nft type specific data> = <metaid_outpoint(36 bytes)> + <is_genesis(1 byte)> + <address(20 bytes)> + <totalSupply(8 bytes) + <tokenIndex(8 bytes)> + <genesisHash<20 bytes>) + <RABIN_PUBKEY_HASH_ARRAY_HASH(20 bytes)> + <sensibleID(36 bytes)>
@@ -56,7 +64,6 @@ const METAID_OUTPOINT_OFFSET = GENESIS_FLAG_OFFSET + METAID_OUTPOINT_LEN;
 const DATA_LEN = METAID_OUTPOINT_OFFSET;
 export const GENESIS_TOKEN_ID = Buffer.alloc(NFT_ID_LEN, 0);
 export const EMPTY_ADDRESS = Buffer.alloc(NFT_ADDRESS_LEN, 0);
-export const PROTO_TYPE = 1;
 
 export function getSensibleIDBuf(script0: Buffer) {
   let script = Buffer.from(script0);
@@ -137,7 +144,7 @@ export function getGenesisFlag(script: Buffer): number {
 }
 
 export function getContractCode(script: Buffer) {
-  return script.slice(0, script.length - DATA_LEN - 3);
+  return script.slice(0, script.length - DATA_LEN - 2);
 }
 
 export function getContractCodeHash(script: Buffer) {
@@ -179,10 +186,11 @@ export function newDataPart({
   genesisHash,
   rabinPubKeyHashArrayHash,
   sensibleID,
-  tokenType,
-}: NftDataPart): Buffer {
+  protoVersion,
+  protoType,
+}: FormatedDataPart): Buffer {
   let metaidOutpointBuf = Buffer.alloc(METAID_OUTPOINT_LEN, 0);
-  if (metaidOutpoint) {
+  if (metaidOutpoint && metaidOutpoint.txid) {
     const txidBuf = Buffer.from(metaidOutpoint.txid, "hex").reverse();
     const indexBuf = Buffer.alloc(4, 0);
     indexBuf.writeUInt32LE(metaidOutpoint.index);
@@ -190,7 +198,9 @@ export function newDataPart({
   }
 
   const genesisFlagBuf = Buffer.alloc(GENESIS_FLAG_LEN, 0);
-  genesisFlagBuf.writeUInt8(genesisFlag);
+  if (genesisFlag) {
+    genesisFlagBuf.writeUInt8(genesisFlag);
+  }
 
   const nftAddressBuf = Buffer.alloc(NFT_ADDRESS_LEN, 0);
   if (nftAddress) {
@@ -216,7 +226,9 @@ export function newDataPart({
     RABIN_PUBKEY_HASH_ARRAY_HASH_LEN,
     0
   );
-  rabinPubKeyHashArrayHashBuf.write(rabinPubKeyHashArrayHash, "hex");
+  if (rabinPubKeyHashArrayHash) {
+    rabinPubKeyHashArrayHashBuf.write(rabinPubKeyHashArrayHash, "hex");
+  }
 
   let sensibleIDBuf = Buffer.alloc(SENSIBLE_ID_LEN, 0);
   if (sensibleID) {
@@ -226,8 +238,15 @@ export function newDataPart({
     sensibleIDBuf = Buffer.concat([txidBuf, indexBuf]);
   }
 
-  const tokenTypeBuf = Buffer.alloc(proto.TYPE_LEN, 0);
-  tokenTypeBuf.writeUInt32LE(tokenType);
+  const protoVersionBuf = Buffer.alloc(proto.PROTO_VERSION_LEN);
+  if (protoVersion) {
+    protoVersionBuf.writeUInt32LE(protoVersion);
+  }
+
+  const protoTypeBuf = Buffer.alloc(proto.PROTO_TYPE_LEN, 0);
+  if (protoType) {
+    protoTypeBuf.writeUInt32LE(protoType);
+  }
 
   return Buffer.concat([
     metaidOutpointBuf,
@@ -238,12 +257,12 @@ export function newDataPart({
     genesisHashBuf,
     rabinPubKeyHashArrayHashBuf,
     sensibleIDBuf,
-    tokenTypeBuf,
+    protoTypeBuf,
     proto.PROTO_FLAG,
   ]);
 }
 
-export function parseDataPart(scriptBuf: Buffer): NftDataPart {
+export function parseDataPart(scriptBuf: Buffer): FormatedDataPart {
   let metaidOutpoint = getMetaidOutpoint(scriptBuf);
   let genesisFlag = getGenesisFlag(scriptBuf);
   let nftAddress = getNftAddress(scriptBuf);
@@ -252,7 +271,8 @@ export function parseDataPart(scriptBuf: Buffer): NftDataPart {
   let genesisHash = getGenesisHash(scriptBuf);
   let rabinPubKeyHashArrayHash = getRabinPubKeyHashArrayHash(scriptBuf);
   let sensibleID = getSensibleID(scriptBuf);
-  let tokenType = proto.getHeaderType(scriptBuf);
+  let protoVersion = proto.getProtoVersioin(scriptBuf);
+  let protoType = proto.getProtoType(scriptBuf);
   return {
     metaidOutpoint,
     genesisFlag,
@@ -262,13 +282,14 @@ export function parseDataPart(scriptBuf: Buffer): NftDataPart {
     genesisHash,
     rabinPubKeyHashArrayHash,
     sensibleID,
-    tokenType,
+    protoVersion,
+    protoType,
   };
 }
 
 export function updateScript(
   scriptBuf: Buffer,
-  dataPartObj: NftDataPart
+  dataPartObj: FormatedDataPart
 ): Buffer {
   const firstBuf = scriptBuf.slice(0, scriptBuf.length - DATA_LEN);
   const dataPart = newDataPart(dataPartObj);

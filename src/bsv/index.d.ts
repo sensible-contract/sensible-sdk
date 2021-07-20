@@ -315,7 +315,7 @@ export namespace Transaction {
   }
 
   class Input {
-    readonly prevTxId: Buffer;
+    prevTxId: Buffer;
     readonly outputIndex: number;
     readonly sequenceNumber: number;
     readonly script: Script;
@@ -410,6 +410,7 @@ export class Transaction {
   readonly outputAmount: number;
   nid: string;
   nLockTime: number;
+  version: number;
 
   //temporary
   _fee: number;
