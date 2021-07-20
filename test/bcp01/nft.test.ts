@@ -40,25 +40,23 @@ for (let i = 0; i < 4; i++) {
   });
 }
 function signSigHashList(sigHashList: Utils.SigHashInfo[]) {
-  let sigList = sigHashList.map(
-    ({ sighash, sighashType, address, inputIndex, isP2PKH }) => {
-      let privateKey = wallets.find((v) => v.address.toString() == address)
-        .privateKey;
-      var sig = bsv.crypto.ECDSA.sign(
-        Buffer.from(sighash, "hex"),
-        privateKey,
-        "little"
-      )
-        .set({
-          nhashtype: sighashType,
-        })
-        .toString();
-      return {
-        sig,
-        publicKey: privateKey.toPublicKey(),
-      };
-    }
-  );
+  let sigList = sigHashList.map(({ sighash, sighashType, address }) => {
+    let privateKey = wallets.find((v) => v.address.toString() == address)
+      .privateKey;
+    var sig = bsv.crypto.ECDSA.sign(
+      Buffer.from(sighash, "hex"),
+      privateKey,
+      "little"
+    )
+      .set({
+        nhashtype: sighashType,
+      })
+      .toString();
+    return {
+      sig,
+      publicKey: privateKey.toPublicKey(),
+    };
+  });
   return sigList;
 }
 

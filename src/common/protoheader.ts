@@ -33,7 +33,7 @@ export function getProtoVersioin(script: Buffer) {
   );
 }
 
-export function HasProtoFlag(script: Buffer) {
+export function hasProtoFlag(script: Buffer) {
   const flag = getFlag(script);
   if (flag.compare(PROTO_FLAG) === 0) {
     return true;

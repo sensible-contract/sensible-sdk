@@ -37,20 +37,14 @@ export class ServerNet {
             }
             resolve(body);
           } else {
-            reject({
-              reqData,
-              resData: {
-                statusCode: res.statusCode,
-                statusMessage: res.statusMessage,
-                body,
-              },
-            });
+            reject(
+              new Error(
+                `RequestError: statuCode:${res.statusCode} statusMessage:${res.statusMessage} body:${body}`
+              )
+            );
           }
         } else {
-          reject({
-            reqData,
-            resData: err,
-          });
+          reject(err);
         }
       });
     };
@@ -113,20 +107,14 @@ export class ServerNet {
             }
             resolve(body);
           } else {
-            reject({
-              reqData,
-              resData: {
-                statusCode: res.statusCode,
-                statusMessage: res.statusMessage,
-                body,
-              },
-            });
+            reject(
+              new Error(
+                `RequestError: statuCode:${res.statusCode} statusMessage:${res.statusMessage} body:${body}`
+              )
+            );
           }
         } else {
-          reject({
-            reqData,
-            resData: err,
-          });
+          reject(err);
         }
       });
     };

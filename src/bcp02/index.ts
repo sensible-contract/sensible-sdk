@@ -6,6 +6,7 @@ import { dummyTxId } from "../common/dummy";
 import { DustCalculator } from "../common/DustCalculator";
 import { CodeError, ErrCode } from "../common/error";
 import { Prevouts } from "../common/Prevouts";
+import { hasProtoFlag } from "../common/protoheader";
 import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import { getRabinData, getRabinDatas } from "../common/satotxSignerUtil";
 import { SizeTransaction } from "../common/SizeTransaction";
@@ -2758,5 +2759,53 @@ export class SensibleFT {
         `Insufficient balance.The fee rate should not be less than ${this.feeb}, but in the end it is ${feeRate}.`
       );
     }
+  }
+
+  public static parseTokenScript(
+    scriptBuf: Buffer,
+    network: API_NET = API_NET.MAIN
+  ): {
+    codehash: string;
+    genesis: string;
+    sensibleId: string;
+    tokenName: string;
+    tokenSymbol: string;
+    genesisFlag: number;
+    decimalNum: number;
+    tokenAddress: string;
+    tokenAmount: BN;
+    genesisHash: string;
+    rabinPubKeyHashArrayHash: string;
+    sensibleID: ftProto.SensibleID;
+    protoVersion: number;
+    protoType: number;
+  } {
+    if (!hasProtoFlag(scriptBuf)) {
+      return null;
+    }
+    const dataPart = ftProto.parseDataPart(scriptBuf);
+    const tokenAddress = bsv.Address.fromPublicKeyHash(
+      Buffer.from(dataPart.tokenAddress, "hex"),
+      network
+    ).toString();
+    const genesis = toHex(ftProto.getTokenID(scriptBuf));
+    const codehash = toHex(ftProto.getContractCodeHash(scriptBuf));
+    const sensibleId = toHex(ftProto.getSensibleIDBuf(scriptBuf));
+    return {
+      codehash,
+      genesis,
+      sensibleId,
+      tokenName: dataPart.tokenName,
+      tokenSymbol: dataPart.tokenSymbol,
+      genesisFlag: dataPart.genesisFlag,
+      decimalNum: dataPart.decimalNum,
+      tokenAddress,
+      tokenAmount: dataPart.tokenAmount,
+      genesisHash: dataPart.genesisHash,
+      rabinPubKeyHashArrayHash: dataPart.rabinPubKeyHashArrayHash,
+      sensibleID: dataPart.sensibleID,
+      protoVersion: dataPart.protoVersion,
+      protoType: dataPart.protoType,
+    };
   }
 }
