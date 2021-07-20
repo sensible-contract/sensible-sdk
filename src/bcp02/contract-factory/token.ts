@@ -28,8 +28,6 @@ import {
 } from "../../scryptlib";
 import * as ftProto from "../contract-proto/token.proto";
 import { ContractUtil } from "../contractUtil";
-export const genesisTokenIDTxid =
-  "0000000000000000000000000000000000000000000000000000000000000000";
 
 export class Token extends ContractAdapter {
   private constuctParams: {

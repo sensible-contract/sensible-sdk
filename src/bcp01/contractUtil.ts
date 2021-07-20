@@ -6,10 +6,6 @@ import {
   NftUnlockContractCheckFactory,
   NFT_UNLOCK_CONTRACT_TYPE,
 } from "./contract-factory/nftUnlockContractCheck";
-export const genesisTokenIDTxid =
-  "0000000000000000000000000000000000000000000000000000000000000000";
-const genesisFlag = 1;
-const nonGenesisFlag = 0;
 
 function getConractCodeHash(contract): string {
   return Buffer.from(

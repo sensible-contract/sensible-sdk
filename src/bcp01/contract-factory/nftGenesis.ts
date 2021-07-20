@@ -28,7 +28,7 @@ import {
 import * as nftProto from "../contract-proto/nft.proto";
 import { NftFactory } from "./nft";
 
-export const genesisTokenIDTxid =
+const genesisTokenIDTxid =
   "0000000000000000000000000000000000000000000000000000000000000000";
 
 export class NftGenesis extends ContractAdapter {

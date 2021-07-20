@@ -30,8 +30,6 @@ import {
 import * as nftProto from "../contract-proto/nft.proto";
 import { NFT_OP_TYPE, SIGNER_VERIFY_NUM } from "../contract-proto/nft.proto";
 import { ContractUtil } from "../contractUtil";
-export const genesisTokenIDTxid =
-  "0000000000000000000000000000000000000000000000000000000000000000";
 
 export class Nft extends ContractAdapter {
   constuctParams: {
