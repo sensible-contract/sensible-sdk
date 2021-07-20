@@ -81,33 +81,7 @@
 				</a>
 				<pre><code class="language-js"><span style="color: #0000FF">const</span><span style="color: #000000"> { </span><span style="color: #0070C1">SensibleFT</span><span style="color: #000000"> } = </span><span style="color: #795E26">require</span><span style="color: #000000">(</span><span style="color: #A31515">&quot;sensible-sdk&quot;</span><span style="color: #000000">);</span>
 
-<span style="color: #0000FF">const</span><span style="color: #000000"> { </span><span style="color: #0070C1">signers</span><span style="color: #000000">, </span><span style="color: #0070C1">signerSelecteds</span><span style="color: #000000"> } = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">SensibleFT</span><span style="color: #000000">.</span><span style="color: #795E26">selectSigners</span><span style="color: #000000">([</span>
-<span style="color: #000000">  {</span>
-<span style="color: #000000">    </span><span style="color: #001080">satotxApiPrefix:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;https://api.satotx.com&quot;</span><span style="color: #000000">,</span>
-<span style="color: #000000">    </span><span style="color: #001080">satotxPubKey:</span>
-<span style="color: #000000">      </span><span style="color: #A31515">&quot;25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5&quot;</span><span style="color: #000000">,</span>
-<span style="color: #000000">  },</span>
-<span style="color: #000000">  {</span>
-<span style="color: #000000">    </span><span style="color: #001080">satotxApiPrefix:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;https://api.satotx.com&quot;</span><span style="color: #000000">,</span>
-<span style="color: #000000">    </span><span style="color: #001080">satotxPubKey:</span>
-<span style="color: #000000">      </span><span style="color: #A31515">&quot;25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5&quot;</span><span style="color: #000000">,</span>
-<span style="color: #000000">  },</span>
-<span style="color: #000000">  {</span>
-<span style="color: #000000">    </span><span style="color: #001080">satotxApiPrefix:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;https://api.satotx.com&quot;</span><span style="color: #000000">,</span>
-<span style="color: #000000">    </span><span style="color: #001080">satotxPubKey:</span>
-<span style="color: #000000">      </span><span style="color: #A31515">&quot;25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5&quot;</span><span style="color: #000000">,</span>
-<span style="color: #000000">  },</span>
-<span style="color: #000000">  {</span>
-<span style="color: #000000">    </span><span style="color: #001080">satotxApiPrefix:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;https://api.satotx.com&quot;</span><span style="color: #000000">,</span>
-<span style="color: #000000">    </span><span style="color: #001080">satotxPubKey:</span>
-<span style="color: #000000">      </span><span style="color: #A31515">&quot;25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5&quot;</span><span style="color: #000000">,</span>
-<span style="color: #000000">  },</span>
-<span style="color: #000000">  {</span>
-<span style="color: #000000">    </span><span style="color: #001080">satotxApiPrefix:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;https://api.satotx.com&quot;</span><span style="color: #000000">,</span>
-<span style="color: #000000">    </span><span style="color: #001080">satotxPubKey:</span>
-<span style="color: #000000">      </span><span style="color: #A31515">&quot;25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5&quot;</span><span style="color: #000000">,</span>
-<span style="color: #000000">  },</span>
-<span style="color: #000000">]);</span>
+<span style="color: #0000FF">const</span><span style="color: #000000"> { </span><span style="color: #0070C1">signers</span><span style="color: #000000">, </span><span style="color: #0070C1">signerSelecteds</span><span style="color: #000000"> } = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">SensibleFT</span><span style="color: #000000">.</span><span style="color: #795E26">selectSigners</span><span style="color: #000000">();</span>
 <span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">ft</span><span style="color: #000000"> = </span><span style="color: #0000FF">new</span><span style="color: #000000"> </span><span style="color: #795E26">SensibleFT</span><span style="color: #000000">({</span>
 <span style="color: #000000">  </span><span style="color: #001080">network:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;testnet&quot;</span><span style="color: #000000">, </span><span style="color: #008000">//mainnet or testnet</span>
 <span style="color: #000000">  </span><span style="color: #001080">purse:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;&quot;</span><span style="color: #000000">, </span><span style="color: #008000">//the wif of a bsv address to offer transaction fees</span>
@@ -166,11 +140,13 @@
 					<h3>Query Balance</h3>
 				</a>
 				<p>Query token&#39;s balance</p>
-				<pre><code class="language-js"><span style="color: #0000FF">let</span><span style="color: #000000"> </span><span style="color: #001080">balance</span><span style="color: #000000"> = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">ft</span><span style="color: #000000">.</span><span style="color: #795E26">getBalance</span><span style="color: #000000">({</span>
-<span style="color: #000000">  </span><span style="color: #001080">codehash</span><span style="color: #000000">,</span>
-<span style="color: #000000">  </span><span style="color: #001080">genesis</span><span style="color: #000000">,</span>
-<span style="color: #000000">  </span><span style="color: #001080">address:</span><span style="color: #000000"> </span><span style="color: #001080">Alice</span><span style="color: #000000">.</span><span style="color: #001080">address</span><span style="color: #000000">,</span>
-<span style="color: #000000">});</span>
+				<pre><code class="language-js"><span style="color: #0000FF">let</span><span style="color: #000000"> { </span><span style="color: #001080">balance</span><span style="color: #000000">, </span><span style="color: #001080">pendingBalance</span><span style="color: #000000">, </span><span style="color: #001080">utxoCount</span><span style="color: #000000">, </span><span style="color: #001080">decimal</span><span style="color: #000000"> } = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">ft</span><span style="color: #000000">.</span><span style="color: #795E26">getBalanceDetail</span><span style="color: #000000">(</span>
+<span style="color: #000000">  {</span>
+<span style="color: #000000">    </span><span style="color: #001080">codehash</span><span style="color: #000000">,</span>
+<span style="color: #000000">    </span><span style="color: #001080">genesis</span><span style="color: #000000">,</span>
+<span style="color: #000000">    </span><span style="color: #001080">address:</span><span style="color: #000000"> </span><span style="color: #001080">Alice</span><span style="color: #000000">.</span><span style="color: #001080">address</span><span style="color: #000000">,</span>
+<span style="color: #000000">  }</span>
+<span style="color: #000000">);</span>
 </code></pre>
 				<a href="#how-to-usenft" id="how-to-usenft" style="color: inherit; text-decoration: none;">
 					<h2>How to use(NFT)</h2>
@@ -179,24 +155,20 @@
 					<h3>Init</h3>
 				</a>
 				<pre><code class="language-js"><span style="color: #0000FF">const</span><span style="color: #000000"> { </span><span style="color: #0070C1">SensibleNFT</span><span style="color: #000000"> } = </span><span style="color: #795E26">require</span><span style="color: #000000">(</span><span style="color: #A31515">&quot;sensible-sdk&quot;</span><span style="color: #000000">);</span>
+<span style="color: #0000FF">const</span><span style="color: #000000"> { </span><span style="color: #0070C1">signers</span><span style="color: #000000">, </span><span style="color: #0070C1">signerSelecteds</span><span style="color: #000000"> } = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">SensibleNFT</span><span style="color: #000000">.</span><span style="color: #795E26">selectSigners</span><span style="color: #000000">();</span>
 <span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">nft</span><span style="color: #000000"> = </span><span style="color: #0000FF">new</span><span style="color: #000000"> </span><span style="color: #795E26">SensibleNFT</span><span style="color: #000000">({</span>
 <span style="color: #000000">  </span><span style="color: #001080">network:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;testnet&quot;</span><span style="color: #000000">, </span><span style="color: #008000">//mainnet or testnet</span>
 <span style="color: #000000">  </span><span style="color: #001080">purse:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;&quot;</span><span style="color: #000000">, </span><span style="color: #008000">//the wif of a bsv address to offer transaction fees</span>
 <span style="color: #000000">  </span><span style="color: #001080">feeb:</span><span style="color: #000000"> </span><span style="color: #098658">0.5</span><span style="color: #000000">,</span>
-<span style="color: #000000">  </span><span style="color: #001080">signers:</span><span style="color: #000000"> [</span>
-<span style="color: #000000">    {</span>
-<span style="color: #000000">      </span><span style="color: #001080">satotxApiPrefix:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;https://api.satotx.com&quot;</span><span style="color: #000000">,</span>
-<span style="color: #000000">      </span><span style="color: #001080">satotxPubKey:</span>
-<span style="color: #000000">        </span><span style="color: #A31515">&quot;25108ec89eb96b99314619eb5b124f11f00307a833cda48f5ab1865a04d4cfa567095ea4dd47cdf5c7568cd8efa77805197a67943fe965b0a558216011c374aa06a7527b20b0ce9471e399fa752e8c8b72a12527768a9fc7092f1a7057c1a1514b59df4d154df0d5994ff3b386a04d819474efbd99fb10681db58b1bd857f6d5&quot;</span><span style="color: #000000">,</span>
-<span style="color: #000000">    },</span>
-<span style="color: #000000">  ],</span>
+<span style="color: #000000">  </span><span style="color: #001080">signers</span><span style="color: #000000">,</span>
+<span style="color: #000000">  </span><span style="color: #001080">signerSelecteds</span><span style="color: #000000">,</span>
 <span style="color: #000000">});</span>
 </code></pre>
 				<a href="#genesis-1" id="genesis-1" style="color: inherit; text-decoration: none;">
 					<h3>Genesis</h3>
 				</a>
 				<p>Define the NFT with totalSupply
-				You should save the returned values.(genesis、codehash)</p>
+				You should save the returned values.(genesis、codehash、sensibleId)</p>
 				<pre><code class="language-js"><span style="color: #0000FF">let</span><span style="color: #000000"> { </span><span style="color: #001080">txid</span><span style="color: #000000">, </span><span style="color: #001080">genesis</span><span style="color: #000000">, </span><span style="color: #001080">codehash</span><span style="color: #000000">, </span><span style="color: #001080">sensibleId</span><span style="color: #000000"> } = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">nft</span><span style="color: #000000">.</span><span style="color: #795E26">genesis</span><span style="color: #000000">({</span>
 <span style="color: #000000">  </span><span style="color: #001080">genesisWif:</span><span style="color: #000000"> </span><span style="color: #001080">CoffeeShop</span><span style="color: #000000">.</span><span style="color: #001080">wif</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">totalSupply:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;3&quot;</span><span style="color: #000000">,</span>
@@ -207,13 +179,14 @@
 				</a>
 				<p>Mint a NFT to CoffeeShop&#39;s address
 				metaTxId is created by metaid which stands for NFT State</p>
-				<pre><code class="language-js"><span style="color: #0000FF">let</span><span style="color: #000000"> { </span><span style="color: #001080">txid</span><span style="color: #000000">, </span><span style="color: #001080">tokenid</span><span style="color: #000000"> } = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">nft</span><span style="color: #000000">.</span><span style="color: #795E26">issue</span><span style="color: #000000">({</span>
+				<pre><code class="language-js"><span style="color: #0000FF">let</span><span style="color: #000000"> { </span><span style="color: #001080">txid</span><span style="color: #000000">, </span><span style="color: #001080">tokenIndex</span><span style="color: #000000"> } = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">nft</span><span style="color: #000000">.</span><span style="color: #795E26">issue</span><span style="color: #000000">({</span>
 <span style="color: #000000">  </span><span style="color: #001080">genesis</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">codehash</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">sensibleId</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">genesisWif:</span><span style="color: #000000"> </span><span style="color: #001080">CoffeeShop</span><span style="color: #000000">.</span><span style="color: #001080">wif</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">receiverAddress:</span><span style="color: #000000"> </span><span style="color: #001080">CoffeeShop</span><span style="color: #000000">.</span><span style="color: #001080">address</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">metaTxId:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;8424d5efb0c11f574d7f045959bdc233c17804312c9ca1e196cebdae2b2646ea&quot;</span><span style="color: #000000">,</span>
+<span style="color: #000000">  </span><span style="color: #001080">metaOutputIndex:</span><span style="color: #000000"> </span><span style="color: #098658">0</span><span style="color: #000000">,</span>
 <span style="color: #000000">});</span>
 </code></pre>
 				<a href="#transfer-1" id="transfer-1" style="color: inherit; text-decoration: none;">
@@ -225,7 +198,7 @@
 <span style="color: #000000">  </span><span style="color: #001080">receiverAddress:</span><span style="color: #000000"> </span><span style="color: #001080">Alice</span><span style="color: #000000">.</span><span style="color: #001080">address</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">codehash:</span><span style="color: #000000"> </span><span style="color: #001080">codehash</span><span style="color: #000000">,</span>
 <span style="color: #000000">  </span><span style="color: #001080">genesis:</span><span style="color: #000000"> </span><span style="color: #001080">genesis</span><span style="color: #000000">,</span>
-<span style="color: #000000">  </span><span style="color: #001080">tokenid:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;1&quot;</span><span style="color: #000000">,</span>
+<span style="color: #000000">  </span><span style="color: #001080">tokenIndex:</span><span style="color: #000000"> </span><span style="color: #A31515">&quot;1&quot;</span><span style="color: #000000">,</span>
 <span style="color: #000000">});</span>
 </code></pre>
 				<a href="#example" id="example" style="color: inherit; text-decoration: none;">
@@ -244,25 +217,58 @@
 						<a href="modules/bcp01.html">bcp01</a>
 					</li>
 					<li class=" tsd-kind-module">
-						<a href="modules/bcp01_nonfungibletoken.html">bcp01/<wbr>Non<wbr>Fungible<wbr>Token</a>
+						<a href="modules/bcp01_contract_factory_nft.html">bcp01/contract-<wbr>factory/nft</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp01_contract_factory_nftgenesis.html">bcp01/contract-<wbr>factory/nft<wbr>Genesis</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp01_contract_factory_nftsell.html">bcp01/contract-<wbr>factory/nft<wbr>Sell</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp01_contract_factory_nftunlockcontractcheck.html">bcp01/contract-<wbr>factory/nft<wbr>Unlock<wbr>Contract<wbr>Check</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp01_contract_proto_nft_proto.html">bcp01/contract-<wbr>proto/nft.proto</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp01_contract_proto_nftgenesis_proto.html">bcp01/contract-<wbr>proto/nft<wbr>Genesis.proto</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp01_contract_proto_nftunlockcontractcheck_proto.html">bcp01/contract-<wbr>proto/nft<wbr>Unlock<wbr>Contract<wbr>Check.proto</a>
 					</li>
 					<li class=" tsd-kind-module">
 						<a href="modules/bcp01_contractutil.html">bcp01/contract<wbr>Util</a>
 					</li>
 					<li class=" tsd-kind-module">
-						<a href="modules/bcp01_nftproto.html">bcp01/nft<wbr>Proto</a>
-					</li>
-					<li class=" tsd-kind-module">
 						<a href="modules/bcp02.html">bcp02</a>
 					</li>
 					<li class=" tsd-kind-module">
-						<a href="modules/bcp02_fungibletoken.html">bcp02/<wbr>Fungible<wbr>Token</a>
+						<a href="modules/bcp02_contract_factory_token.html">bcp02/contract-<wbr>factory/token</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp02_contract_factory_tokengenesis.html">bcp02/contract-<wbr>factory/token<wbr>Genesis</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp02_contract_factory_tokentransfercheck.html">bcp02/contract-<wbr>factory/token<wbr>Transfer<wbr>Check</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp02_contract_factory_tokenunlockcontractcheck.html">bcp02/contract-<wbr>factory/token<wbr>Unlock<wbr>Contract<wbr>Check</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp02_contract_proto_token_proto.html">bcp02/contract-<wbr>proto/token.proto</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp02_contract_proto_tokengenesis_proto.html">bcp02/contract-<wbr>proto/token<wbr>Genesis.proto</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp02_contract_proto_tokentransfercheck_proto.html">bcp02/contract-<wbr>proto/token<wbr>Transfer<wbr>Check.proto</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/bcp02_contract_proto_tokenunlockcontractcheck_proto.html">bcp02/contract-<wbr>proto/token<wbr>Unlock<wbr>Contract<wbr>Check.proto</a>
 					</li>
 					<li class=" tsd-kind-module">
 						<a href="modules/bcp02_contractutil.html">bcp02/contract<wbr>Util</a>
-					</li>
-					<li class=" tsd-kind-module">
-						<a href="modules/bcp02_tokenproto.html">bcp02/token<wbr>Proto</a>
 					</li>
 					<li class=" tsd-kind-module">
 						<a href="modules/bn_js.html">bn.js</a>
@@ -271,7 +277,13 @@
 						<a href="modules/bsv.html">bsv</a>
 					</li>
 					<li class=" tsd-kind-module">
+						<a href="modules/common_contractadapter.html">common/<wbr>Contract<wbr>Adapter</a>
+					</li>
+					<li class=" tsd-kind-module">
 						<a href="modules/common_dustcalculator.html">common/<wbr>Dust<wbr>Calculator</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/common_prevouts.html">common/<wbr>Prevouts</a>
 					</li>
 					<li class=" tsd-kind-module">
 						<a href="modules/common_satotxsigner.html">common/<wbr>Satotx<wbr>Signer</a>
@@ -290,6 +302,9 @@
 					</li>
 					<li class=" tsd-kind-module">
 						<a href="modules/common_protoheader.html">common/protoheader</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/common_satotxsignerutil.html">common/satotx<wbr>Signer<wbr>Util</a>
 					</li>
 					<li class=" tsd-kind-module">
 						<a href="modules/common_tokenutil.html">common/token<wbr>Util</a>
@@ -313,10 +328,7 @@
 						<a href="modules/net_utils.html">net/utils</a>
 					</li>
 					<li class=" tsd-kind-module">
-						<a href="modules/rabin.html">rabin</a>
-					</li>
-					<li class=" tsd-kind-module">
-						<a href="modules/rabin_utils.html">rabin/utils</a>
+						<a href="modules/scryptlib.html">scryptlib</a>
 					</li>
 					<li class=" tsd-kind-module">
 						<a href="modules/sensible_api.html">sensible-<wbr>api</a>
@@ -326,6 +338,9 @@
 					</li>
 					<li class=" tsd-kind-module">
 						<a href="modules/sensible_api_sensible.html">sensible-<wbr>api/<wbr>Sensible</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/tx_composer.html">tx-<wbr>composer</a>
 					</li>
 				</ul>
 			</nav>

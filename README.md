@@ -84,11 +84,13 @@ let { txid } = await ft.transfer({
 Query token's balance
 
 ```js
-let balance = await ft.getBalance({
-  codehash,
-  genesis,
-  address: Alice.address,
-});
+let { balance, pendingBalance, utxoCount, decimal } = await ft.getBalanceDetail(
+  {
+    codehash,
+    genesis,
+    address: Alice.address,
+  }
+);
 ```
 
 ## How to use(NFT)
@@ -110,7 +112,7 @@ const nft = new SensibleNFT({
 ### Genesis
 
 Define the NFT with totalSupply
-You should save the returned values.(genesis、codehash)
+You should save the returned values.(genesis、codehash、sensibleId)
 
 ```js
 let { txid, genesis, codehash, sensibleId } = await nft.genesis({

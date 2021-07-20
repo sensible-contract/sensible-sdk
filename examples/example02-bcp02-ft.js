@@ -49,7 +49,7 @@ async function main() {
 txid: ${txid}
 genesis: ${genesis}
 codehash: ${codehash}
-codehash: ${sensibleId}`);
+sensibleId: ${sensibleId}`);
   //wait for a moment
   await sleep(3);
   {
