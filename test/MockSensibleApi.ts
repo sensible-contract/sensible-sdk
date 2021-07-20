@@ -1,9 +1,9 @@
 import { toHex } from "scryptlib";
-import * as NftProto from "../src/bcp01/nftProto";
-import * as TokenProto from "../src/bcp02/tokenProto";
+import * as nftProto from "../src/bcp01/contract-proto/nft.proto";
+import * as ftProto from "../src/bcp02/contract-proto/token.proto";
 import * as BN from "../src/bn.js";
 import * as bsv from "../src/bsv";
-import { getHeaderType, PROTO_TYPE } from "../src/common/protoheader";
+import { getProtoType, PROTO_TYPE } from "../src/common/protoheader";
 import * as Utils from "../src/common/utils";
 import {
   API_NET,
@@ -100,6 +100,7 @@ export class MockSensibleApi implements SensibleApiBase {
 
       let utxoPack = this.utxoPacks.find((v) => v.outpoint == outpoint);
       if (!utxoPack) {
+        console.log(outpoint, "missing");
         throw new Error("missing input");
       }
       this.utxoPacks = this.utxoPacks.filter((v) => v != utxoPack);
@@ -113,7 +114,6 @@ export class MockSensibleApi implements SensibleApiBase {
         throw new Error("verifyTx failed");
       }
     }
-
     tx.outputs.forEach((v, index) => {
       if (v.script.isPublicKeyHashOut()) {
         let address = new bsv.Address(v.script.getAddressInfo() as bsv.Address);
@@ -131,11 +131,11 @@ export class MockSensibleApi implements SensibleApiBase {
         });
       } else {
         let scriptBuf = v.script.toBuffer();
-        let protoType = getHeaderType(scriptBuf);
+        let protoType = getProtoType(scriptBuf);
         if (protoType == PROTO_TYPE.FT) {
-          let dataPart = TokenProto.parseDataPart(scriptBuf);
-          let genesis = TokenProto.getTokenID(scriptBuf).toString("hex");
-          let codehash = toHex(TokenProto.getContractCodeHash(scriptBuf));
+          let dataPart = ftProto.parseDataPart(scriptBuf);
+          let genesis = ftProto.getTokenID(scriptBuf).toString("hex");
+          let codehash = toHex(ftProto.getContractCodeHash(scriptBuf));
           let address = bsv.Address.fromPublicKeyHash(
             Buffer.from(dataPart.tokenAddress, "hex"),
             this.network
@@ -155,9 +155,9 @@ export class MockSensibleApi implements SensibleApiBase {
             },
           });
         } else if (protoType == PROTO_TYPE.NFT) {
-          let dataPart = NftProto.parseDataPart(scriptBuf);
-          let genesis = NftProto.getSensibleIDBuf(scriptBuf).toString("hex");
-          let codehash = toHex(NftProto.getContractCodeHash(scriptBuf));
+          let dataPart = nftProto.parseDataPart(scriptBuf);
+          let genesis = nftProto.getSensibleIDBuf(scriptBuf).toString("hex");
+          let codehash = toHex(nftProto.getContractCodeHash(scriptBuf));
           let address = bsv.Address.fromPublicKeyHash(
             Buffer.from(dataPart.nftAddress, "hex"),
             this.network

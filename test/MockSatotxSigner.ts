@@ -5,7 +5,7 @@ import * as rabin from "./rabin";
 
 export class MockSatotxSigner extends SatotxSigner {
   satotxApiPrefix: string;
-  satotxPubKey?: string;
+  satotxPubKey?: BN;
   p: BN;
   q: BN;
   nRabin: BN;
@@ -19,7 +19,7 @@ export class MockSatotxSigner extends SatotxSigner {
     }
 
     let nRabin = rabin.privKeyToPubKey(p, q);
-    this.satotxPubKey = nRabin.toString("hex");
+    this.satotxPubKey = nRabin;
     this.p = p;
     this.q = q;
     this.nRabin = nRabin;
@@ -30,13 +30,11 @@ export class MockSatotxSigner extends SatotxSigner {
     txId,
     txHex,
     byTxId,
-    byTxHex,
   }: {
     index: number;
     txId: string;
     txHex: string;
     byTxId: string;
-    byTxHex: string;
   }): Promise<{
     txId: string;
     index: number;

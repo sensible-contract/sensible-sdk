@@ -1,9 +1,13 @@
 import { expect } from "chai";
-import { SIGNER_NUM, SIGNER_VERIFY_NUM } from "../../src/bcp02/tokenProto";
+import {
+  SIGNER_NUM,
+  SIGNER_VERIFY_NUM,
+} from "../../src/bcp02/contract-proto/token.proto";
 import * as BN from "../../src/bn.js";
 import * as bsv from "../../src/bsv";
 import * as Utils from "../../src/common/utils";
 import { API_NET, SensibleFT } from "../../src/index";
+import { TxComposer } from "../../src/tx-composer";
 import { dummyRabinKeypairs } from "../dummyRabin";
 import { MockSatotxSigner } from "../MockSatotxSigner";
 import { MockSensibleApi } from "../MockSensibleApi";
@@ -45,25 +49,23 @@ let [FeePayer, CoffeeShop, Alice, Bob] = wallets;
 // `);
 
 function signSigHashList(sigHashList: Utils.SigHashInfo[]) {
-  let sigList = sigHashList.map(
-    ({ sighash, sighashType, address, inputIndex, isP2PKH }) => {
-      let privateKey = wallets.find((v) => v.address.toString() == address)
-        .privateKey;
-      var sig = bsv.crypto.ECDSA.sign(
-        Buffer.from(sighash, "hex"),
-        privateKey,
-        "little"
-      )
-        .set({
-          nhashtype: sighashType,
-        })
-        .toString();
-      return {
-        sig,
-        publicKey: privateKey.toPublicKey(),
-      };
-    }
-  );
+  let sigList = sigHashList.map(({ sighash, sighashType, address }) => {
+    let privateKey = wallets.find((v) => v.address.toString() == address)
+      .privateKey;
+    var sig = bsv.crypto.ECDSA.sign(
+      Buffer.from(sighash, "hex"),
+      privateKey,
+      "little"
+    )
+      .set({
+        nhashtype: sighashType,
+      })
+      .toString();
+    return {
+      sig,
+      publicKey: privateKey.toPublicKey(),
+    };
+  });
   return sigList;
 }
 
@@ -102,6 +104,41 @@ async function genDummyFeeUtxos(satoshis: number, count: number = 1) {
   await sensibleApi.broadcast(feeTx.serialize(true));
   return utxos;
 }
+
+async function genDummyFeeUtxosWithoutWif(satoshis: number, count: number = 1) {
+  let feeTx = new bsv.Transaction();
+  let unitSatoshis = Math.ceil(satoshis / count);
+  let satoshisArray = [];
+
+  for (let i = 0; i < count; i++) {
+    if (satoshis < unitSatoshis) {
+      satoshisArray.push(satoshis);
+    } else {
+      satoshisArray.push(unitSatoshis);
+    }
+    satoshis -= unitSatoshis;
+  }
+  for (let i = 0; i < count; i++) {
+    feeTx.addOutput(
+      new bsv.Transaction.Output({
+        script: bsv.Script.buildPublicKeyHashOut(FeePayer.address),
+        satoshis: satoshisArray[i],
+      })
+    );
+  }
+  let utxos = [];
+  for (let i = 0; i < count; i++) {
+    utxos.push({
+      txId: feeTx.id,
+      outputIndex: i,
+      satoshis: satoshisArray[i],
+      address: FeePayer.address.toString(),
+    });
+  }
+  await sensibleApi.broadcast(feeTx.serialize(true));
+  return utxos;
+}
+
 function cleanBsvUtxos() {
   sensibleApi.cleanBsvUtxos();
 }
@@ -124,7 +161,7 @@ async function expectTokenBalance(
 }
 
 describe("BCP02-FungibleToken Test", () => {
-  describe.only("basic test ", () => {
+  describe("basic test ", () => {
     let ft: SensibleFT;
     let codehash: string;
     let genesis: string;
@@ -137,7 +174,7 @@ describe("BCP02-FungibleToken Test", () => {
         feeb,
         network,
         purse: FeePayer.privateKey.toWIF(),
-        debug: false,
+        debug: true,
         mockData: {
           satotxSigners,
           sensibleApi,
@@ -153,6 +190,7 @@ describe("BCP02-FungibleToken Test", () => {
         tokenSymbol: "CC",
         decimalNum: 8,
         genesisWif: CoffeeShop.privateKey,
+        opreturnData: ["hello", "good", "world"],
       });
       // Utils.dumpTx(_res.tx);
       genesis = _res.genesis;
@@ -205,7 +243,6 @@ describe("BCP02-FungibleToken Test", () => {
         signerSelecteds,
         feeb,
         network,
-        purse: FeePayer.privateKey.toWIF(),
         debug: false,
         mockData: {
           satotxSigners,
@@ -216,12 +253,13 @@ describe("BCP02-FungibleToken Test", () => {
     });
 
     it("unsgin genesis should be ok", async () => {
-      await genDummyFeeUtxos(100000001);
+      let utxos = await genDummyFeeUtxosWithoutWif(100000001);
       let { tx, sigHashList } = await ft.unsignGenesis({
         tokenName: "CoffeeCoin",
         tokenSymbol: "CC",
         decimalNum: 8,
         genesisPublicKey: CoffeeShop.publicKey,
+        utxos,
       });
 
       let sigList = signSigHashList(sigHashList);
@@ -234,6 +272,7 @@ describe("BCP02-FungibleToken Test", () => {
       sensibleId = _res.sensibleId;
     });
     it("unsgin issue should be ok", async () => {
+      let utxos = await genDummyFeeUtxosWithoutWif(100000001);
       let { tx, sigHashList } = await ft.unsignIssue({
         codehash,
         genesis,
@@ -242,24 +281,39 @@ describe("BCP02-FungibleToken Test", () => {
         receiverAddress: CoffeeShop.address.toString(),
         tokenAmount: "1000",
         allowIncreaseIssues: false,
+        utxos,
       });
       let sigList = signSigHashList(sigHashList);
       ft.sign(tx, sigHashList, sigList);
       await sensibleApi.broadcast(tx.serialize(true));
     });
     it("unsgin transfer should be ok", async () => {
-      let { routeCheckTx, routeCheckSigHashList } = await ft.unsignPreTransfer({
+      let utxos = await genDummyFeeUtxosWithoutWif(100000001);
+      let {
+        routeCheckTx,
+        routeCheckSigHashList,
+        unsignTxRaw,
+      } = await ft.unsignPreTransfer({
         codehash,
         genesis,
         senderPublicKey: CoffeeShop.publicKey,
         receivers: [{ address: Alice.address.toString(), amount: "400" }],
+        utxos,
       });
 
-      let sigList = signSigHashList(routeCheckSigHashList);
-      ft.sign(routeCheckTx, routeCheckSigHashList, sigList);
+      ft.sign(
+        routeCheckTx,
+        routeCheckSigHashList,
+        signSigHashList(routeCheckSigHashList)
+      );
+
       await sensibleApi.broadcast(routeCheckTx.serialize(true));
-      let { tx, sigHashList } = await ft.unsignTransfer(routeCheckTx);
+      let { tx, sigHashList } = await ft.unsignTransfer(
+        routeCheckTx,
+        unsignTxRaw
+      );
       ft.sign(tx, sigHashList, signSigHashList(sigHashList));
+
       await sensibleApi.broadcast(tx.serialize(true));
 
       expectTokenBalance(ft, codehash, genesis, Alice.address, "400");
@@ -267,16 +321,25 @@ describe("BCP02-FungibleToken Test", () => {
     });
 
     it("unsgin merge should be ok", async () => {
-      let { routeCheckTx, routeCheckSigHashList } = await ft.unsignPreMerge({
+      let utxos = await genDummyFeeUtxosWithoutWif(100000001);
+      let {
+        routeCheckTx,
+        routeCheckSigHashList,
+        unsignTxRaw,
+      } = await ft.unsignPreMerge({
         codehash,
         genesis,
         ownerPublicKey: CoffeeShop.publicKey,
+        utxos,
       });
-
-      let sigList = signSigHashList(routeCheckSigHashList);
-      ft.sign(routeCheckTx, routeCheckSigHashList, sigList);
+      ft.sign(
+        routeCheckTx,
+        routeCheckSigHashList,
+        signSigHashList(routeCheckSigHashList)
+      );
       await sensibleApi.broadcast(routeCheckTx.serialize(true));
-      let { tx, sigHashList } = await ft.unsignMerge(routeCheckTx);
+
+      let { tx, sigHashList } = await ft.unsignMerge(routeCheckTx, unsignTxRaw);
       ft.sign(tx, sigHashList, signSigHashList(sigHashList));
       await sensibleApi.broadcast(tx.serialize(true));
 
@@ -288,9 +351,10 @@ describe("BCP02-FungibleToken Test", () => {
     let codehash: string;
     let genesis: string;
     let sensibleId: string;
+    let feeb: number;
     const opreturnData = Buffer.alloc(5000, "CoffeeCoin").toString();
     before(async () => {
-      const feeb = 0.5;
+      feeb = 0.5;
       const network = API_NET.MAIN;
       ft = new SensibleFT({
         signerSelecteds,
@@ -321,7 +385,17 @@ describe("BCP02-FungibleToken Test", () => {
         opreturnData,
         utxos,
       });
-      // Utils.dumpTx(_res.tx);
+
+      let txComposer = new TxComposer(_res.tx);
+      let finalFeeb = txComposer.getFeeRate();
+      let feeGap = finalFeeb - feeb;
+      let isValid = feeGap > 0 && feeGap < 0.01;
+      if (!isValid) {
+        console.log("estimateFee", estimateFee);
+        Utils.dumpTx(_res.tx);
+      }
+      expect(isValid, `feeb should be ${feeb} but finally is ${finalFeeb}`).to
+        .be.true;
       genesis = _res.genesis;
       codehash = _res.codehash;
       sensibleId = _res.sensibleId;
@@ -336,7 +410,7 @@ describe("BCP02-FungibleToken Test", () => {
         opreturnData,
       });
       let utxos = await genDummyFeeUtxos(estimateFee, 10);
-      let _res2 = await ft.issue({
+      let _res = await ft.issue({
         codehash,
         genesis,
         sensibleId,
@@ -347,17 +421,28 @@ describe("BCP02-FungibleToken Test", () => {
         utxos,
         opreturnData,
       });
-      // Utils.dumpTx(_res2.tx);
-
+      let txComposer = new TxComposer(_res.tx);
+      let finalFeeb = txComposer.getFeeRate();
+      let feeGap = finalFeeb - feeb;
+      let isValid = feeGap > 0 && feeGap < 0.01;
+      if (!isValid) {
+        console.log("estimateFee", estimateFee);
+        Utils.dumpTx(_res.tx);
+      }
+      expect(isValid, `feeb should be ${feeb} but finally is ${finalFeeb}`).to
+        .be.true;
+    });
+    it("continue issue estimate fee should be ok", async () => {
       cleanBsvUtxos();
-      estimateFee = await ft.getIssueEstimateFee({
+      let estimateFee = await ft.getIssueEstimateFee({
         allowIncreaseIssues: true,
         sensibleId,
         genesisPublicKey: CoffeeShop.publicKey,
         opreturnData,
       });
-      utxos = await genDummyFeeUtxos(estimateFee, 10);
-      let _res3 = await ft.issue({
+      let utxos = await genDummyFeeUtxos(estimateFee, 10);
+
+      let _res = await ft.issue({
         codehash,
         genesis,
         sensibleId,
@@ -366,8 +451,18 @@ describe("BCP02-FungibleToken Test", () => {
         tokenAmount: "1000",
         allowIncreaseIssues: true,
         opreturnData,
+        utxos,
       });
-      // Utils.dumpTx(_res3.tx);
+      let txComposer = new TxComposer(_res.tx);
+      let finalFeeb = txComposer.getFeeRate();
+      let feeGap = finalFeeb - feeb;
+      let isValid = feeGap > 0 && feeGap < 0.01;
+      if (!isValid) {
+        console.log("estimateFee", estimateFee);
+        Utils.dumpTx(_res.tx);
+      }
+      expect(isValid, `feeb should be ${feeb} but finally is ${finalFeeb}`).to
+        .be.true;
     });
     it("transfer estimate fee should be ok", async () => {
       cleanBsvUtxos();
@@ -380,14 +475,24 @@ describe("BCP02-FungibleToken Test", () => {
       });
 
       let utxos = await genDummyFeeUtxos(estimateFee, 3);
-      let _res4 = await ft.transfer({
+      let _res = await ft.transfer({
         codehash,
         genesis,
         senderWif: CoffeeShop.privateKey.toWIF(),
         receivers: [{ address: Alice.address.toString(), amount: "400" }],
+        utxos,
       });
-      // Utils.dumpTx(_res4.routeCheckTx);
-      // Utils.dumpTx(_res4.tx);
+      let txComposer = new TxComposer(_res.tx);
+      let finalFeeb = txComposer.getFeeRate();
+      let feeGap = finalFeeb - feeb;
+      let isValid = feeGap > 0 && feeGap < 0.01;
+      if (!isValid) {
+        console.log("estimateFee", estimateFee);
+        Utils.dumpTx(_res.routeCheckTx);
+        Utils.dumpTx(_res.tx);
+      }
+      expect(isValid, `feeb should be ${feeb} but finally is ${finalFeeb}`).to
+        .be.true;
     });
     it("merge estimate fee should be ok", async () => {
       ft.setDustThreshold({ dustLimitFactor: 0.75 });
@@ -400,18 +505,27 @@ describe("BCP02-FungibleToken Test", () => {
       });
 
       let utxos = await genDummyFeeUtxos(estimateFee, 3);
-      let _res5 = await ft.merge({
+      let _res = await ft.merge({
         codehash,
         genesis,
         ownerWif: CoffeeShop.privateKey.toWIF(),
-        opreturnData,
+        utxos,
       });
-      // Utils.dumpTx(_res5.routeCheckTx);
-      // Utils.dumpTx(_res5.tx);
+      let txComposer = new TxComposer(_res.tx);
+      let finalFeeb = txComposer.getFeeRate();
+      let feeGap = finalFeeb - feeb;
+      let isValid = feeGap > 0 && feeGap < 0.01;
+      if (!isValid) {
+        console.log("estimateFee", estimateFee);
+        Utils.dumpTx(_res.routeCheckTx);
+        Utils.dumpTx(_res.tx);
+      }
+      expect(isValid, `feeb should be ${feeb} but finally is ${finalFeeb}`).to
+        .be.true;
     });
   });
 
-  describe("transfer type test ", () => {
+  describe.only("transfer type test ", () => {
     let ft: SensibleFT;
     let codehash: string;
     let genesis: string;
@@ -434,6 +548,7 @@ describe("BCP02-FungibleToken Test", () => {
     });
 
     it("3_to_100", async () => {
+      let utxos = await genDummyFeeUtxosWithoutWif(100000001);
       let _res = await ft.genesis({
         tokenName: "CoffeeCoin",
         tokenSymbol: "CC",
@@ -458,12 +573,16 @@ describe("BCP02-FungibleToken Test", () => {
       for (let i = 0; i < 99; i++) {
         receivers.push({ address: Alice.address.toString(), amount: "100" });
       }
-      await ft.transfer({
+      let _res2 = await ft.transfer({
         codehash,
         genesis,
         senderWif: CoffeeShop.privateKey.toWIF(),
         receivers,
       });
+
+      expectTokenBalance(ft, codehash, genesis, CoffeeShop.address, "0");
+      expectTokenBalance(ft, codehash, genesis, Alice.address, "10000");
+      // Utils.dumpTx(_res2.tx);
     });
 
     it("10_to_10", async () => {

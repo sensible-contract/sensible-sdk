@@ -1,5 +1,8 @@
 import { expect } from "chai";
-import { SIGNER_NUM, SIGNER_VERIFY_NUM } from "../../src/bcp01/nftProto";
+import {
+  SIGNER_NUM,
+  SIGNER_VERIFY_NUM,
+} from "../../src/bcp01/contract-proto/nft.proto";
 import * as BN from "../../src/bn.js";
 import * as bsv from "../../src/bsv";
 import { CodeError, ErrCode } from "../../src/common/error";
@@ -159,14 +162,18 @@ describe("BCP01-NonFungibleToken Test", () => {
         genesis,
         genesisWif: CoffeeShop.privateKey.toString(),
         receiverAddress: CoffeeShop.address.toString(),
+        metaTxId:
+          "a9a6634a67e0785f33efa1ff91b12888be28bac28878c28687055f69be2adac1",
       });
-
+      Utils.dumpTx(_res1.tx);
+      console.log(_res1.tx.outputs[1].script.toHex());
       let _res2 = await nft.issue({
         codehash,
         genesis,
         genesisWif: CoffeeShop.privateKey.toString(),
         receiverAddress: CoffeeShop.address.toString(),
       });
+      // Utils.dumpTx(_res2.tx);
     });
     it("transfer should be ok", async () => {
       let _res3 = await nft.transfer({
