@@ -49,8 +49,8 @@ contract Token {
     }
     require(thisOutpoint == prevouts[tokenInputIndex * 36: (tokenInputIndex + 1) * 36]);
 
-    // code hash do not count op_return + data length + data
-    int dataOffset = TxUtil.getVarOpLen(pos) + 1 + pos;
+    // code hash do not count data length + data
+    int dataOffset = TxUtil.getVarOpLen(pos) + pos;
 
     bytes hash = hash160(prevScriptCode[: scriptLen - dataOffset]);
 
@@ -124,7 +124,7 @@ contract Token {
     RabinUtil.verifyTokenMsg(rabinPubKeyVerifyArray, rabinMsg, rabinPaddingArray, rabinSigArray, thisOutpoint, sensibleID, tokenScript, genesisHash, prevTokenAddress, prevTokenAmount);
 
     bytes tokenID = TokenProto.getTokenID(tokenScript, scriptLen);
-    bool res2 = this.verifyAmountCheckContract(hashArray, prevouts, checkInputIndex, checkScriptTx, tokenID, tokenCodeHash, nReceivers, thisOutpoint, tokenInputIndex, operation);
-    require(res2 == true);
+    bool res = this.verifyAmountCheckContract(hashArray, prevouts, checkInputIndex, checkScriptTx, tokenID, tokenCodeHash, nReceivers, thisOutpoint, tokenInputIndex, operation);
+    require(res == true);
   }
 }

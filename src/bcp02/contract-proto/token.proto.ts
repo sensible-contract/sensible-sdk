@@ -1,24 +1,29 @@
-import * as bsv from "../bsv";
-import * as proto from "../common/protoheader";
-import BN = require("../bn.js");
+import * as BN from "../../bn.js";
+import * as bsv from "../../bsv";
+import * as proto from "../../common/protoheader";
+
+export const PROTO_VERSION = 1;
 export const SIGNER_NUM = 5;
 export const SIGNER_VERIFY_NUM = 3;
+
 export type SensibleID = {
   txid: string;
   index: number;
 };
-export type TokenDataPart = {
+export type FormatedDataPart = {
   tokenName?: string;
   tokenSymbol?: string;
-  genesisFlag?: number;
+  genesisFlag?: GENESIS_FLAG;
   decimalNum?: number;
   tokenAddress?: string;
   tokenAmount?: BN;
   genesisHash?: string;
   rabinPubKeyHashArrayHash?: string;
   sensibleID?: SensibleID;
-  tokenType?: number;
+  protoVersion?: number;
+  protoType?: proto.PROTO_TYPE;
 };
+
 // token specific
 //<type specific data> = <token_name (20 bytes)> + <token_symbol (10 bytes)> + <is_genesis(1 byte)> + <decimal_num(1 byte)> + <public key hash(20 bytes)> + <token value(8 bytes)> + <tokenid(36 bytes)> + <proto header>
 const TOKEN_ID_LEN = 20;
@@ -51,6 +56,16 @@ export const EMPTY_ADDRESS = Buffer.alloc(TOKEN_ADDRESS_LEN, 0);
 export const nonGenesisFlag = Buffer.alloc(1, 0);
 export const OP_TRANSFER = 1;
 export const OP_UNLOCK_FROM_CONTRACT = 2;
+
+export enum FT_OP_TYPE {
+  TRANSFER = 1,
+  UNLOCK_FROM_CONTRACT = 2,
+}
+
+export enum GENESIS_FLAG {
+  FALSE = 0,
+  TRUE = 1,
+}
 
 export function getHeaderLen(): number {
   return TOKEN_HEADER_LEN;
@@ -161,7 +176,7 @@ export function getTokenName(script: Buffer): string {
 }
 
 export function getContractCode(script: Buffer): Buffer {
-  return script.slice(0, script.length - TOKEN_HEADER_LEN - 3);
+  return script.slice(0, script.length - TOKEN_HEADER_LEN - 2);
 }
 
 export function getContractCodeHash(script: Buffer) {
@@ -198,17 +213,28 @@ export function newDataPart({
   genesisHash,
   rabinPubKeyHashArrayHash,
   sensibleID,
-  tokenType,
-}: TokenDataPart): Buffer {
+  protoVersion,
+  protoType,
+}: FormatedDataPart): Buffer {
   const tokenNameBuf = Buffer.alloc(TOKEN_NAME_LEN, 0);
-  tokenNameBuf.write(tokenName);
+  if (tokenName) {
+    tokenNameBuf.write(tokenName);
+  }
+
   const tokenSymbolBuf = Buffer.alloc(TOKEN_SYMBOL_LEN, 0);
-  tokenSymbolBuf.write(tokenSymbol);
+  if (tokenSymbol) {
+    tokenSymbolBuf.write(tokenSymbol);
+  }
+
   const decimalBuf = Buffer.alloc(DECIMAL_NUM_LEN, 0);
-  decimalBuf.writeUInt8(decimalNum);
+  if (decimalNum) {
+    decimalBuf.writeUInt8(decimalNum);
+  }
 
   const genesisFlagBuf = Buffer.alloc(GENESIS_FLAG_LEN, 0);
-  genesisFlagBuf.writeUInt8(genesisFlag);
+  if (genesisFlag) {
+    genesisFlagBuf.writeUInt8(genesisFlag);
+  }
 
   const tokenAddressBuf = Buffer.alloc(TOKEN_ADDRESS_LEN, 0);
   if (tokenAddress) {
@@ -229,7 +255,9 @@ export function newDataPart({
     RABIN_PUBKEY_HASH_ARRAY_HASH_LEN,
     0
   );
-  rabinPubKeyHashArrayHashBuf.write(rabinPubKeyHashArrayHash, "hex");
+  if (rabinPubKeyHashArrayHash) {
+    rabinPubKeyHashArrayHashBuf.write(rabinPubKeyHashArrayHash, "hex");
+  }
 
   let sensibleIDBuf = Buffer.alloc(SENSIBLE_ID_LEN, 0);
   if (sensibleID) {
@@ -239,8 +267,15 @@ export function newDataPart({
     sensibleIDBuf = Buffer.concat([txidBuf, indexBuf]);
   }
 
-  const tokenTypeBuf = Buffer.alloc(proto.TYPE_LEN, 0);
-  tokenTypeBuf.writeUInt32LE(tokenType);
+  const protoTypeBuf = Buffer.alloc(proto.PROTO_TYPE_LEN, 0);
+  if (protoType) {
+    protoTypeBuf.writeUInt32LE(protoType);
+  }
+
+  const protoVersionBuf = Buffer.alloc(proto.PROTO_VERSION_LEN);
+  if (protoVersion) {
+    protoVersionBuf.writeUInt32LE(protoVersion);
+  }
 
   return Buffer.concat([
     tokenNameBuf,
@@ -252,12 +287,13 @@ export function newDataPart({
     genesisHashBuf,
     rabinPubKeyHashArrayHashBuf,
     sensibleIDBuf,
-    tokenTypeBuf,
+    protoVersionBuf,
+    protoTypeBuf,
     proto.PROTO_FLAG,
   ]);
 }
 
-export function parseDataPart(scriptBuf: Buffer): TokenDataPart {
+export function parseDataPart(scriptBuf: Buffer): FormatedDataPart {
   let tokenName = getTokenName(scriptBuf);
   let tokenSymbol = getTokenSymbol(scriptBuf);
   let decimalNum = getDecimalNum(scriptBuf);
@@ -267,7 +303,8 @@ export function parseDataPart(scriptBuf: Buffer): TokenDataPart {
   let genesisHash = getGenesisHash(scriptBuf);
   let rabinPubKeyHashArrayHash = getRabinPubKeyHashArrayHash(scriptBuf);
   let sensibleID = getSensibleID(scriptBuf);
-  let tokenType = proto.getHeaderType(scriptBuf);
+  let protoVersion = proto.getProtoVersioin(scriptBuf);
+  let protoType = proto.getProtoType(scriptBuf);
   return {
     tokenName,
     tokenSymbol,
@@ -278,13 +315,14 @@ export function parseDataPart(scriptBuf: Buffer): TokenDataPart {
     genesisHash,
     rabinPubKeyHashArrayHash,
     sensibleID,
-    tokenType,
+    protoVersion,
+    protoType,
   };
 }
 
 export function updateScript(
   scriptBuf: Buffer,
-  dataPartObj: TokenDataPart
+  dataPartObj: FormatedDataPart
 ): Buffer {
   const firstBuf = scriptBuf.slice(0, scriptBuf.length - TOKEN_HEADER_LEN);
   const dataPart = newDataPart(dataPartObj);
