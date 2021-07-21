@@ -525,7 +525,7 @@ describe("BCP02-FungibleToken Test", () => {
     });
   });
 
-  describe.only("transfer type test ", () => {
+  describe("transfer type test ", () => {
     let ft: SensibleFT;
     let codehash: string;
     let genesis: string;
