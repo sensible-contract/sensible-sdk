@@ -4,7 +4,7 @@ import * as bsv from "../bsv";
 import * as $ from "../common/argumentCheck";
 import { DustCalculator } from "../common/DustCalculator";
 import { CodeError, ErrCode } from "../common/error";
-import { hasProtoFlag } from "../common/protoheader.js";
+import { hasProtoFlag } from "../common/protoheader";
 import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import { getRabinData, getRabinDatas } from "../common/satotxSignerUtil";
 import { SizeTransaction } from "../common/SizeTransaction";
