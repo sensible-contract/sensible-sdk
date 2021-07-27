@@ -1,7 +1,8 @@
 import * as BN from "../../bn.js";
 import * as bsv from "../../bsv";
 import * as proto from "../../common/protoheader";
-
+import * as Utils from "../../common/utils";
+import { toHex } from "../../scryptlib";
 export const PROTO_VERSION = 1;
 export const SIGNER_NUM = 5;
 export const SIGNER_VERIFY_NUM = 3;
@@ -91,14 +92,6 @@ export function getTokenID(script: Buffer) {
   );
 }
 
-export function getSensibleIDBuf(script0: Buffer) {
-  let script = Buffer.from(script0);
-  let sensibleIDBuf = script.slice(
-    script.length - SENSIBLE_ID_OFFSET,
-    script.length - SENSIBLE_ID_OFFSET + SENSIBLE_ID_LEN
-  );
-  return sensibleIDBuf;
-}
 export function getSensibleID(script0: Buffer) {
   if (script0.length < SENSIBLE_ID_OFFSET) return { txid: "", index: 0 };
   let script = Buffer.from(script0);
@@ -176,7 +169,12 @@ export function getTokenName(script: Buffer): string {
 }
 
 export function getContractCode(script: Buffer): Buffer {
-  return script.slice(0, script.length - TOKEN_HEADER_LEN - 2);
+  return script.slice(
+    0,
+    script.length -
+      TOKEN_HEADER_LEN -
+      Utils.getVarPushdataHeader(TOKEN_HEADER_LEN).length
+  );
 }
 
 export function getContractCodeHash(script: Buffer) {
@@ -327,4 +325,21 @@ export function updateScript(
   const firstBuf = scriptBuf.slice(0, scriptBuf.length - TOKEN_HEADER_LEN);
   const dataPart = newDataPart(dataPartObj);
   return Buffer.concat([firstBuf, dataPart]);
+}
+
+export function getQueryCodehash(script: Buffer): string {
+  return toHex(getContractCodeHash(script));
+}
+
+export function getQueryGenesis(script: Buffer): string {
+  return toHex(getTokenID(script));
+}
+
+export function getQuerySensibleID(script0: Buffer): string {
+  let script = Buffer.from(script0);
+  let sensibleIDBuf = script.slice(
+    script.length - SENSIBLE_ID_OFFSET,
+    script.length - SENSIBLE_ID_OFFSET + SENSIBLE_ID_LEN
+  );
+  return toHex(sensibleIDBuf);
 }

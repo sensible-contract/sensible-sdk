@@ -1,17 +1,11 @@
 import { Bytes } from "scryptlib";
-import * as bsv from "../bsv";
 import { NftFactory } from "./contract-factory/nft";
 import { NftGenesisFactory } from "./contract-factory/nftGenesis";
+import { NftSellFactory } from "./contract-factory/nftSell";
 import {
   NftUnlockContractCheckFactory,
   NFT_UNLOCK_CONTRACT_TYPE,
 } from "./contract-factory/nftUnlockContractCheck";
-
-function getConractCodeHash(contract): string {
-  return Buffer.from(
-    bsv.crypto.Hash.sha256ripemd160(contract.lockingScript.toBuffer())
-  ).toString("hex");
-}
 
 function getNftUnlockContractCheckCodeHashArray(): string[] {
   let contractArray = [
@@ -31,15 +25,15 @@ function getNftUnlockContractCheckCodeHashArray(): string[] {
       NFT_UNLOCK_CONTRACT_TYPE.OUT_100
     ),
   ];
-  return contractArray.map((v) => getConractCodeHash(v));
+  return contractArray.map((v) => v.getCodeHash());
 }
 
 type ContractConfig = {
-  transferCheckCodeHashArray: string[];
   unlockContractCodeHashArray: string[];
   tokenGenesisSize: number;
   tokenSize: number;
-  tokenTransferCheckSizes: number[];
+  nftSellSize: number;
+  unlockContractSizes: number[];
 };
 export class ContractUtil {
   static unlockContractCodeHashArray: Bytes[];
@@ -51,12 +45,26 @@ export class ContractUtil {
       );
       NftGenesisFactory.lockingScriptSize = config.tokenGenesisSize;
       NftFactory.lockingScriptSize = config.tokenSize;
+      NftSellFactory.lockingScriptSize = config.nftSellSize;
+      NftUnlockContractCheckFactory.unlockContractTypeInfos.forEach(
+        (v, idx) => {
+          v.lockingScriptSize = config.unlockContractSizes[idx];
+        }
+      );
     } else {
       this.unlockContractCodeHashArray = getNftUnlockContractCheckCodeHashArray().map(
         (v) => new Bytes(v)
       );
       NftGenesisFactory.lockingScriptSize = NftGenesisFactory.calLockingScriptSize();
       NftFactory.lockingScriptSize = NftFactory.calLockingScriptSize();
+      NftSellFactory.lockingScriptSize = NftSellFactory.calLockingScriptSize();
+      NftUnlockContractCheckFactory.unlockContractTypeInfos.forEach(
+        (v, idx) => {
+          v.lockingScriptSize = NftUnlockContractCheckFactory.calLockingScriptSize(
+            v.type
+          );
+        }
+      );
     }
 
     let tokenContract = NftFactory.getDummyInstance();

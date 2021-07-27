@@ -1,4 +1,3 @@
-import { toHex } from "scryptlib";
 import * as nftProto from "../src/bcp01/contract-proto/nft.proto";
 import * as ftProto from "../src/bcp02/contract-proto/token.proto";
 import * as BN from "../src/bn.js";
@@ -134,8 +133,8 @@ export class MockSensibleApi implements SensibleApiBase {
         let protoType = getProtoType(scriptBuf);
         if (protoType == PROTO_TYPE.FT) {
           let dataPart = ftProto.parseDataPart(scriptBuf);
-          let genesis = ftProto.getTokenID(scriptBuf).toString("hex");
-          let codehash = toHex(ftProto.getContractCodeHash(scriptBuf));
+          let genesis = ftProto.getQueryGenesis(scriptBuf);
+          let codehash = ftProto.getQueryCodehash(scriptBuf);
           let address = bsv.Address.fromPublicKeyHash(
             Buffer.from(dataPart.tokenAddress, "hex"),
             this.network
@@ -156,8 +155,8 @@ export class MockSensibleApi implements SensibleApiBase {
           });
         } else if (protoType == PROTO_TYPE.NFT) {
           let dataPart = nftProto.parseDataPart(scriptBuf);
-          let genesis = nftProto.getSensibleIDBuf(scriptBuf).toString("hex");
-          let codehash = toHex(nftProto.getContractCodeHash(scriptBuf));
+          let genesis = nftProto.getQueryGenesis(scriptBuf);
+          let codehash = nftProto.getQueryCodehash(scriptBuf);
           let address = bsv.Address.fromPublicKeyHash(
             Buffer.from(dataPart.nftAddress, "hex"),
             this.network

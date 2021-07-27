@@ -2,7 +2,7 @@
     "version": 4,
     "compilerVersion": "1.0.3+commit.48afe59",
     "contract": "NftProto",
-    "md5": "5d57136c59c60ae688f19ee57939defd",
+    "md5": "2e716cce5cc3c5ba7c70f12a789b9654",
     "structs": [],
     "alias": [],
     "abi": [
@@ -11,9 +11,46 @@
             "params": []
         }
     ],
-    "buildType": "release",
-    "file": "",
-    "asm": "OP_4 OP_8 OP_2DUP OP_ADD OP_DUP 24 OP_ADD OP_DUP 14 OP_ADD OP_DUP 14 OP_ADD OP_DUP OP_8 OP_ADD OP_DUP OP_8 OP_ADD OP_DUP 14 OP_ADD OP_DUP OP_1ADD OP_DUP 24 OP_ADD",
-    "sources": [],
-    "sourceMap": []
+    "buildType": "debug",
+    "file": "file:///Users/huanniangstudio/huanniangstudio/workplace/project/satoplay/subject/scrypt_proj/BCP_WORK/sensible-sdk/src/bcp01/contract/nftProto.scrypt",
+    "asm": "OP_16 OP_0 OP_PICK 24 OP_ADD OP_0 OP_PICK 14 OP_ADD OP_0 OP_PICK 14 OP_ADD OP_0 OP_PICK OP_8 OP_ADD OP_0 OP_PICK OP_8 OP_ADD OP_0 OP_PICK 14 OP_ADD OP_0 OP_PICK OP_1 OP_ADD OP_0 OP_PICK 24 OP_ADD",
+    "sources": [
+        "/Users/huanniangstudio/huanniangstudio/workplace/project/satoplay/subject/scrypt_proj/BCP_WORK/sensible-sdk/src/bcp01/contract/protoheader.scrypt",
+        "/Users/huanniangstudio/huanniangstudio/workplace/project/satoplay/subject/scrypt_proj/BCP_WORK/sensible-sdk/src/bcp01/contract/nftProto.scrypt"
+    ],
+    "sourceMap": [
+        "0:16:33:16:47",
+        "1:29:35:29:58",
+        "1:29:35:29:58",
+        "1:29:60:29:75",
+        "1:29:35:29:75",
+        "1:30:52:30:70",
+        "1:30:52:30:70",
+        "1:30:73:30:105",
+        "1:30:52:30:105",
+        "1:31:36:31:71",
+        "1:31:36:31:71",
+        "1:31:74:31:90",
+        "1:31:36:31:90",
+        "1:32:35:32:54",
+        "1:32:35:32:54",
+        "1:32:57:32:72",
+        "1:32:35:32:72",
+        "1:33:36:33:54",
+        "1:33:36:33:54",
+        "1:33:57:33:73",
+        "1:33:36:33:73",
+        "1:34:35:34:54",
+        "1:34:35:34:54",
+        "1:34:57:34:72",
+        "1:34:35:34:72",
+        "1:35:36:35:54",
+        "1:35:36:35:54",
+        "1:35:57:35:73",
+        "1:35:36:35:73",
+        "1:36:39:36:58",
+        "1:36:39:36:58",
+        "1:36:61:36:80",
+        "1:36:39:36:80"
+    ]
 }

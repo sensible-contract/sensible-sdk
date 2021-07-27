@@ -21,27 +21,44 @@ export enum NFT_SELL_OP {
 }
 export class NftSell extends ContractAdapter {
   constuctParams: {
-    senderAddress: bsv.Address;
+    senderAddress: Ripemd160;
     bsvRecAmount: number;
     nftCodeHash: Bytes;
     nftID: Bytes;
   };
+
+  static getClass() {
+    const desc = require("../contract-desc/nftSell_desc.json");
+    let NftSellContractClass = buildContractClass(desc);
+    return NftSellContractClass;
+  }
+
   constructor(constuctParams: {
-    senderAddress: bsv.Address;
+    senderAddress: Ripemd160;
     bsvRecAmount: number;
     nftCodeHash: Bytes;
     nftID: Bytes;
   }) {
-    const desc = require("../contract-desc/nftSell_desc.json");
-    let NftSellContractClass = buildContractClass(desc);
+    let NftSellContractClass = NftSell.getClass();
     let contract = new NftSellContractClass(
-      new Ripemd160(toHex(constuctParams.senderAddress.hashBuffer)),
+      constuctParams.senderAddress,
       constuctParams.bsvRecAmount,
       constuctParams.nftCodeHash,
       constuctParams.nftID
     );
     super(contract);
     this.constuctParams = constuctParams;
+  }
+
+  static fromASM(asm: string) {
+    let NftSellContractClass = NftSell.getClass();
+    let contract = NftSellContractClass.fromASM(asm);
+    let params = contract.scriptedConstructor.params;
+    let senderAddress = params[0];
+    let bsvRecAmount = parseInt(params[1].value);
+    let nftCodeHash = params[2];
+    let nftID = params[3];
+    return new NftSell({ senderAddress, bsvRecAmount, nftCodeHash, nftID });
   }
 
   clone() {
@@ -66,8 +83,8 @@ export class NftSell extends ContractAdapter {
   }) {
     if (op != NFT_SELL_OP.CANCEL) {
       nftScript = new Bytes("");
-      senderPubKey = new PubKey("");
-      senderSig = new Sig("");
+      senderPubKey = new PubKey("00");
+      senderSig = new Sig("00");
       nftOutputSatoshis = 0;
     }
 
@@ -90,7 +107,7 @@ export class NftSellFactory {
   }
 
   public static createContract(
-    senderAddress: bsv.Address,
+    senderAddress: Ripemd160,
     bsvRecAmount: number,
     nftCodeHash: Bytes,
     nftID: Bytes
@@ -98,9 +115,13 @@ export class NftSellFactory {
     return new NftSell({ senderAddress, bsvRecAmount, nftCodeHash, nftID });
   }
 
+  public static createFromASM(asm: string): NftSell {
+    return NftSell.fromASM(asm);
+  }
+
   public static getDummyInstance() {
     let contract = this.createContract(
-      dummyAddress,
+      new Ripemd160(toHex(dummyAddress.hashBuffer)),
       1000,
       new Bytes(toHex(Buffer.alloc(20, 0))),
       new Bytes(toHex(Buffer.alloc(36, 0)))

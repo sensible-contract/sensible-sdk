@@ -6,6 +6,35 @@ import "rabinUtil.scrypt";
 contract NftUnlockContractCheck {
 
   static const int MAX_OUTPUT = 6;
+
+  function verifyOutput(bytes output, int nftScriptLen, bytes nftID): bool {
+    bytes b = output[8:];
+    int n = Util.fromLEUnsigned(b[:1]);
+    int sum = 0;
+    int offset = 0;
+    if (n < 0xfd) {
+      sum = 1 + n;
+      offset = 1;
+    } else if (n == 0xfd) {
+      sum = 3 + Util.fromLEUnsigned(b[1:3]);
+      offset = 3;
+    } else if (n == 0xfe) {
+      sum = 5 + Util.fromLEUnsigned(b[1:5]);
+      offset = 5;
+    } else { // n == 0xff
+      // not support 8 bytes length output
+      //sum = 9 + Util.fromLEUnsigned(b[1:9]);
+      //offset = 9;
+      require(false);
+    }
+    require(len(output) == sum + 8);
+    // check if other output is the same token output
+    bytes script = output[8 + offset:];
+    if (nftScriptLen == len(script)) {
+      require(NftProto.getNftID(script, nftScriptLen) != nftID);
+    }
+    return true;
+  }
     
   public function unlock(
     SigHashPreimage txPreimage,
@@ -48,6 +77,9 @@ contract NftUnlockContractCheck {
     bool isBurn = false;
     if (nftAddress == NftProto.BURN_ADDRESS) {
       isBurn = true;
+    } else {
+      require(nftOutputIndex >= 0);
+      require(nftOutputIndex < nOutputs);
     }
 
     // check the outputs
@@ -64,13 +96,12 @@ contract NftUnlockContractCheck {
         } else {
           int outputLen = Util.fromLEUnsigned(otherOutputArray[otherOutputIndex: otherOutputIndex + 4]);
           bytes output = otherOutputArray[otherOutputIndex + 4: otherOutputIndex + 4 + outputLen];
+
+          // verify output
+          this.verifyOutput(output, nftScriptLen, nftID);
+
           outputs += output;
           otherOutputIndex += 4 + outputLen;
-          // check if other output is the same nft output
-          bytes script = TxUtil.getScriptCodeFromOutput(output);
-          if (len(script) == nftScriptLen) {
-            require(NftProto.getNftID(script, nftScriptLen) != nftID);
-          }
         }
       }
     }

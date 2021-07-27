@@ -74,7 +74,6 @@ const defaultSignerConfigs: SignerConfig[] = [
 ];
 
 ContractUtil.init();
-
 type ParamUtxo = {
   txId: string;
   outputIndex: number;
@@ -974,7 +973,7 @@ export class SensibleFT {
     let scriptBuffer = firstGenesisTx.outputs[
       genesisOutputIndex
     ].script.toBuffer();
-    let originGenesis = toHex(ftProto.getTokenID(scriptBuffer));
+    let originGenesis = ftProto.getQueryGenesis(scriptBuffer);
     let genesisUtxos = await this.sensibleApi.getFungibleTokenUnspents(
       codehash,
       originGenesis,
@@ -992,7 +991,7 @@ export class SensibleFT {
         index: genesisOutputIndex,
       };
       let newScriptBuf = ftProto.updateScript(scriptBuffer, _dataPartObj);
-      let issueGenesis = toHex(ftProto.getTokenID(newScriptBuf));
+      let issueGenesis = ftProto.getQueryGenesis(newScriptBuf);
       let issueUtxos = await this.sensibleApi.getFungibleTokenUnspents(
         codehash,
         issueGenesis,
@@ -1322,11 +1321,7 @@ export class SensibleFT {
             script.chunks[0].buf
           );
           if (lockingScriptBuf) {
-            let lockingScript = new bsv.Script(lockingScriptBuf);
-            let tokenID = ftProto
-              .getTokenID(lockingScript.toBuffer())
-              .toString("hex");
-            if (tokenID == genesis) {
+            if (ftProto.getQueryGenesis(lockingScriptBuf) == genesis) {
               return true;
             }
             let dataPartObj = ftProto.parseDataPart(lockingScriptBuf);
@@ -1637,13 +1632,13 @@ export class SensibleFT {
       )
       .replace(
         new RegExp(
-          toHex(Utils.getVarPushdataHeader(routeCheckTxBuf)) +
+          toHex(Utils.getVarPushdataHeader(routeCheckTxBuf.length)) +
             toHex(routeCheckTxBuf),
           "g"
         ),
         toHex(
           Utils.getVarPushdataHeader(
-            Buffer.from(PLACE_HOLDER_UNSIGN_CHECKTX, "hex")
+            Buffer.from(PLACE_HOLDER_UNSIGN_CHECKTX, "hex").length
           )
         ) + PLACE_HOLDER_UNSIGN_CHECKTX
       );
@@ -1673,12 +1668,12 @@ export class SensibleFT {
         new RegExp(
           toHex(
             Utils.getVarPushdataHeader(
-              Buffer.from(PLACE_HOLDER_UNSIGN_CHECKTX, "hex")
+              Buffer.from(PLACE_HOLDER_UNSIGN_CHECKTX, "hex").length
             )
           ) + PLACE_HOLDER_UNSIGN_CHECKTX,
           "g"
         ),
-        toHex(Utils.getVarPushdataHeader(routeCheckTxBuf)) +
+        toHex(Utils.getVarPushdataHeader(routeCheckTxBuf.length)) +
           toHex(routeCheckTxBuf)
       );
     let txComposer = TxComposer.fromObject(JSON.parse(unsignTxRaw));
@@ -1955,7 +1950,7 @@ export class SensibleFT {
 
     let {
       rabinDatas,
-      checkRabinData,
+      checkRabinDatas,
       rabinPubKeyIndexArray,
       rabinPubKeyVerifyArray,
     } = await getRabinDatas(
@@ -2134,9 +2129,9 @@ export class SensibleFT {
         txPreimage: txComposer.getInputPreimage(transferCheckInputIndex),
         tokenScript: new Bytes(inputTokenScript.toHex()),
         prevouts: new Bytes(prevouts.toHex()),
-        rabinMsgArray: checkRabinData.rabinMsgArray,
-        rabinPaddingArray: checkRabinData.rabinPaddingArray,
-        rabinSigArray: checkRabinData.rabinSigArray,
+        rabinMsgArray: checkRabinDatas.rabinMsgArray,
+        rabinPaddingArray: checkRabinDatas.rabinPaddingArray,
+        rabinSigArray: checkRabinDatas.rabinSigArray,
         rabinPubKeyIndexArray,
         rabinPubKeyVerifyArray,
         rabinPubKeyHashArray: this.rabinPubKeyHashArray,
@@ -2741,7 +2736,7 @@ export class SensibleFT {
     });
 
     let scriptBuf = tokenContract.lockingScript.toBuffer();
-    genesis = toHex(ftProto.getTokenID(scriptBuf));
+    genesis = ftProto.getQueryGenesis(scriptBuf);
     codehash = tokenContract.getCodeHash();
     sensibleId = toHex(
       TokenUtil.getOutpointBuf(genesisTxId, genesisOutputIndex)
@@ -2788,9 +2783,9 @@ export class SensibleFT {
       Buffer.from(dataPart.tokenAddress, "hex"),
       network
     ).toString();
-    const genesis = toHex(ftProto.getTokenID(scriptBuf));
-    const codehash = toHex(ftProto.getContractCodeHash(scriptBuf));
-    const sensibleId = toHex(ftProto.getSensibleIDBuf(scriptBuf));
+    const genesis = ftProto.getQueryGenesis(scriptBuf);
+    const codehash = ftProto.getQueryCodehash(scriptBuf);
+    const sensibleId = ftProto.getQuerySensibleID(scriptBuf);
     return {
       codehash,
       genesis,

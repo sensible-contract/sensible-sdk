@@ -114,6 +114,16 @@ export async function getRabinDatas(
     rabinPaddingArray: Bytes[];
     rabinSigArray: Int[];
   }[] = [];
+
+  let checkRabinData: {
+    rabinMsg: Bytes;
+    rabinPaddingArray: Bytes[];
+    rabinSigArray: Int[];
+  } = {
+    rabinMsg: new Bytes(""),
+    rabinPaddingArray: [],
+    rabinSigArray: [],
+  };
   let checkRabinMsgArray = Buffer.alloc(0);
   let checkRabinPaddingArray = Buffer.alloc(0);
   let checkRabinSigArray = Buffer.alloc(0);
@@ -147,6 +157,7 @@ export async function getRabinDatas(
           checkRabinMsgArray,
           Buffer.from(sigInfo.byTxPayload, "hex"),
         ]);
+        checkRabinData.rabinMsg = new Bytes(sigInfo.byTxPayload);
       }
 
       const sigBuf = TokenUtil.toBufferLE(
@@ -163,6 +174,10 @@ export async function getRabinDatas(
         paddingCountBuf,
         padding,
       ]);
+      checkRabinData.rabinSigArray.push(
+        new Int(BN.fromString(sigInfo.byTxSigBE, 16).toString(10))
+      );
+      checkRabinData.rabinPaddingArray.push(new Bytes(sigInfo.byTxPadding));
     }
   }
   //Rabin Signature informations provided to Token
@@ -193,11 +208,12 @@ export async function getRabinDatas(
   });
   return {
     rabinDatas,
-    checkRabinData: {
+    checkRabinDatas: {
       rabinMsgArray: new Bytes(toHex(checkRabinMsgArray)),
       rabinPaddingArray: new Bytes(toHex(checkRabinPaddingArray)),
       rabinSigArray: new Bytes(toHex(checkRabinSigArray)),
     },
+    checkRabinData,
     rabinPubKeyIndexArray,
     rabinPubKeyVerifyArray,
   };

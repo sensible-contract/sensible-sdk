@@ -26,6 +26,7 @@ import {
 import { TxComposer } from "../tx-composer";
 import { NftFactory } from "./contract-factory/nft";
 import { NftGenesisFactory } from "./contract-factory/nftGenesis";
+import { NftSellFactory, NFT_SELL_OP } from "./contract-factory/nftSell";
 import {
   NftUnlockContractCheckFactory,
   NFT_UNLOCK_CONTRACT_TYPE,
@@ -105,7 +106,7 @@ export type RabinUtxo = {
   preTxHex: string;
 };
 
-type ParamUtxo = {
+export type ParamUtxo = {
   txId: string;
   outputIndex: number;
   satoshis: number;
@@ -189,10 +190,10 @@ function checkParamNetwork(network) {
 }
 
 function checkParamGenesis(genesis) {
-  if (typeof genesis != "string" || genesis.length != 72) {
+  if (typeof genesis != "string" || genesis.length != 40) {
     throw new CodeError(
       ErrCode.EC_INVALID_ARGUMENT,
-      `GenesisFormatError:genesis should be a string with 72 length `
+      `GenesisFormatError:genesis should be a string with 40 length `
     );
   }
 }
@@ -269,6 +270,7 @@ export class SensibleNFT {
   rabinPubKeyHashArray: Bytes;
   rabinPubKeyHashArrayHash: Buffer;
   unlockContractCodeHashArray: Bytes[];
+
   /**
    *
    * @param signers - 签名器
@@ -444,18 +446,17 @@ export class SensibleNFT {
   }
 
   private async _pretreatNftUtxoToIssue({
-    genesis,
+    sensibleId,
     genesisPublicKey,
   }: {
-    genesis: string;
+    sensibleId: string;
     genesisPublicKey: bsv.PublicKey;
   }) {
     let genesisContract = NftGenesisFactory.createContract(genesisPublicKey);
-    let genesisContractCodehash = genesisContract.getCodeHash();
     //找到utxo
-    let { genesisTxId, genesisOutputIndex } = parseSensibleID(genesis);
+    let { genesisTxId, genesisOutputIndex } = parseSensibleID(sensibleId);
     let genesisUtxo = await this.getIssueUtxo(
-      genesisContractCodehash,
+      genesisContract.getCodeHash(),
       genesisTxId,
       genesisOutputIndex
     );
@@ -513,16 +514,22 @@ export class SensibleNFT {
           script.chunks[0].buf
         );
         if (lockingScriptBuf) {
-          let lockingScript = new bsv.Script(lockingScriptBuf);
-          let sensibleId = nftProto
-            .getSensibleIDBuf(lockingScript.toBuffer())
-            .toString("hex");
-          if (sensibleId == genesis) {
+          if (nftProto.getQueryGenesis(lockingScriptBuf) == genesis) {
             return true;
           }
-          let genesisHash = toHex(
-            bsv.crypto.Hash.sha256ripemd160(lockingScriptBuf)
+
+          let dataPartObj = nftProto.parseDataPart(lockingScriptBuf);
+          dataPartObj.sensibleID = curDataPartObj.sensibleID;
+          dataPartObj.tokenIndex = BN.Zero;
+          const newScriptBuf = nftProto.updateScript(
+            lockingScriptBuf,
+            dataPartObj
           );
+
+          let genesisHash = toHex(
+            bsv.crypto.Hash.sha256ripemd160(newScriptBuf)
+          );
+
           if (genesisHash == curDataPartObj.genesisHash) {
             return true;
           }
@@ -585,6 +592,7 @@ export class SensibleNFT {
   }): Promise<{
     codehash: string;
     genesis: string;
+    sensibleId: string;
     txid: string;
     txHex: string;
     tx: bsv.Transaction;
@@ -609,7 +617,9 @@ export class SensibleNFT {
       utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
       changeAddress,
     });
-    let { codehash, genesis } = this.getCodehashAndGensisByTx(txComposer.tx);
+    let { codehash, genesis, sensibleId } = this.getCodehashAndGensisByTx(
+      txComposer.tx
+    );
     let txHex = txComposer.getRawHex();
     if (!noBroadcast) {
       await this.sensibleApi.broadcast(txHex);
@@ -617,6 +627,7 @@ export class SensibleNFT {
     return {
       codehash,
       genesis,
+      sensibleId,
       tx: txComposer.tx,
       txid: txComposer.tx.id,
       txHex,
@@ -750,6 +761,7 @@ export class SensibleNFT {
   public async issue({
     genesis,
     codehash,
+    sensibleId,
     genesisWif,
     receiverAddress,
     metaTxId,
@@ -761,6 +773,7 @@ export class SensibleNFT {
   }: {
     genesis: string;
     codehash: string;
+    sensibleId: string;
     genesisWif: string;
     receiverAddress: string | bsv.Address;
     metaTxId?: string;
@@ -792,6 +805,7 @@ export class SensibleNFT {
     let { txComposer, tokenIndex } = await this._issue({
       genesis,
       codehash,
+      sensibleId,
       genesisPrivateKey,
       genesisPublicKey,
       receiverAddress,
@@ -831,6 +845,7 @@ export class SensibleNFT {
   public async unsignIssue({
     genesis,
     codehash,
+    sensibleId,
     genesisPublicKey,
     receiverAddress,
     metaTxId,
@@ -841,6 +856,7 @@ export class SensibleNFT {
   }: {
     genesis: string;
     codehash: string;
+    sensibleId: string;
     genesisPublicKey: string | bsv.PublicKey;
     receiverAddress: string | bsv.Address;
     metaTxId?: string;
@@ -869,6 +885,7 @@ export class SensibleNFT {
     let { txComposer, tokenIndex } = await this._issue({
       genesis,
       codehash,
+      sensibleId,
       genesisPublicKey,
       receiverAddress,
       metaTxId,
@@ -890,19 +907,30 @@ export class SensibleNFT {
     genesisOutputIndex: number
   ): Promise<NftUtxo> {
     let unspent: NonFungibleTokenUnspent;
-    let originGenesis = Buffer.alloc(36, 0).toString("hex");
+    let firstGenesisTxHex = await this.sensibleApi.getRawTxData(genesisTxId);
+    let firstGenesisTx = new bsv.Transaction(firstGenesisTxHex);
+
+    let scriptBuffer = firstGenesisTx.outputs[
+      genesisOutputIndex
+    ].script.toBuffer();
+
+    let originGenesis = nftProto.getQueryGenesis(scriptBuffer);
     let genesisUtxos = await this.sensibleApi.getNonFungibleTokenUnspents(
       codehash,
       originGenesis,
       this.zeroAddress.toString()
     );
-    let genesisUtxo = genesisUtxos.find((v) => v.txId == genesisTxId);
-    if (genesisUtxo) {
-      unspent = genesisUtxo;
-    } else {
-      let issueGenesis = toHex(
-        TokenUtil.getOutpointBuf(genesisTxId, genesisOutputIndex)
-      );
+    unspent = genesisUtxos.find(
+      (v) => v.txId == genesisTxId && v.outputIndex == genesisOutputIndex
+    );
+    if (!unspent) {
+      let _dataPartObj = nftProto.parseDataPart(scriptBuffer);
+      _dataPartObj.sensibleID = {
+        txid: genesisTxId,
+        index: genesisOutputIndex,
+      };
+      let newScriptBuf = nftProto.updateScript(scriptBuffer, _dataPartObj);
+      let issueGenesis = nftProto.getQueryGenesis(newScriptBuf);
       let issueUtxos = await this.sensibleApi.getNonFungibleTokenUnspents(
         codehash,
         issueGenesis,
@@ -943,6 +971,7 @@ export class SensibleNFT {
   private async _issue({
     genesis,
     codehash,
+    sensibleId,
     genesisPrivateKey,
     genesisPublicKey,
     receiverAddress,
@@ -955,6 +984,7 @@ export class SensibleNFT {
   }: {
     genesis: string;
     codehash: string;
+    sensibleId: string;
     genesisPrivateKey?: bsv.PrivateKey;
     genesisPublicKey: bsv.PublicKey;
     receiverAddress: bsv.Address;
@@ -970,7 +1000,7 @@ export class SensibleNFT {
       genesisTxId,
       genesisOutputIndex,
       genesisUtxo,
-    } = await this._pretreatNftUtxoToIssue({ genesis, genesisPublicKey });
+    } = await this._pretreatNftUtxoToIssue({ sensibleId, genesisPublicKey });
 
     let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
     let estimateSatoshis = await this._calIssueEstimateFee({
@@ -985,6 +1015,18 @@ export class SensibleNFT {
       );
     }
 
+    //计算genesisHash
+    let originDataPart = genesisContract.getFormatedDataPart();
+    genesisContract.setFormatedDataPart({
+      sensibleID: {
+        txid: genesisTxId,
+        index: genesisOutputIndex,
+      },
+      tokenIndex: BN.Zero,
+    });
+    let genesisHash = genesisContract.getScriptHash();
+    genesisContract.setFormatedDataPart(originDataPart);
+
     let nftContract = NftFactory.createContract(
       this.unlockContractCodeHashArray
     );
@@ -996,7 +1038,7 @@ export class SensibleNFT {
       nftAddress: toHex(receiverAddress.hashBuffer),
       totalSupply: genesisContract.getFormatedDataPart().totalSupply,
       tokenIndex: genesisContract.getFormatedDataPart().tokenIndex,
-      genesisHash: genesisContract.getScriptHash(),
+      genesisHash,
       rabinPubKeyHashArrayHash: genesisContract.getFormatedDataPart()
         .rabinPubKeyHashArrayHash,
       sensibleID: {
@@ -1186,7 +1228,7 @@ export class SensibleNFT {
     } else if (senderPrivateKey) {
       senderPrivateKey = new bsv.PrivateKey(senderPrivateKey);
       senderPublicKey = senderPrivateKey.publicKey;
-    } else {
+    } else if (senderPublicKey) {
       senderPublicKey = new bsv.PublicKey(senderPublicKey);
     }
 
@@ -1195,7 +1237,7 @@ export class SensibleNFT {
       codehash,
       genesis,
       senderPrivateKey as bsv.PrivateKey,
-      senderPublicKey
+      senderPublicKey as bsv.PublicKey
     );
 
     let utxoInfo = await this._pretreatUtxos(utxos);
@@ -1318,9 +1360,15 @@ export class SensibleNFT {
       genesis
     );
 
+    let genesisScript = nftUtxo.preNftAddress.hashBuffer.equals(
+      Buffer.alloc(20, 0)
+    )
+      ? new Bytes(nftUtxo.preLockingScript.toHex())
+      : new Bytes("");
     let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
     let estimateSatoshis = await this._calTransferEstimateFee({
       nftUtxoSatoshis: nftUtxo.satoshis,
+      genesisScript,
       opreturnData,
       utxoMaxCount: utxos.length,
     });
@@ -1403,10 +1451,8 @@ export class SensibleNFT {
         nftInput.lockingScript.toBuffer()
       );
       nftContract.setFormatedDataPart(dataPartObj);
-
       const unlockingContract = nftContract.unlock({
         txPreimage: txComposer.getInputPreimage(nftInputIndex),
-        nftInputIndex: nftInputIndex,
         prevouts: new Bytes(prevouts.toHex()),
         rabinMsg: rabinDatas[0].rabinMsg,
         rabinPaddingArray: rabinDatas[0].rabinPaddingArray,
@@ -1415,6 +1461,11 @@ export class SensibleNFT {
         rabinPubKeyVerifyArray,
         rabinPubKeyHashArray: this.rabinPubKeyHashArray,
         prevNftAddress: new Bytes(toHex(nftInput.preNftAddress.hashBuffer)),
+        genesisScript: nftInput.preNftAddress.hashBuffer.equals(
+          Buffer.alloc(20, 0)
+        )
+          ? new Bytes(nftInput.preLockingScript.toHex())
+          : new Bytes(""),
         senderPubKey: new PubKey(
           nftInput.publicKey
             ? toHex(nftInput.publicKey.toBuffer())
@@ -1464,6 +1515,1008 @@ export class SensibleNFT {
     return { txComposer };
   }
 
+  public async sell({
+    genesis,
+    codehash,
+    tokenIndex,
+
+    sellerWif,
+    sellerPrivateKey,
+    sellerPublicKey,
+
+    satoshisPrice,
+    opreturnData,
+    utxos,
+    changeAddress,
+    noBroadcast = false,
+
+    middleChangeAddress,
+    middlePrivateKey,
+  }: {
+    genesis: string;
+    codehash: string;
+    tokenIndex: string;
+    sellerWif?: string;
+    sellerPrivateKey?: string | bsv.PrivateKey;
+    sellerPublicKey?: string | bsv.PublicKey;
+    satoshisPrice: number;
+    opreturnData?: any;
+    utxos?: any[];
+    changeAddress?: string | bsv.Address;
+    noBroadcast?: boolean;
+
+    middleChangeAddress?: string | bsv.Address;
+    middlePrivateKey?: string | bsv.PrivateKey;
+  }) {
+    checkParamGenesis(genesis);
+    checkParamCodehash(codehash);
+
+    if (sellerWif) {
+      sellerPrivateKey = new bsv.PrivateKey(sellerWif);
+      sellerPublicKey = sellerPrivateKey.publicKey;
+    } else if (sellerPrivateKey) {
+      sellerPrivateKey = new bsv.PrivateKey(sellerPrivateKey);
+      sellerPublicKey = sellerPrivateKey.publicKey;
+    } else if (sellerPublicKey) {
+      sellerPublicKey = new bsv.PublicKey(sellerPublicKey);
+    }
+
+    let nftInfo = await this._pretreatNftUtxoToTransfer(
+      tokenIndex,
+      codehash,
+      genesis,
+      sellerPrivateKey as bsv.PrivateKey,
+      sellerPublicKey as bsv.PublicKey
+    );
+
+    let utxoInfo = await this._pretreatUtxos(utxos);
+    if (changeAddress) {
+      changeAddress = new bsv.Address(changeAddress, this.network);
+    } else {
+      changeAddress = utxoInfo.utxos[0].address;
+    }
+
+    if (middleChangeAddress) {
+      middleChangeAddress = new bsv.Address(middleChangeAddress, this.network);
+      middlePrivateKey = new bsv.PrivateKey(middlePrivateKey);
+    } else {
+      middleChangeAddress = utxoInfo.utxos[0].address;
+      middlePrivateKey = utxoInfo.utxoPrivateKeys[0];
+    }
+
+    let { nftSellTxComposer, txComposer } = await this._sell({
+      genesis,
+      codehash,
+      nftUtxo: nftInfo.nftUtxo,
+      nftPrivateKey: nftInfo.nftUtxoPrivateKey,
+      satoshisPrice,
+      opreturnData,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress,
+      middlePrivateKey,
+      middleChangeAddress,
+    });
+
+    let nftSellTxHex = nftSellTxComposer.getRawHex();
+    let txHex = txComposer.getRawHex();
+    if (!noBroadcast) {
+      await this.sensibleApi.broadcast(nftSellTxHex);
+      await this.sensibleApi.broadcast(txHex);
+    }
+    return {
+      tx: txComposer.tx,
+      txHex,
+      txid: txComposer.tx.id,
+      sellTx: nftSellTxComposer.getTx(),
+      sellTxHex: nftSellTxHex,
+    };
+  }
+
+  private async _sell({
+    genesis,
+    codehash,
+    nftUtxo,
+    nftPrivateKey,
+    satoshisPrice,
+    opreturnData,
+    utxos,
+    utxoPrivateKeys,
+    changeAddress,
+
+    middlePrivateKey,
+    middleChangeAddress,
+  }: {
+    genesis: string;
+    codehash: string;
+    nftUtxo: NftUtxo;
+    nftPrivateKey?: bsv.PrivateKey;
+    satoshisPrice: number;
+    opreturnData?: any;
+    utxos: Utxo[];
+    utxoPrivateKeys: bsv.PrivateKey[];
+    changeAddress: bsv.Address;
+
+    middlePrivateKey?: bsv.PrivateKey;
+    middleChangeAddress: bsv.Address;
+  }): Promise<{ nftSellTxComposer: TxComposer; txComposer: TxComposer }> {
+    if (!middleChangeAddress) {
+      middleChangeAddress = utxos[0].address;
+      middlePrivateKey = utxoPrivateKeys[0];
+    }
+
+    nftUtxo = await this._pretreatNftUtxoToTransferOn(
+      nftUtxo,
+      codehash,
+      genesis
+    );
+
+    let nftSellContract = NftSellFactory.createContract(
+      new Ripemd160(toHex(nftUtxo.nftAddress.hashBuffer)),
+      satoshisPrice,
+      new Bytes(ContractUtil.tokenCodeHash),
+      new Bytes(toHex(nftProto.getNftID(nftUtxo.lockingScript.toBuffer())))
+    );
+
+    let nftSellTxComposer: TxComposer;
+    {
+      const txComposer = new TxComposer();
+
+      const p2pkhInputIndexs = utxos.map((utxo) => {
+        const inputIndex = txComposer.appendP2PKHInput(utxo);
+        txComposer.addSigHashInfo({
+          inputIndex,
+          address: utxo.address.toString(),
+          sighashType,
+          contractType: Utils.CONTRACT_TYPE.P2PKH,
+        });
+        return inputIndex;
+      });
+
+      const nftSellOutputIndex = txComposer.appendOutput({
+        lockingScript: nftSellContract.lockingScript,
+        satoshis: this.getDustThreshold(
+          nftSellContract.lockingScript.toBuffer().length
+        ),
+      });
+
+      //If there is opReturn, add it to the second output
+      if (opreturnData) {
+        txComposer.appendOpReturnOutput(opreturnData);
+      }
+
+      let changeOutputIndex = txComposer.appendChangeOutput(
+        changeAddress,
+        this.feeb
+      );
+      if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+        p2pkhInputIndexs.forEach((inputIndex) => {
+          let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+          txComposer.unlockP2PKHInput(privateKey, inputIndex);
+        });
+      }
+
+      this._checkTxFeeRate(txComposer);
+
+      utxos = [
+        {
+          txId: txComposer.getTxId(),
+          satoshis: txComposer.getOutput(changeOutputIndex).satoshis,
+          outputIndex: changeOutputIndex,
+          address: middleChangeAddress,
+        },
+      ];
+      utxoPrivateKeys = utxos.map((v) => middlePrivateKey).filter((v) => v);
+
+      nftSellTxComposer = txComposer;
+    }
+
+    let { txComposer } = await this._transfer({
+      genesis,
+      codehash,
+      nftUtxo,
+      nftPrivateKey,
+      receiverAddress: new bsv.Address(
+        TokenUtil.getScriptHashBuf(nftSellContract.lockingScript.toBuffer())
+      ),
+      opreturnData,
+      utxos,
+      utxoPrivateKeys,
+      changeAddress,
+    });
+
+    return { nftSellTxComposer, txComposer };
+  }
+
+  public async cancelSell({
+    genesis,
+    codehash,
+    tokenIndex,
+
+    sellerWif,
+    sellerPrivateKey,
+    sellerPublicKey,
+
+    sellUtxo,
+
+    opreturnData,
+    utxos,
+    changeAddress,
+    noBroadcast = false,
+
+    middleChangeAddress,
+    middlePrivateKey,
+  }: {
+    genesis: string;
+    codehash: string;
+    tokenIndex: string;
+    sellerWif?: string;
+    sellerPrivateKey?: string | bsv.PrivateKey;
+    sellerPublicKey?: string | bsv.PublicKey;
+    sellUtxo: { txId: string; outputIndex: number };
+    opreturnData?: any;
+    utxos?: any[];
+    changeAddress?: string | bsv.Address;
+    noBroadcast?: boolean;
+
+    middleChangeAddress?: string | bsv.Address;
+    middlePrivateKey?: string | bsv.PrivateKey;
+  }) {
+    checkParamGenesis(genesis);
+    checkParamCodehash(codehash);
+
+    if (sellerWif) {
+      sellerPrivateKey = new bsv.PrivateKey(sellerWif);
+      sellerPublicKey = sellerPrivateKey.publicKey;
+    } else if (sellerPrivateKey) {
+      sellerPrivateKey = new bsv.PrivateKey(sellerPrivateKey);
+      sellerPublicKey = sellerPrivateKey.publicKey;
+    } else if (sellerPublicKey) {
+      sellerPublicKey = new bsv.PublicKey(sellerPublicKey);
+    }
+
+    let nftInfo = await this._pretreatNftUtxoToTransfer(
+      tokenIndex,
+      codehash,
+      genesis,
+      sellerPrivateKey as bsv.PrivateKey,
+      sellerPublicKey as bsv.PublicKey
+    );
+
+    let utxoInfo = await this._pretreatUtxos(utxos);
+    if (changeAddress) {
+      changeAddress = new bsv.Address(changeAddress, this.network);
+    } else {
+      changeAddress = utxoInfo.utxos[0].address;
+    }
+
+    if (middleChangeAddress) {
+      middleChangeAddress = new bsv.Address(middleChangeAddress, this.network);
+      middlePrivateKey = new bsv.PrivateKey(middlePrivateKey);
+    } else {
+      middleChangeAddress = utxoInfo.utxos[0].address;
+      middlePrivateKey = utxoInfo.utxoPrivateKeys[0];
+    }
+
+    let { unlockCheckTxComposer, txComposer } = await this._cancelSell({
+      genesis,
+      codehash,
+      nftUtxo: nftInfo.nftUtxo,
+      nftPrivateKey: nftInfo.nftUtxoPrivateKey,
+      sellUtxo,
+      opreturnData,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress,
+      middlePrivateKey,
+      middleChangeAddress,
+    });
+
+    let unlockCheckTxHex = unlockCheckTxComposer.getRawHex();
+    let txHex = txComposer.getRawHex();
+    if (!noBroadcast) {
+      await this.sensibleApi.broadcast(unlockCheckTxHex);
+      await this.sensibleApi.broadcast(txHex);
+    }
+    return {
+      tx: txComposer.tx,
+      txHex,
+      txid: txComposer.tx.id,
+      unlockCheckTx: unlockCheckTxComposer.getTx(),
+      unlockCheckTxHex: unlockCheckTxHex,
+    };
+  }
+
+  private async _cancelSell({
+    genesis,
+    codehash,
+    nftUtxo,
+    nftPrivateKey,
+    sellUtxo,
+    opreturnData,
+    utxos,
+    utxoPrivateKeys,
+    changeAddress,
+
+    middlePrivateKey,
+    middleChangeAddress,
+  }: {
+    genesis: string;
+    codehash: string;
+    nftUtxo: NftUtxo;
+    nftPrivateKey?: bsv.PrivateKey;
+    sellUtxo: { txId: string; outputIndex: number };
+    opreturnData?: any;
+    utxos: Utxo[];
+    utxoPrivateKeys: bsv.PrivateKey[];
+    changeAddress: bsv.Address;
+
+    middlePrivateKey?: bsv.PrivateKey;
+    middleChangeAddress: bsv.Address;
+  }): Promise<{ unlockCheckTxComposer: TxComposer; txComposer: TxComposer }> {
+    if (!middleChangeAddress) {
+      middleChangeAddress = utxos[0].address;
+      middlePrivateKey = utxoPrivateKeys[0];
+    }
+
+    nftUtxo = await this._pretreatNftUtxoToTransferOn(
+      nftUtxo,
+      codehash,
+      genesis
+    );
+
+    let nftInput = nftUtxo;
+
+    let unlockContract = NftUnlockContractCheckFactory.createContract(
+      NFT_UNLOCK_CONTRACT_TYPE.OUT_6
+    );
+    unlockContract.setFormatedDataPart({
+      nftCodeHash: Buffer.from(ContractUtil.tokenCodeHash, "hex"),
+      nftID: nftProto.getNftID(nftInput.lockingScript.toBuffer()),
+    });
+
+    const unlockCheckTxComposer = new TxComposer();
+
+    //tx addInput utxo
+    const unlockCheck_p2pkhInputIndexs = utxos.map((utxo) => {
+      const inputIndex = unlockCheckTxComposer.appendP2PKHInput(utxo);
+      unlockCheckTxComposer.addSigHashInfo({
+        inputIndex,
+        address: utxo.address.toString(),
+        sighashType,
+        contractType: CONTRACT_TYPE.P2PKH,
+      });
+      return inputIndex;
+    });
+
+    const unlockCheckOutputIndex = unlockCheckTxComposer.appendOutput({
+      lockingScript: unlockContract.lockingScript,
+      satoshis: this.getDustThreshold(
+        unlockContract.lockingScript.toBuffer().length
+      ),
+    });
+
+    let changeOutputIndex = unlockCheckTxComposer.appendChangeOutput(
+      middleChangeAddress
+    );
+
+    if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+      unlockCheck_p2pkhInputIndexs.forEach((inputIndex) => {
+        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+        unlockCheckTxComposer.unlockP2PKHInput(privateKey, inputIndex);
+      });
+    }
+
+    utxos = [
+      {
+        txId: unlockCheckTxComposer.getTxId(),
+        satoshis: unlockCheckTxComposer.getOutput(changeOutputIndex).satoshis,
+        outputIndex: changeOutputIndex,
+        address: middleChangeAddress,
+      },
+    ];
+    utxoPrivateKeys = utxos.map((v) => middlePrivateKey).filter((v) => v);
+
+    let unlockCheckUtxo = {
+      txId: unlockCheckTxComposer.getTxId(),
+      outputIndex: unlockCheckOutputIndex,
+      satoshis: unlockCheckTxComposer.getOutput(unlockCheckOutputIndex)
+        .satoshis,
+      lockingScript: unlockCheckTxComposer.getOutput(unlockCheckOutputIndex)
+        .script,
+    };
+
+    let nftAddress = nftPrivateKey.toAddress(this.network);
+    let nftSellTxHex = await this.sensibleApi.getRawTxData(sellUtxo.txId);
+    let nftSellTx = new bsv.Transaction(nftSellTxHex);
+    let nftSellUtxo = {
+      txId: sellUtxo.txId,
+      outputIndex: sellUtxo.outputIndex,
+      satoshis: nftSellTx.outputs[sellUtxo.outputIndex].satoshis,
+      lockingScript: nftSellTx.outputs[sellUtxo.outputIndex].script,
+    };
+
+    let {
+      rabinDatas,
+      checkRabinData,
+      rabinPubKeyIndexArray,
+      rabinPubKeyVerifyArray,
+    } = await getRabinDatas(this.signers, this.signerSelecteds, [
+      nftUtxo.satotxInfo,
+    ]);
+
+    const txComposer = new TxComposer();
+    let prevouts = new Prevouts();
+
+    const nftSellInputIndex = txComposer.appendInput(nftSellUtxo);
+    prevouts.addVout(nftSellUtxo.txId, nftSellUtxo.outputIndex);
+    let nftSellContract = NftSellFactory.createFromASM(
+      nftSellUtxo.lockingScript.toASM()
+    );
+
+    const nftInputIndex = txComposer.appendInput(nftInput);
+    prevouts.addVout(nftInput.txId, nftInput.outputIndex);
+
+    const p2pkhInputIndexs = utxos.map((utxo) => {
+      const inputIndex = txComposer.appendP2PKHInput(utxo);
+      prevouts.addVout(utxo.txId, utxo.outputIndex);
+      txComposer.addSigHashInfo({
+        inputIndex,
+        address: utxo.address.toString(),
+        sighashType,
+        contractType: CONTRACT_TYPE.P2PKH,
+      });
+      return inputIndex;
+    });
+
+    const unlockCheckInputIndex = txComposer.appendInput(unlockCheckUtxo);
+    prevouts.addVout(unlockCheckUtxo.txId, unlockCheckUtxo.outputIndex);
+
+    //tx addOutput nft
+    const nftScriptBuf = nftInput.lockingScript.toBuffer();
+    let dataPartObj = nftProto.parseDataPart(nftScriptBuf);
+    dataPartObj.nftAddress = toHex(nftAddress.hashBuffer);
+    const lockingScriptBuf = nftProto.updateScript(nftScriptBuf, dataPartObj);
+    const nftOutputIndex = txComposer.appendOutput({
+      lockingScript: bsv.Script.fromBuffer(lockingScriptBuf),
+      satoshis: this.getDustThreshold(lockingScriptBuf.length),
+    });
+
+    //tx addOutput OpReturn
+    let opreturnScriptHex = "";
+    if (opreturnData) {
+      const opreturnOutputIndex = txComposer.appendOpReturnOutput(opreturnData);
+      opreturnScriptHex = txComposer
+        .getOutput(opreturnOutputIndex)
+        .script.toHex();
+    }
+
+    //The first round of calculations get the exact size of the final transaction, and then change again
+    //Due to the change, the script needs to be unlocked again in the second round
+    //let the fee to be exact in the second round
+    for (let c = 0; c < 2; c++) {
+      txComposer.clearChangeOutput();
+      const changeOutputIndex = txComposer.appendChangeOutput(
+        changeAddress,
+        this.feeb
+      );
+
+      const nftContract = NftFactory.createContract(
+        this.unlockContractCodeHashArray
+      );
+      let dataPartObj = nftProto.parseDataPart(
+        nftInput.lockingScript.toBuffer()
+      );
+      nftContract.setFormatedDataPart(dataPartObj);
+      const unlockingContract = nftContract.unlock({
+        txPreimage: txComposer.getInputPreimage(nftInputIndex),
+        prevouts: new Bytes(prevouts.toHex()),
+        rabinMsg: rabinDatas[0].rabinMsg,
+        rabinPaddingArray: rabinDatas[0].rabinPaddingArray,
+        rabinSigArray: rabinDatas[0].rabinSigArray,
+        rabinPubKeyIndexArray,
+        rabinPubKeyVerifyArray,
+        rabinPubKeyHashArray: this.rabinPubKeyHashArray,
+        prevNftAddress: new Bytes(toHex(nftInput.preNftAddress.hashBuffer)),
+        checkInputIndex: unlockCheckInputIndex,
+        checkScriptTx: new Bytes(unlockCheckTxComposer.getRawHex()),
+        checkScriptTxOutIndex: unlockCheckOutputIndex,
+        lockContractInputIndex: nftSellInputIndex,
+        lockContractTx: new Bytes(nftSellTxHex),
+        lockContractTxOutIndex: nftSellUtxo.outputIndex,
+        operation: nftProto.NFT_OP_TYPE.UNLOCK_FROM_CONTRACT,
+      });
+
+      if (this.debug) {
+        let txContext = {
+          tx: txComposer.tx,
+          inputIndex: nftInputIndex,
+          inputSatoshis: txComposer.getInput(nftInputIndex).output.satoshis,
+        };
+        let ret = unlockingContract.verify(txContext);
+        if (ret.success == false) throw ret;
+      }
+      txComposer
+        .getInput(nftInputIndex)
+        .setScript(unlockingContract.toScript() as bsv.Script);
+
+      let otherOutputs = Buffer.alloc(0);
+      txComposer.tx.outputs.forEach((output, index) => {
+        if (index != nftOutputIndex) {
+          let outputBuf = output.toBufferWriter().toBuffer();
+          let lenBuf = Buffer.alloc(4);
+          lenBuf.writeUInt32LE(outputBuf.length);
+          otherOutputs = Buffer.concat([otherOutputs, lenBuf, outputBuf]);
+        }
+      });
+      let unlockCall = unlockContract.unlock({
+        txPreimage: txComposer.getInputPreimage(unlockCheckInputIndex),
+        nftInputIndex,
+        nftScript: new Bytes(nftInput.lockingScript.toHex()),
+        prevouts: new Bytes(prevouts.toHex()),
+        rabinMsg: checkRabinData.rabinMsg,
+        rabinPaddingArray: checkRabinData.rabinPaddingArray,
+        rabinSigArray: checkRabinData.rabinSigArray,
+        rabinPubKeyIndexArray,
+        rabinPubKeyVerifyArray,
+        rabinPubKeyHashArray: this.rabinPubKeyHashArray,
+        nOutputs: txComposer.tx.outputs.length,
+        nftOutputIndex,
+        nftOutputAddress: new Bytes(toHex(nftAddress.hashBuffer)),
+        nftOutputSatoshis: txComposer.getOutput(nftOutputIndex).satoshis,
+        otherOutputArray: new Bytes(toHex(otherOutputs)),
+      });
+
+      if (this.debug) {
+        let txContext = {
+          tx: txComposer.getTx(),
+          inputIndex: unlockCheckInputIndex,
+          inputSatoshis: txComposer.getInput(unlockCheckInputIndex).output
+            .satoshis,
+        };
+        let ret = unlockCall.verify(txContext);
+        if (ret.success == false) throw ret;
+      }
+      txComposer
+        .getInput(unlockCheckInputIndex)
+        .setScript(unlockCall.toScript() as bsv.Script);
+
+      let unlockCall2 = nftSellContract.unlock({
+        txPreimage: txComposer.getInputPreimage(
+          nftSellInputIndex,
+          Signature.SIGHASH_SINGLE | Signature.SIGHASH_FORKID
+        ),
+        nftScript: new Bytes(nftInput.lockingScript.toHex()),
+        senderPubKey: new PubKey(toHex(nftPrivateKey.publicKey.toBuffer())),
+        senderSig: new Sig(
+          toHex(txComposer.getTxFormatSig(nftPrivateKey, nftSellInputIndex))
+        ),
+        nftOutputSatoshis: txComposer.getOutput(nftOutputIndex).satoshis,
+        op: NFT_SELL_OP.CANCEL,
+      });
+      if (this.debug) {
+        let txContext = {
+          tx: txComposer.getTx(),
+          inputIndex: nftSellInputIndex,
+          inputSatoshis: txComposer.getInput(nftSellInputIndex).output.satoshis,
+        };
+        let ret = unlockCall2.verify(txContext);
+        if (ret.success == false) throw ret;
+      }
+      txComposer
+        .getInput(nftSellInputIndex)
+        .setScript(unlockCall2.toScript() as bsv.Script);
+    }
+
+    if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+      p2pkhInputIndexs.forEach((inputIndex) => {
+        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+        txComposer.unlockP2PKHInput(privateKey, inputIndex);
+      });
+    }
+
+    this._checkTxFeeRate(txComposer);
+    return { unlockCheckTxComposer, txComposer };
+  }
+
+  public async buy({
+    genesis,
+    codehash,
+    tokenIndex,
+
+    buyerWif,
+    buyerPrivateKey,
+    buyerPublicKey,
+    sellUtxo,
+
+    opreturnData,
+    utxos,
+    changeAddress,
+    noBroadcast = false,
+
+    middleChangeAddress,
+    middlePrivateKey,
+  }: {
+    genesis: string;
+    codehash: string;
+    tokenIndex: string;
+    buyerWif?: string;
+    buyerPrivateKey?: string | bsv.PrivateKey;
+    buyerPublicKey?: string | bsv.PublicKey;
+    sellUtxo: { txId: string; outputIndex: number };
+    opreturnData?: any;
+    utxos?: any[];
+    changeAddress?: string | bsv.Address;
+    noBroadcast?: boolean;
+
+    middleChangeAddress?: string | bsv.Address;
+    middlePrivateKey?: string | bsv.PrivateKey;
+  }) {
+    checkParamGenesis(genesis);
+    checkParamCodehash(codehash);
+
+    if (buyerWif) {
+      buyerPrivateKey = new bsv.PrivateKey(buyerWif);
+      buyerPublicKey = buyerPrivateKey.publicKey;
+    } else if (buyerPrivateKey) {
+      buyerPrivateKey = new bsv.PrivateKey(buyerPrivateKey);
+      buyerPublicKey = buyerPrivateKey.publicKey;
+    } else if (buyerPublicKey) {
+      buyerPublicKey = new bsv.PublicKey(buyerPublicKey);
+    }
+
+    let nftInfo = await this._pretreatNftUtxoToTransfer(
+      tokenIndex,
+      codehash,
+      genesis,
+      buyerPrivateKey as bsv.PrivateKey,
+      buyerPublicKey as bsv.PublicKey
+    );
+
+    let utxoInfo = await this._pretreatUtxos(utxos);
+    if (changeAddress) {
+      changeAddress = new bsv.Address(changeAddress, this.network);
+    } else {
+      changeAddress = utxoInfo.utxos[0].address;
+    }
+
+    if (middleChangeAddress) {
+      middleChangeAddress = new bsv.Address(middleChangeAddress, this.network);
+      middlePrivateKey = new bsv.PrivateKey(middlePrivateKey);
+    } else {
+      middleChangeAddress = utxoInfo.utxos[0].address;
+      middlePrivateKey = utxoInfo.utxoPrivateKeys[0];
+    }
+
+    let { unlockCheckTxComposer, txComposer } = await this._buy({
+      genesis,
+      codehash,
+      nftUtxo: nftInfo.nftUtxo,
+      buyerPrivateKey: buyerPrivateKey as bsv.PrivateKey,
+      sellUtxo,
+      opreturnData,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress,
+      middlePrivateKey,
+      middleChangeAddress,
+    });
+
+    let unlockCheckTxHex = unlockCheckTxComposer.getRawHex();
+    let txHex = txComposer.getRawHex();
+    if (!noBroadcast) {
+      await this.sensibleApi.broadcast(unlockCheckTxHex);
+      await this.sensibleApi.broadcast(txHex);
+    }
+    return {
+      tx: txComposer.tx,
+      txHex,
+      txid: txComposer.tx.id,
+      unlockCheckTx: unlockCheckTxComposer.getTx(),
+      unlockCheckTxHex: unlockCheckTxHex,
+    };
+  }
+
+  private async _buy({
+    genesis,
+    codehash,
+    nftUtxo,
+    buyerPrivateKey,
+    sellUtxo,
+    opreturnData,
+    utxos,
+    utxoPrivateKeys,
+    changeAddress,
+
+    middlePrivateKey,
+    middleChangeAddress,
+  }: {
+    genesis: string;
+    codehash: string;
+    nftUtxo: NftUtxo;
+    buyerPrivateKey?: bsv.PrivateKey;
+    sellUtxo: { txId: string; outputIndex: number };
+    opreturnData?: any;
+    utxos: Utxo[];
+    utxoPrivateKeys: bsv.PrivateKey[];
+    changeAddress: bsv.Address;
+
+    middlePrivateKey?: bsv.PrivateKey;
+    middleChangeAddress: bsv.Address;
+  }): Promise<{ unlockCheckTxComposer: TxComposer; txComposer: TxComposer }> {
+    if (!middleChangeAddress) {
+      middleChangeAddress = utxos[0].address;
+      middlePrivateKey = utxoPrivateKeys[0];
+    }
+
+    nftUtxo = await this._pretreatNftUtxoToTransferOn(
+      nftUtxo,
+      codehash,
+      genesis
+    );
+
+    let nftInput = nftUtxo;
+
+    let unlockContract = NftUnlockContractCheckFactory.createContract(
+      NFT_UNLOCK_CONTRACT_TYPE.OUT_6
+    );
+    unlockContract.setFormatedDataPart({
+      nftCodeHash: Buffer.from(ContractUtil.tokenCodeHash, "hex"),
+      nftID: nftProto.getNftID(nftInput.lockingScript.toBuffer()),
+    });
+
+    const unlockCheckTxComposer = new TxComposer();
+
+    //tx addInput utxo
+    const unlockCheck_p2pkhInputIndexs = utxos.map((utxo) => {
+      const inputIndex = unlockCheckTxComposer.appendP2PKHInput(utxo);
+      unlockCheckTxComposer.addSigHashInfo({
+        inputIndex,
+        address: utxo.address.toString(),
+        sighashType,
+        contractType: CONTRACT_TYPE.P2PKH,
+      });
+      return inputIndex;
+    });
+
+    const unlockCheckOutputIndex = unlockCheckTxComposer.appendOutput({
+      lockingScript: unlockContract.lockingScript,
+      satoshis: this.getDustThreshold(
+        unlockContract.lockingScript.toBuffer().length
+      ),
+    });
+
+    let changeOutputIndex = unlockCheckTxComposer.appendChangeOutput(
+      middleChangeAddress
+    );
+
+    if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+      unlockCheck_p2pkhInputIndexs.forEach((inputIndex) => {
+        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+        unlockCheckTxComposer.unlockP2PKHInput(privateKey, inputIndex);
+      });
+    }
+
+    utxos = [
+      {
+        txId: unlockCheckTxComposer.getTxId(),
+        satoshis: unlockCheckTxComposer.getOutput(changeOutputIndex).satoshis,
+        outputIndex: changeOutputIndex,
+        address: middleChangeAddress,
+      },
+    ];
+    utxoPrivateKeys = utxos.map((v) => middlePrivateKey).filter((v) => v);
+
+    let unlockCheckUtxo = {
+      txId: unlockCheckTxComposer.getTxId(),
+      outputIndex: unlockCheckOutputIndex,
+      satoshis: unlockCheckTxComposer.getOutput(unlockCheckOutputIndex)
+        .satoshis,
+      lockingScript: unlockCheckTxComposer.getOutput(unlockCheckOutputIndex)
+        .script,
+    };
+
+    let nftAddress = buyerPrivateKey.toAddress(this.network);
+    let nftSellTxHex = await this.sensibleApi.getRawTxData(sellUtxo.txId);
+    let nftSellTx = new bsv.Transaction(nftSellTxHex);
+    let nftSellUtxo = {
+      txId: sellUtxo.txId,
+      outputIndex: sellUtxo.outputIndex,
+      satoshis: nftSellTx.outputs[sellUtxo.outputIndex].satoshis,
+      lockingScript: nftSellTx.outputs[sellUtxo.outputIndex].script,
+    };
+
+    let {
+      rabinDatas,
+      checkRabinData,
+      rabinPubKeyIndexArray,
+      rabinPubKeyVerifyArray,
+    } = await getRabinDatas(this.signers, this.signerSelecteds, [
+      nftUtxo.satotxInfo,
+    ]);
+
+    const txComposer = new TxComposer();
+    let prevouts = new Prevouts();
+
+    const nftSellInputIndex = txComposer.appendInput(nftSellUtxo);
+    prevouts.addVout(nftSellUtxo.txId, nftSellUtxo.outputIndex);
+    let nftSellContract = NftSellFactory.createFromASM(
+      nftSellUtxo.lockingScript.toASM()
+    );
+
+    const nftInputIndex = txComposer.appendInput(nftInput);
+    prevouts.addVout(nftInput.txId, nftInput.outputIndex);
+
+    const p2pkhInputIndexs = utxos.map((utxo) => {
+      const inputIndex = txComposer.appendP2PKHInput(utxo);
+      prevouts.addVout(utxo.txId, utxo.outputIndex);
+      txComposer.addSigHashInfo({
+        inputIndex,
+        address: utxo.address.toString(),
+        sighashType,
+        contractType: CONTRACT_TYPE.P2PKH,
+      });
+      return inputIndex;
+    });
+
+    const unlockCheckInputIndex = txComposer.appendInput(unlockCheckUtxo);
+    prevouts.addVout(unlockCheckUtxo.txId, unlockCheckUtxo.outputIndex);
+
+    let sellerAddress = bsv.Address.fromPublicKeyHash(
+      Buffer.from(
+        nftSellContract.constuctParams.senderAddress.value as string,
+        "hex"
+      ),
+      this.network
+    );
+    let sellerSatoshis = nftSellContract.constuctParams.bsvRecAmount;
+    //tx addOutput sell
+    txComposer.appendP2PKHOutput({
+      address: sellerAddress,
+      satoshis: sellerSatoshis,
+    });
+
+    //tx addOutput nft
+    const nftScriptBuf = nftInput.lockingScript.toBuffer();
+    let dataPartObj = nftProto.parseDataPart(nftScriptBuf);
+    dataPartObj.nftAddress = toHex(nftAddress.hashBuffer);
+    const lockingScriptBuf = nftProto.updateScript(nftScriptBuf, dataPartObj);
+    const nftOutputIndex = txComposer.appendOutput({
+      lockingScript: bsv.Script.fromBuffer(lockingScriptBuf),
+      satoshis: this.getDustThreshold(lockingScriptBuf.length),
+    });
+
+    //tx addOutput OpReturn
+    let opreturnScriptHex = "";
+    if (opreturnData) {
+      const opreturnOutputIndex = txComposer.appendOpReturnOutput(opreturnData);
+      opreturnScriptHex = txComposer
+        .getOutput(opreturnOutputIndex)
+        .script.toHex();
+    }
+
+    //The first round of calculations get the exact size of the final transaction, and then change again
+    //Due to the change, the script needs to be unlocked again in the second round
+    //let the fee to be exact in the second round
+
+    for (let c = 0; c < 2; c++) {
+      txComposer.clearChangeOutput();
+      const changeOutputIndex = txComposer.appendChangeOutput(
+        changeAddress,
+        this.feeb
+      );
+
+      const nftContract = NftFactory.createContract(
+        this.unlockContractCodeHashArray
+      );
+      let dataPartObj = nftProto.parseDataPart(
+        nftInput.lockingScript.toBuffer()
+      );
+      nftContract.setFormatedDataPart(dataPartObj);
+      const unlockingContract = nftContract.unlock({
+        txPreimage: txComposer.getInputPreimage(nftInputIndex),
+        prevouts: new Bytes(prevouts.toHex()),
+        rabinMsg: rabinDatas[0].rabinMsg,
+        rabinPaddingArray: rabinDatas[0].rabinPaddingArray,
+        rabinSigArray: rabinDatas[0].rabinSigArray,
+        rabinPubKeyIndexArray,
+        rabinPubKeyVerifyArray,
+        rabinPubKeyHashArray: this.rabinPubKeyHashArray,
+        prevNftAddress: new Bytes(toHex(nftInput.preNftAddress.hashBuffer)),
+        checkInputIndex: unlockCheckInputIndex,
+        checkScriptTx: new Bytes(unlockCheckTxComposer.getRawHex()),
+        checkScriptTxOutIndex: unlockCheckOutputIndex,
+        lockContractInputIndex: nftSellInputIndex,
+        lockContractTx: new Bytes(nftSellTxHex),
+        lockContractTxOutIndex: nftSellUtxo.outputIndex,
+        operation: nftProto.NFT_OP_TYPE.UNLOCK_FROM_CONTRACT,
+      });
+
+      if (this.debug) {
+        let txContext = {
+          tx: txComposer.tx,
+          inputIndex: nftInputIndex,
+          inputSatoshis: txComposer.getInput(nftInputIndex).output.satoshis,
+        };
+        let ret = unlockingContract.verify(txContext);
+        if (ret.success == false) throw ret;
+      }
+      txComposer
+        .getInput(nftInputIndex)
+        .setScript(unlockingContract.toScript() as bsv.Script);
+
+      let otherOutputs = Buffer.alloc(0);
+      txComposer.tx.outputs.forEach((output, index) => {
+        if (index != nftOutputIndex) {
+          let outputBuf = output.toBufferWriter().toBuffer();
+          let lenBuf = Buffer.alloc(4);
+          lenBuf.writeUInt32LE(outputBuf.length);
+          otherOutputs = Buffer.concat([otherOutputs, lenBuf, outputBuf]);
+        }
+      });
+      let unlockCall = unlockContract.unlock({
+        txPreimage: txComposer.getInputPreimage(unlockCheckInputIndex),
+        nftInputIndex,
+        nftScript: new Bytes(nftInput.lockingScript.toHex()),
+        prevouts: new Bytes(prevouts.toHex()),
+        rabinMsg: checkRabinData.rabinMsg,
+        rabinPaddingArray: checkRabinData.rabinPaddingArray,
+        rabinSigArray: checkRabinData.rabinSigArray,
+        rabinPubKeyIndexArray,
+        rabinPubKeyVerifyArray,
+        rabinPubKeyHashArray: this.rabinPubKeyHashArray,
+        nOutputs: txComposer.tx.outputs.length,
+        nftOutputIndex,
+        nftOutputAddress: new Bytes(toHex(nftAddress.hashBuffer)),
+        nftOutputSatoshis: txComposer.getOutput(nftOutputIndex).satoshis,
+        otherOutputArray: new Bytes(toHex(otherOutputs)),
+      });
+
+      if (this.debug) {
+        let txContext = {
+          tx: txComposer.getTx(),
+          inputIndex: unlockCheckInputIndex,
+          inputSatoshis: txComposer.getInput(unlockCheckInputIndex).output
+            .satoshis,
+        };
+        let ret = unlockCall.verify(txContext);
+        if (ret.success == false) throw ret;
+      }
+      txComposer
+        .getInput(unlockCheckInputIndex)
+        .setScript(unlockCall.toScript() as bsv.Script);
+
+      let unlockCall2 = nftSellContract.unlock({
+        txPreimage: txComposer.getInputPreimage(
+          nftSellInputIndex,
+          Signature.SIGHASH_SINGLE | Signature.SIGHASH_FORKID
+        ),
+        op: NFT_SELL_OP.SELL,
+      });
+      if (this.debug) {
+        let txContext = {
+          tx: txComposer.getTx(),
+          inputIndex: nftSellInputIndex,
+          inputSatoshis: txComposer.getInput(nftSellInputIndex).output.satoshis,
+        };
+        let ret = unlockCall2.verify(txContext);
+        if (ret.success == false) throw ret;
+      }
+      txComposer
+        .getInput(nftSellInputIndex)
+        .setScript(unlockCall2.toScript() as bsv.Script);
+    }
+
+    if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+      p2pkhInputIndexs.forEach((inputIndex) => {
+        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+        txComposer.unlockP2PKHInput(privateKey, inputIndex);
+      });
+    }
+
+    this._checkTxFeeRate(txComposer);
+    return { unlockCheckTxComposer, txComposer };
+  }
   /**
    * 查询某人持有的所有NFT Token列表
    * @param address 用户地址
@@ -1523,19 +2576,19 @@ export class SensibleNFT {
    * @returns
    */
   async getIssueEstimateFee({
-    genesis,
+    sensibleId,
     genesisPublicKey,
     opreturnData,
     utxoMaxCount = 10,
   }: {
-    genesis: string;
+    sensibleId: string;
     genesisPublicKey: string | bsv.PublicKey;
     opreturnData?: any;
     utxoMaxCount?: number;
   }) {
     genesisPublicKey = new bsv.PublicKey(genesisPublicKey);
     let { genesisUtxo } = await this._pretreatNftUtxoToIssue({
-      genesis,
+      sensibleId,
       genesisPublicKey,
     });
     return await this._calIssueEstimateFee({
@@ -1580,17 +2633,24 @@ export class SensibleNFT {
 
   private async _calTransferEstimateFee({
     nftUtxoSatoshis,
+    genesisScript,
     opreturnData,
     utxoMaxCount,
   }: {
     nftUtxoSatoshis: number;
+    genesisScript: Bytes;
     opreturnData: any;
     utxoMaxCount: number;
   }) {
     let p2pkhInputNum = utxoMaxCount;
     let stx = new SizeTransaction(this.feeb, this.dustCalculator);
     stx.addInput(
-      NftFactory.calUnlockingScriptSize(p2pkhInputNum, opreturnData),
+      NftFactory.calUnlockingScriptSize(
+        p2pkhInputNum,
+        genesisScript,
+        opreturnData,
+        nftProto.NFT_OP_TYPE.TRANSFER
+      ),
       nftUtxoSatoshis
     );
     for (let i = 0; i < p2pkhInputNum; i++) {
@@ -1607,6 +2667,7 @@ export class SensibleNFT {
 
     return stx.getFee();
   }
+
   /**
    * 估算转移NFT所花费金额
    * @param param0
@@ -1642,7 +2703,7 @@ export class SensibleNFT {
     } else if (senderPrivateKey) {
       senderPrivateKey = new bsv.PrivateKey(senderPrivateKey);
       senderPublicKey = senderPrivateKey.publicKey;
-    } else {
+    } else if (senderPublicKey) {
       senderPublicKey = new bsv.PublicKey(senderPublicKey);
     }
 
@@ -1651,7 +2712,7 @@ export class SensibleNFT {
       codehash,
       genesis,
       senderPrivateKey as bsv.PrivateKey,
-      senderPublicKey
+      senderPublicKey as bsv.PublicKey
     );
 
     let nftUtxo = await this._pretreatNftUtxoToTransferOn(
@@ -1660,11 +2721,469 @@ export class SensibleNFT {
       genesis
     );
 
+    let genesisScript = nftUtxo.preNftAddress.hashBuffer.equals(
+      Buffer.alloc(20, 0)
+    )
+      ? new Bytes(nftUtxo.preLockingScript.toHex())
+      : new Bytes("");
     return await this._calTransferEstimateFee({
       nftUtxoSatoshis: nftUtxo.satoshis,
+      genesisScript,
       opreturnData,
       utxoMaxCount,
     });
+  }
+
+  private async _calSellEstimateFee({
+    utxoMaxCount,
+    opreturnData,
+  }: {
+    utxoMaxCount: number;
+    opreturnData: any;
+  }) {
+    let p2pkhInputNum = utxoMaxCount;
+
+    let stx = new SizeTransaction(this.feeb, this.dustCalculator);
+
+    for (let i = 0; i < p2pkhInputNum; i++) {
+      stx.addP2PKHInput();
+    }
+    stx.addOutput(NftSellFactory.getLockingScriptSize());
+    if (opreturnData) {
+      stx.addOpReturnOutput(
+        bsv.Script.buildSafeDataOut(opreturnData).toBuffer().length
+      );
+    }
+    stx.addP2PKHOutput();
+
+    return stx.getFee();
+  }
+
+  public async getSellEstimateFee({
+    genesis,
+    codehash,
+    tokenIndex,
+
+    senderWif,
+    senderPrivateKey,
+    senderPublicKey,
+
+    opreturnData,
+    utxoMaxCount = 10,
+  }: {
+    genesis: string;
+    codehash: string;
+    tokenIndex: string;
+    senderWif?: string;
+    senderPrivateKey?: string | bsv.PrivateKey;
+    senderPublicKey?: string | bsv.PublicKey;
+    opreturnData?: any;
+
+    utxoMaxCount?: number;
+  }) {
+    checkParamGenesis(genesis);
+    checkParamCodehash(codehash);
+
+    if (senderWif) {
+      senderPrivateKey = new bsv.PrivateKey(senderWif);
+      senderPublicKey = senderPrivateKey.publicKey;
+    } else if (senderPrivateKey) {
+      senderPrivateKey = new bsv.PrivateKey(senderPrivateKey);
+      senderPublicKey = senderPrivateKey.publicKey;
+    } else if (senderPublicKey) {
+      senderPublicKey = new bsv.PublicKey(senderPublicKey);
+    }
+
+    let nftInfo = await this._pretreatNftUtxoToTransfer(
+      tokenIndex,
+      codehash,
+      genesis,
+      senderPrivateKey as bsv.PrivateKey,
+      senderPublicKey as bsv.PublicKey
+    );
+
+    let nftUtxo = await this._pretreatNftUtxoToTransferOn(
+      nftInfo.nftUtxo,
+      codehash,
+      genesis
+    );
+    let genesisScript = nftUtxo.preNftAddress.hashBuffer.equals(
+      Buffer.alloc(20, 0)
+    )
+      ? new Bytes(nftUtxo.preLockingScript.toHex())
+      : new Bytes("");
+
+    let estimateSatoshis1 = await this._calSellEstimateFee({
+      utxoMaxCount,
+      opreturnData,
+    });
+    let estimateSatoshis2 = await this._calTransferEstimateFee({
+      nftUtxoSatoshis: nftUtxo.satoshis,
+      genesisScript,
+      opreturnData,
+      utxoMaxCount: 1,
+    });
+    return estimateSatoshis1 + estimateSatoshis2;
+  }
+
+  private async _calCancelSellEstimateFee({
+    nftUtxoSatoshis,
+    nftSellUtxo,
+    genesisScript,
+    opreturnData,
+    utxoMaxCount,
+  }: {
+    nftUtxoSatoshis: number;
+    nftSellUtxo: {
+      txId: string;
+      outputIndex: number;
+      satoshis: number;
+      lockingScript: any;
+    };
+    genesisScript: Bytes;
+    opreturnData: any;
+    utxoMaxCount: number;
+  }) {
+    let p2pkhInputNum = utxoMaxCount;
+
+    let nftUnlockingSize = NftFactory.calUnlockingScriptSize(
+      p2pkhInputNum,
+      genesisScript,
+      opreturnData,
+      nftProto.NFT_OP_TYPE.UNLOCK_FROM_CONTRACT
+    );
+    let nftSize = NftFactory.getLockingScriptSize();
+
+    let unlockContractSize = NftUnlockContractCheckFactory.getLockingScriptSize(
+      NFT_UNLOCK_CONTRACT_TYPE.OUT_6
+    );
+
+    let nftSellUnlockingSize = NftSellFactory.calUnlockingScriptSize(
+      NFT_SELL_OP.CANCEL
+    );
+
+    let stx1 = new SizeTransaction(this.feeb, this.dustCalculator);
+    for (let i = 0; i < p2pkhInputNum; i++) {
+      stx1.addP2PKHInput();
+    }
+    stx1.addOutput(unlockContractSize);
+    stx1.addP2PKHOutput();
+
+    let stx2 = new SizeTransaction(this.feeb, this.dustCalculator);
+    stx2.addInput(nftSellUnlockingSize, nftSellUtxo.satoshis);
+    stx2.addInput(nftUnlockingSize, nftUtxoSatoshis);
+
+    stx2.addP2PKHInput();
+
+    let prevouts = new Prevouts();
+    prevouts.addVout(dummyTxId, 0);
+    prevouts.addVout(dummyTxId, 0);
+    prevouts.addVout(dummyTxId, 0);
+    prevouts.addVout(dummyTxId, 0);
+
+    let otherOutputsLen = 0;
+    if (opreturnData) {
+      otherOutputsLen =
+        otherOutputsLen +
+        4 +
+        8 +
+        4 +
+        bsv.Script.buildSafeDataOut(opreturnData).toBuffer().length;
+    }
+    otherOutputsLen = otherOutputsLen + 4 + 8 + 4 + 25;
+    let otherOutputs = new Bytes(toHex(Buffer.alloc(otherOutputsLen, 0)));
+
+    let unlockContractUnlockingSize = NftUnlockContractCheckFactory.calUnlockingScriptSize(
+      NFT_UNLOCK_CONTRACT_TYPE.OUT_6,
+      new Bytes(prevouts.toHex()),
+      otherOutputs
+    );
+
+    stx2.addInput(
+      unlockContractUnlockingSize,
+      this.dustCalculator.getDustThreshold(unlockContractSize)
+    );
+
+    stx2.addOutput(nftSize);
+
+    if (opreturnData) {
+      stx2.addOpReturnOutput(
+        bsv.Script.buildSafeDataOut(opreturnData).toBuffer().length
+      );
+    }
+
+    stx2.addP2PKHOutput();
+
+    //dummy
+    stx2.addP2PKHInput();
+    stx2.addP2PKHInput();
+    stx2.addP2PKHInput();
+    stx2.addP2PKHInput();
+    stx2.addP2PKHInput();
+    stx2.addP2PKHInput();
+    stx2.addP2PKHInput();
+    stx2.addP2PKHInput();
+
+    return stx1.getFee() + stx2.getFee();
+  }
+
+  public async getCancelSellEstimateFee({
+    genesis,
+    codehash,
+    tokenIndex,
+
+    sellerWif,
+    sellerPrivateKey,
+    sellerPublicKey,
+    sellUtxo,
+
+    opreturnData,
+    utxoMaxCount = 3,
+  }: {
+    genesis: string;
+    codehash: string;
+    tokenIndex: string;
+    sellerWif?: string;
+    sellerPrivateKey?: string | bsv.PrivateKey;
+    sellerPublicKey?: string | bsv.PublicKey;
+    sellUtxo: { txId: string; outputIndex: number };
+    opreturnData?: any;
+
+    utxoMaxCount?: number;
+  }) {
+    checkParamGenesis(genesis);
+    checkParamCodehash(codehash);
+
+    if (sellerWif) {
+      sellerPrivateKey = new bsv.PrivateKey(sellerWif);
+      sellerPublicKey = sellerPrivateKey.publicKey;
+    } else if (sellerPrivateKey) {
+      sellerPrivateKey = new bsv.PrivateKey(sellerPrivateKey);
+      sellerPublicKey = sellerPrivateKey.publicKey;
+    } else if (sellerPublicKey) {
+      sellerPublicKey = new bsv.PublicKey(sellerPublicKey);
+    }
+
+    let nftInfo = await this._pretreatNftUtxoToTransfer(
+      tokenIndex,
+      codehash,
+      genesis,
+      sellerPrivateKey as bsv.PrivateKey,
+      sellerPublicKey as bsv.PublicKey
+    );
+
+    let nftSellTxHex = await this.sensibleApi.getRawTxData(sellUtxo.txId);
+    let nftSellTx = new bsv.Transaction(nftSellTxHex);
+    let nftSellUtxo = {
+      txId: sellUtxo.txId,
+      outputIndex: sellUtxo.outputIndex,
+      satoshis: nftSellTx.outputs[sellUtxo.outputIndex].satoshis,
+      lockingScript: nftSellTx.outputs[sellUtxo.outputIndex].script,
+    };
+
+    let nftUtxo = await this._pretreatNftUtxoToTransferOn(
+      nftInfo.nftUtxo,
+      codehash,
+      genesis
+    );
+    let genesisScript = nftUtxo.preNftAddress.hashBuffer.equals(
+      Buffer.alloc(20, 0)
+    )
+      ? new Bytes(nftUtxo.preLockingScript.toHex())
+      : new Bytes("");
+
+    let estimateSatoshis = await this._calCancelSellEstimateFee({
+      nftUtxoSatoshis: nftUtxo.satoshis,
+      nftSellUtxo,
+      genesisScript,
+      utxoMaxCount,
+      opreturnData,
+    });
+    return estimateSatoshis;
+  }
+
+  private async _calBuyEstimateFee({
+    nftUtxoSatoshis,
+    nftSellUtxo,
+    genesisScript,
+    opreturnData,
+    utxoMaxCount,
+  }: {
+    nftUtxoSatoshis: number;
+    nftSellUtxo: {
+      txId: string;
+      outputIndex: number;
+      satoshis: number;
+      lockingScript: any;
+    };
+    genesisScript: Bytes;
+    opreturnData: any;
+    utxoMaxCount: number;
+  }) {
+    let p2pkhInputNum = utxoMaxCount;
+
+    let nftUnlockingSize = NftFactory.calUnlockingScriptSize(
+      p2pkhInputNum,
+      genesisScript,
+      opreturnData,
+      nftProto.NFT_OP_TYPE.UNLOCK_FROM_CONTRACT
+    );
+    let nftSize = NftFactory.getLockingScriptSize();
+
+    let unlockContractSize = NftUnlockContractCheckFactory.getLockingScriptSize(
+      NFT_UNLOCK_CONTRACT_TYPE.OUT_6
+    );
+
+    let nftSellContract = NftSellFactory.createFromASM(
+      nftSellUtxo.lockingScript.toASM()
+    );
+
+    let nftSellUnlockingSize = NftSellFactory.calUnlockingScriptSize(
+      NFT_SELL_OP.SELL
+    );
+
+    let stx1 = new SizeTransaction(this.feeb, this.dustCalculator);
+    for (let i = 0; i < p2pkhInputNum; i++) {
+      stx1.addP2PKHInput();
+    }
+    stx1.addOutput(unlockContractSize);
+    stx1.addP2PKHOutput();
+
+    let stx2 = new SizeTransaction(this.feeb, this.dustCalculator);
+    stx2.addInput(nftSellUnlockingSize, nftSellUtxo.satoshis);
+    stx2.addInput(nftUnlockingSize, nftUtxoSatoshis);
+
+    stx2.addP2PKHInput();
+
+    let prevouts = new Prevouts();
+    prevouts.addVout(dummyTxId, 0);
+    prevouts.addVout(dummyTxId, 0);
+    prevouts.addVout(dummyTxId, 0);
+    prevouts.addVout(dummyTxId, 0);
+
+    let otherOutputsLen = 0;
+    if (opreturnData) {
+      otherOutputsLen =
+        otherOutputsLen +
+        4 +
+        8 +
+        4 +
+        bsv.Script.buildSafeDataOut(opreturnData).toBuffer().length;
+    }
+    otherOutputsLen = otherOutputsLen + 4 + 8 + 4 + 25;
+    let otherOutputs = new Bytes(toHex(Buffer.alloc(otherOutputsLen, 0)));
+
+    let unlockContractUnlockingSize = NftUnlockContractCheckFactory.calUnlockingScriptSize(
+      NFT_UNLOCK_CONTRACT_TYPE.OUT_6,
+      new Bytes(prevouts.toHex()),
+      otherOutputs
+    );
+
+    stx2.addInput(
+      unlockContractUnlockingSize,
+      this.dustCalculator.getDustThreshold(unlockContractSize)
+    );
+
+    stx2.addP2PKHOutput();
+    stx2.addOutput(nftSize);
+
+    if (opreturnData) {
+      stx2.addOpReturnOutput(
+        bsv.Script.buildSafeDataOut(opreturnData).toBuffer().length
+      );
+    }
+
+    stx2.addP2PKHOutput();
+
+    //dummy
+    stx2.addP2PKHInput();
+    stx2.addP2PKHInput();
+    stx2.addP2PKHInput();
+    stx2.addP2PKHInput();
+    stx2.addP2PKHInput();
+    stx2.addP2PKHInput();
+    stx2.addP2PKHInput();
+    stx2.addP2PKHInput();
+
+    return (
+      stx1.getFee() +
+      stx2.getFee() +
+      nftSellContract.constuctParams.bsvRecAmount
+    );
+  }
+  public async getBuyEstimateFee({
+    genesis,
+    codehash,
+    tokenIndex,
+
+    buyerWif,
+    buyerPrivateKey,
+    buyerPublicKey,
+    sellUtxo,
+
+    opreturnData,
+    utxoMaxCount = 3,
+  }: {
+    genesis: string;
+    codehash: string;
+    tokenIndex: string;
+    buyerWif?: string;
+    buyerPrivateKey?: string | bsv.PrivateKey;
+    buyerPublicKey?: string | bsv.PublicKey;
+    sellUtxo: { txId: string; outputIndex: number };
+    opreturnData?: any;
+
+    utxoMaxCount?: number;
+  }) {
+    checkParamGenesis(genesis);
+    checkParamCodehash(codehash);
+
+    if (buyerWif) {
+      buyerPrivateKey = new bsv.PrivateKey(buyerWif);
+      buyerPublicKey = buyerPrivateKey.publicKey;
+    } else if (buyerPrivateKey) {
+      buyerPrivateKey = new bsv.PrivateKey(buyerPrivateKey);
+      buyerPublicKey = buyerPrivateKey.publicKey;
+    } else if (buyerPublicKey) {
+      buyerPublicKey = new bsv.PublicKey(buyerPublicKey);
+    }
+
+    let nftInfo = await this._pretreatNftUtxoToTransfer(
+      tokenIndex,
+      codehash,
+      genesis,
+      buyerPrivateKey as bsv.PrivateKey,
+      buyerPublicKey as bsv.PublicKey
+    );
+
+    let nftSellTxHex = await this.sensibleApi.getRawTxData(sellUtxo.txId);
+    let nftSellTx = new bsv.Transaction(nftSellTxHex);
+    let nftSellUtxo = {
+      txId: sellUtxo.txId,
+      outputIndex: sellUtxo.outputIndex,
+      satoshis: nftSellTx.outputs[sellUtxo.outputIndex].satoshis,
+      lockingScript: nftSellTx.outputs[sellUtxo.outputIndex].script,
+    };
+
+    let nftUtxo = await this._pretreatNftUtxoToTransferOn(
+      nftInfo.nftUtxo,
+      codehash,
+      genesis
+    );
+    let genesisScript = nftUtxo.preNftAddress.hashBuffer.equals(
+      Buffer.alloc(20, 0)
+    )
+      ? new Bytes(nftUtxo.preLockingScript.toHex())
+      : new Bytes("");
+
+    let estimateSatoshis = await this._calBuyEstimateFee({
+      nftUtxoSatoshis: nftUtxo.satoshis,
+      nftSellUtxo,
+      genesisScript,
+      utxoMaxCount,
+      opreturnData,
+    });
+    return estimateSatoshis;
   }
   /**
    * Update the signature of the transaction
@@ -1713,7 +3232,7 @@ export class SensibleNFT {
    * @param genesisOutputIndex (Optional) outputIndex - default value is 0.
    * @returns
    */
-  public getCodehashAndGensisByTx(
+  public getCodehashAndGensisByTx2(
     genesisTx: bsv.Transaction,
     genesisOutputIndex: number = 0
   ) {
@@ -1725,6 +3244,47 @@ export class SensibleNFT {
       TokenUtil.getOutpointBuf(genesisTx.id, genesisOutputIndex)
     );
     return { codehash, genesis };
+  }
+  public getCodehashAndGensisByTx(
+    genesisTx: bsv.Transaction,
+    genesisOutputIndex: number = 0
+  ) {
+    //calculate genesis/codehash
+    let genesis: string, codehash: string, sensibleId: string;
+    let genesisTxId = genesisTx.id;
+    let genesisLockingScriptBuf = genesisTx.outputs[
+      genesisOutputIndex
+    ].script.toBuffer();
+    const dataPartObj = nftProto.parseDataPart(genesisLockingScriptBuf);
+    dataPartObj.sensibleID = {
+      txid: genesisTxId,
+      index: genesisOutputIndex,
+    };
+    genesisLockingScriptBuf = nftProto.updateScript(
+      genesisLockingScriptBuf,
+      dataPartObj
+    );
+
+    let tokenContract = NftFactory.createContract(
+      this.unlockContractCodeHashArray
+    );
+    tokenContract.setFormatedDataPart({
+      rabinPubKeyHashArrayHash: toHex(this.rabinPubKeyHashArrayHash),
+      sensibleID: {
+        txid: genesisTxId,
+        index: genesisOutputIndex,
+      },
+      genesisHash: toHex(TokenUtil.getScriptHashBuf(genesisLockingScriptBuf)),
+    });
+
+    let scriptBuf = tokenContract.lockingScript.toBuffer();
+    genesis = nftProto.getQueryGenesis(scriptBuf);
+    codehash = tokenContract.getCodeHash();
+    sensibleId = toHex(
+      TokenUtil.getOutpointBuf(genesisTxId, genesisOutputIndex)
+    );
+
+    return { codehash, genesis, sensibleId };
   }
 
   /**
@@ -1771,7 +3331,7 @@ export class SensibleNFT {
   }) {
     let unlockCheckTxComposer: TxComposer;
     {
-      let unlockType = NFT_UNLOCK_CONTRACT_TYPE.OUT_3;
+      let unlockType = NFT_UNLOCK_CONTRACT_TYPE.OUT_6;
       let nftLockingScriptBuf;
       let contract = NftUnlockContractCheckFactory.createContract(unlockType);
       contract.setFormatedDataPart({

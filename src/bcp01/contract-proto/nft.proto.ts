@@ -1,5 +1,7 @@
 import * as bsv from "../../bsv";
 import * as proto from "../../common/protoheader";
+import * as Utils from "../../common/utils";
+import { toHex } from "../../scryptlib";
 import BN = require("../../bn.js");
 export type MetaidOutpoint = {
   txid: string;
@@ -46,11 +48,8 @@ const TOTAL_SUPPLY_LEN = 8;
 const NFT_ADDRESS_LEN = 20;
 const GENESIS_FLAG_LEN = 1;
 const METAID_OUTPOINT_LEN = 36;
-const PROTO_TYPE_LEN = 4;
-const PROTO_FLAG_LEN = 8;
 
-const TYPE_OFFSET = PROTO_TYPE_LEN + PROTO_FLAG_LEN;
-const SENSIBLE_ID_OFFSET = TYPE_OFFSET + SENSIBLE_ID_LEN;
+const SENSIBLE_ID_OFFSET = SENSIBLE_ID_LEN + proto.getHeaderLen();
 const RABIN_PUBKEY_HASH_ARRAY_HASH_OFFSET =
   SENSIBLE_ID_OFFSET + RABIN_PUBKEY_HASH_ARRAY_HASH_LEN;
 const GENESIS_HASH_OFFSET =
@@ -64,15 +63,6 @@ const METAID_OUTPOINT_OFFSET = GENESIS_FLAG_OFFSET + METAID_OUTPOINT_LEN;
 const DATA_LEN = METAID_OUTPOINT_OFFSET;
 export const GENESIS_TOKEN_ID = Buffer.alloc(NFT_ID_LEN, 0);
 export const EMPTY_ADDRESS = Buffer.alloc(NFT_ADDRESS_LEN, 0);
-
-export function getSensibleIDBuf(script0: Buffer) {
-  let script = Buffer.from(script0);
-  let sensibleIDBuf = script.slice(
-    script.length - SENSIBLE_ID_OFFSET,
-    script.length - SENSIBLE_ID_OFFSET + SENSIBLE_ID_LEN
-  );
-  return sensibleIDBuf;
-}
 
 export function getRabinPubKeyHashArrayHash(script: Buffer) {
   return script
@@ -108,8 +98,8 @@ export function getTokenIndex(script: Buffer): BN {
 export function getNftID(script: Buffer) {
   return bsv.crypto.Hash.sha256ripemd160(
     script.slice(
-      script.length - GENESIS_HASH_OFFSET,
-      script.length - TYPE_OFFSET
+      script.length - TOKEN_INDEX_OFFSET,
+      script.length - proto.getHeaderLen()
     )
   );
 }
@@ -144,7 +134,10 @@ export function getGenesisFlag(script: Buffer): number {
 }
 
 export function getContractCode(script: Buffer) {
-  return script.slice(0, script.length - DATA_LEN - 2);
+  return script.slice(
+    0,
+    script.length - DATA_LEN - Utils.getVarPushdataHeader(DATA_LEN).length
+  );
 }
 
 export function getContractCodeHash(script: Buffer) {
@@ -257,6 +250,7 @@ export function newDataPart({
     genesisHashBuf,
     rabinPubKeyHashArrayHashBuf,
     sensibleIDBuf,
+    protoVersionBuf,
     protoTypeBuf,
     proto.PROTO_FLAG,
   ]);
@@ -294,4 +288,28 @@ export function updateScript(
   const firstBuf = scriptBuf.slice(0, scriptBuf.length - DATA_LEN);
   const dataPart = newDataPart(dataPartObj);
   return Buffer.concat([firstBuf, dataPart]);
+}
+
+export function getQueryCodehash(script: Buffer): string {
+  return toHex(getContractCodeHash(script));
+}
+
+export function getQueryGenesis(script: Buffer): string {
+  return toHex(
+    bsv.crypto.Hash.sha256ripemd160(
+      script.slice(
+        script.length - GENESIS_HASH_OFFSET,
+        script.length - proto.getHeaderLen()
+      )
+    )
+  );
+}
+
+export function getQuerySensibleID(script0: Buffer) {
+  let script = Buffer.from(script0);
+  let sensibleIDBuf = script.slice(
+    script.length - SENSIBLE_ID_OFFSET,
+    script.length - SENSIBLE_ID_OFFSET + SENSIBLE_ID_LEN
+  );
+  return toHex(sensibleIDBuf);
 }

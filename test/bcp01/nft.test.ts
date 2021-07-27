@@ -8,6 +8,7 @@ import * as bsv from "../../src/bsv";
 import { CodeError, ErrCode } from "../../src/common/error";
 import * as Utils from "../../src/common/utils";
 import { API_NET, SensibleNFT } from "../../src/index";
+import { TxComposer } from "../../src/tx-composer";
 import { dummyRabinKeypairs } from "../dummyRabin";
 import { MockSatotxSigner } from "../MockSatotxSigner";
 import { MockSensibleApi } from "../MockSensibleApi";
@@ -121,10 +122,11 @@ async function expectNftOwner(
   ).to.not.be.null;
 }
 describe("BCP01-NonFungibleToken Test", () => {
-  describe.only("basic test ", () => {
+  describe("basic test ", () => {
     let nft: SensibleNFT;
     let codehash: string;
     let genesis: string;
+    let sensibleId: string;
     before(async () => {
       const feeb = 0.5;
       const network = API_NET.MAIN;
@@ -153,27 +155,29 @@ describe("BCP01-NonFungibleToken Test", () => {
       // Utils.dumpTx(_res.tx);
       genesis = _res.genesis;
       codehash = _res.codehash;
+      sensibleId = _res.sensibleId;
     });
     it("issue should be ok", async () => {
       let _res1 = await nft.issue({
         codehash,
         genesis,
+        sensibleId,
         genesisWif: CoffeeShop.privateKey.toString(),
         receiverAddress: CoffeeShop.address.toString(),
         metaTxId:
           "a9a6634a67e0785f33efa1ff91b12888be28bac28878c28687055f69be2adac1",
       });
       Utils.dumpTx(_res1.tx);
-      console.log(_res1.tx.outputs[1].script.toHex());
       let _res2 = await nft.issue({
         codehash,
         genesis,
+        sensibleId,
         genesisWif: CoffeeShop.privateKey.toString(),
         receiverAddress: CoffeeShop.address.toString(),
       });
       // Utils.dumpTx(_res2.tx);
     });
-    it("transfer should be ok", async () => {
+    it("transfer from CoffeeShop to Alice should be ok", async () => {
       let _res3 = await nft.transfer({
         codehash,
         genesis,
@@ -184,7 +188,19 @@ describe("BCP01-NonFungibleToken Test", () => {
       // Utils.dumpTx(_res3.tx);
 
       expectNftOwner(nft, codehash, genesis, Alice.address, "0");
-      expectNftOwner(nft, codehash, genesis, CoffeeShop.address, "1600");
+    });
+
+    it("transfer from Alice to Bob should be ok", async () => {
+      let _res3 = await nft.transfer({
+        codehash,
+        genesis,
+        senderWif: Alice.privateKey.toWIF(),
+        receiverAddress: Bob.address.toString(),
+        tokenIndex: "0",
+      });
+      // Utils.dumpTx(_res3.tx);
+
+      expectNftOwner(nft, codehash, genesis, Bob.address, "0");
     });
   });
 
@@ -192,6 +208,7 @@ describe("BCP01-NonFungibleToken Test", () => {
     let nft: SensibleNFT;
     let codehash: string;
     let genesis: string;
+    let sensibleId: string;
     before(async () => {
       const feeb = 0.5;
       const network = API_NET.MAIN;
@@ -224,11 +241,13 @@ describe("BCP01-NonFungibleToken Test", () => {
       // Utils.dumpTx(_res.tx);
       genesis = _res.genesis;
       codehash = _res.codehash;
+      sensibleId = _res.sensibleId;
     });
     it("unsign issue should be ok", async () => {
       let { tx, sigHashList } = await nft.unsignIssue({
         codehash,
         genesis,
+        sensibleId,
         genesisPublicKey: CoffeeShop.publicKey.toString(),
         receiverAddress: CoffeeShop.address.toString(),
       });
@@ -255,6 +274,7 @@ describe("BCP01-NonFungibleToken Test", () => {
     let nft: SensibleNFT;
     let codehash: string;
     let genesis: string;
+    let sensibleId: string;
     before(async () => {
       const feeb = 0.5;
       const network = API_NET.MAIN;
@@ -292,12 +312,13 @@ describe("BCP01-NonFungibleToken Test", () => {
       // Utils.dumpTx(_res.tx);
       genesis = _res.genesis;
       codehash = _res.codehash;
+      sensibleId = _res.sensibleId;
     });
     it("estimate issue fee should be ok", async () => {
       const opreturnData = "11111111";
       cleanBsvUtxos();
       let estimateFee = await nft.getIssueEstimateFee({
-        genesis,
+        sensibleId,
         genesisPublicKey: CoffeeShop.publicKey,
         opreturnData,
         utxoMaxCount: 10,
@@ -306,6 +327,7 @@ describe("BCP01-NonFungibleToken Test", () => {
       let _res1 = await nft.issue({
         codehash,
         genesis,
+        sensibleId,
         genesisWif: CoffeeShop.privateKey.toString(),
         receiverAddress: CoffeeShop.address.toString(),
         opreturnData,
@@ -343,6 +365,7 @@ describe("BCP01-NonFungibleToken Test", () => {
     let nft: SensibleNFT;
     let codehash: string;
     let genesis: string;
+    let sensibleId: string;
     before(async () => {
       const feeb = 0.5;
       const network = API_NET.MAIN;
@@ -371,12 +394,14 @@ describe("BCP01-NonFungibleToken Test", () => {
       // Utils.dumpTx(_res.tx);
       genesis = _res.genesis;
       codehash = _res.codehash;
+      sensibleId = _res.sensibleId;
     });
 
     it("issue #0 NFT should be ok", async () => {
       let _res1 = await nft.issue({
         codehash,
         genesis,
+        sensibleId,
         genesisWif: CoffeeShop.privateKey.toString(),
         receiverAddress: CoffeeShop.address.toString(),
       });
@@ -387,6 +412,7 @@ describe("BCP01-NonFungibleToken Test", () => {
         let _res1 = await nft.issue({
           codehash,
           genesis,
+          sensibleId,
           genesisWif: CoffeeShop.privateKey.toString(),
           receiverAddress: CoffeeShop.address.toString(),
         });
@@ -397,6 +423,221 @@ describe("BCP01-NonFungibleToken Test", () => {
           "it should reach the totalSupply"
         ).to.be.true;
       }
+    });
+  });
+
+  describe("sell test ", () => {
+    let nft: SensibleNFT;
+    let codehash: string;
+    let genesis: string;
+    let sensibleId: string;
+    let g_sellTx: bsv.Transaction;
+    let network: API_NET = API_NET.MAIN;
+    let feeb: number = 0.5;
+    let opreturnData = "dummy_opreturn_data";
+    before(async () => {
+      nft = new SensibleNFT({
+        signers: [],
+        signerSelecteds,
+        feeb,
+        network,
+        purse: FeePayer.privateKey.toWIF(),
+        debug: true,
+        mockData: {
+          satotxSigners,
+          sensibleApi,
+        },
+      });
+      sensibleApi.cleanCacheds();
+    });
+
+    afterEach(() => {});
+    it("genesis should be ok", async () => {
+      let utxos = await genDummyFeeUtxos(100000001);
+      let _res = await nft.genesis({
+        genesisWif: CoffeeShop.privateKey,
+        totalSupply: "3",
+      });
+      // Utils.dumpTx(_res.tx);
+      genesis = _res.genesis;
+      codehash = _res.codehash;
+      sensibleId = _res.sensibleId;
+    });
+    it("issue should be ok", async () => {
+      await nft.issue({
+        codehash,
+        genesis,
+        sensibleId,
+        genesisWif: CoffeeShop.privateKey.toString(),
+        receiverAddress: CoffeeShop.address.toString(),
+        metaTxId:
+          "a9a6634a67e0785f33efa1ff91b12888be28bac28878c28687055f69be2adac1",
+      });
+      await nft.issue({
+        codehash,
+        genesis,
+        sensibleId,
+        genesisWif: CoffeeShop.privateKey.toString(),
+        receiverAddress: CoffeeShop.address.toString(),
+        metaTxId:
+          "a9a6634a67e0785f33efa1ff91b12888be28bac28878c28687055f69be2adac1",
+      });
+      // Utils.dumpTx(_res1.tx);
+    });
+    it("put on sell nft #0 should be ok", async () => {
+      cleanBsvUtxos();
+      let utxoMaxCount = 3;
+      let estimateFee = await nft.getSellEstimateFee({
+        codehash,
+        genesis,
+        senderWif: CoffeeShop.privateKey.toWIF(),
+        tokenIndex: "0",
+        utxoMaxCount,
+        opreturnData,
+      });
+      let utxos = await genDummyFeeUtxos(estimateFee, utxoMaxCount);
+      let { sellTx, tx } = await nft.sell({
+        codehash,
+        genesis,
+        sellerWif: CoffeeShop.privateKey.toWIF(),
+        tokenIndex: "0",
+        satoshisPrice: 10000,
+        utxos,
+        opreturnData,
+      });
+
+      g_sellTx = sellTx;
+
+      let txComposer = new TxComposer(tx);
+      let finalFeeb = txComposer.getFeeRate();
+      let feeGap = finalFeeb - feeb;
+      let isValid = feeGap > 0 && feeGap < 0.01;
+      if (!isValid) {
+        console.log("estimateFee", estimateFee);
+        Utils.dumpTx(tx);
+      }
+      expect(isValid, `feeb should be ${feeb} but finally is ${finalFeeb}`).to
+        .be.true;
+
+      let pkh = bsv.crypto.Hash.sha256ripemd160(
+        sellTx.outputs[0].script.toBuffer()
+      );
+      let contractAddress = bsv.Address.fromPublicKeyHash(pkh, network);
+      expectNftOwner(nft, codehash, genesis, contractAddress, "0");
+    });
+
+    it("buy nft #0 should be ok", async () => {
+      cleanBsvUtxos();
+      let utxoMaxCount = 3;
+      let estimateFee = await nft.getBuyEstimateFee({
+        codehash,
+        genesis,
+        tokenIndex: "0",
+        buyerWif: Alice.privateKey.toWIF(),
+        sellUtxo: { txId: g_sellTx.id, outputIndex: 0 },
+        utxoMaxCount,
+        opreturnData,
+      });
+      let utxos = await genDummyFeeUtxos(estimateFee, utxoMaxCount);
+      let { unlockCheckTx, tx } = await nft.buy({
+        codehash,
+        genesis,
+        tokenIndex: "0",
+        buyerWif: Alice.privateKey.toWIF(),
+        sellUtxo: { txId: g_sellTx.id, outputIndex: 0 },
+        utxos,
+        opreturnData,
+      });
+      // Utils.dumpTx(tx);
+      let txComposer = new TxComposer(tx);
+      let finalFeeb = txComposer.getFeeRate();
+      let feeGap = finalFeeb - feeb;
+      let isValid = feeGap > 0 && feeGap < 0.01;
+      if (!isValid) {
+        console.log("estimateFee", estimateFee);
+        Utils.dumpTx(tx);
+      }
+      expect(isValid, `feeb should be ${feeb} but finally is ${finalFeeb}`).to
+        .be.true;
+      expectNftOwner(nft, codehash, genesis, Alice.address, "0");
+    });
+
+    it("put on sell nft #1 should be ok", async () => {
+      cleanBsvUtxos();
+      let utxoMaxCount = 3;
+      let estimateFee = await nft.getSellEstimateFee({
+        codehash,
+        genesis,
+        senderWif: CoffeeShop.privateKey.toWIF(),
+        tokenIndex: "1",
+        utxoMaxCount,
+        opreturnData,
+      });
+      let utxos = await genDummyFeeUtxos(estimateFee, utxoMaxCount);
+      let { sellTx, tx } = await nft.sell({
+        codehash,
+        genesis,
+        sellerWif: CoffeeShop.privateKey.toWIF(),
+        tokenIndex: "1",
+        satoshisPrice: 10000,
+        utxos,
+        opreturnData,
+      });
+
+      g_sellTx = sellTx;
+
+      let txComposer = new TxComposer(tx);
+      let finalFeeb = txComposer.getFeeRate();
+      let feeGap = finalFeeb - feeb;
+      let isValid = feeGap > 0 && feeGap < 0.01;
+      if (!isValid) {
+        console.log("estimateFee", estimateFee);
+        Utils.dumpTx(tx);
+      }
+      expect(isValid, `feeb should be ${feeb} but finally is ${finalFeeb}`).to
+        .be.true;
+
+      let pkh = bsv.crypto.Hash.sha256ripemd160(
+        sellTx.outputs[0].script.toBuffer()
+      );
+      let contractAddress = bsv.Address.fromPublicKeyHash(pkh, network);
+      expectNftOwner(nft, codehash, genesis, contractAddress, "1");
+    });
+
+    it("put off sell nft #1 should be ok", async () => {
+      cleanBsvUtxos();
+      const utxoMaxCount = 3;
+      let estimateFee = await nft.getCancelSellEstimateFee({
+        codehash,
+        genesis,
+        tokenIndex: "1",
+        sellerWif: CoffeeShop.privateKey.toWIF(),
+        sellUtxo: { txId: g_sellTx.id, outputIndex: 0 },
+        utxoMaxCount,
+        opreturnData,
+      });
+      let utxos = await genDummyFeeUtxos(estimateFee, utxoMaxCount);
+      let { unlockCheckTx, tx } = await nft.cancelSell({
+        codehash,
+        genesis,
+        tokenIndex: "1",
+        sellerWif: CoffeeShop.privateKey.toWIF(),
+        sellUtxo: { txId: g_sellTx.id, outputIndex: 0 },
+        utxos,
+        opreturnData,
+      });
+      // Utils.dumpTx(tx);
+      let txComposer = new TxComposer(tx);
+      let finalFeeb = txComposer.getFeeRate();
+      let feeGap = finalFeeb - feeb;
+      let isValid = feeGap > 0 && feeGap < 0.01;
+      if (!isValid) {
+        console.log("estimateFee", estimateFee);
+        Utils.dumpTx(tx);
+      }
+      expect(isValid, `feeb should be ${feeb} but finally is ${finalFeeb}`).to
+        .be.true;
+      expectNftOwner(nft, codehash, genesis, CoffeeShop.address, "1");
     });
   });
 });

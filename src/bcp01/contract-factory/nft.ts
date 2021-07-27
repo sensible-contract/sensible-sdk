@@ -30,6 +30,11 @@ import {
 import * as nftProto from "../contract-proto/nft.proto";
 import { NFT_OP_TYPE, SIGNER_VERIFY_NUM } from "../contract-proto/nft.proto";
 import { ContractUtil } from "../contractUtil";
+import { NftSellFactory } from "./nftSell";
+import {
+  NftUnlockContractCheckFactory,
+  NFT_UNLOCK_CONTRACT_TYPE,
+} from "./nftUnlockContractCheck";
 
 export class Nft extends ContractAdapter {
   constuctParams: {
@@ -70,7 +75,6 @@ export class Nft extends ContractAdapter {
 
   public unlock({
     txPreimage,
-    nftInputIndex,
     prevouts,
     rabinMsg,
     rabinPaddingArray,
@@ -79,6 +83,7 @@ export class Nft extends ContractAdapter {
     rabinPubKeyVerifyArray,
     rabinPubKeyHashArray,
     prevNftAddress,
+    genesisScript,
     senderPubKey,
     senderSig,
     receiverAddress,
@@ -95,7 +100,6 @@ export class Nft extends ContractAdapter {
     operation,
   }: {
     txPreimage: SigHashPreimage;
-    nftInputIndex: number;
     prevouts: Bytes;
     rabinMsg: Bytes;
     rabinPaddingArray: Bytes[];
@@ -104,6 +108,7 @@ export class Nft extends ContractAdapter {
     rabinPubKeyVerifyArray: Int[];
     rabinPubKeyHashArray: Bytes;
     prevNftAddress: Bytes;
+    genesisScript?: Bytes; // only needed when use nft in the first time
     senderPubKey?: PubKey; //only transfer need
     senderSig?: Sig; // only transfer need
     receiverAddress?: Bytes; // only transfer need
@@ -119,13 +124,17 @@ export class Nft extends ContractAdapter {
     lockContractTxOutIndex?: number; //only unlockFromContract need
     operation: NFT_OP_TYPE;
   }) {
+    if (!genesisScript) {
+      genesisScript = new Bytes("");
+    }
+
     if (operation != NFT_OP_TYPE.TRANSFER) {
-      senderPubKey = new PubKey("");
-      senderSig = new Sig("");
+      senderPubKey = new PubKey("00");
+      senderSig = new Sig("00");
       receiverAddress = new Bytes("");
       nftOutputSatoshis = new Int(0);
       opReturnScript = new Bytes("");
-      changeAddress = new Ripemd160("");
+      changeAddress = new Ripemd160("00");
       changeSatoshis = new Int(0);
     }
 
@@ -140,7 +149,6 @@ export class Nft extends ContractAdapter {
 
     return this._contract.unlock(
       txPreimage,
-      nftInputIndex,
       prevouts,
       rabinMsg,
       rabinPaddingArray,
@@ -149,6 +157,7 @@ export class Nft extends ContractAdapter {
       rabinPubKeyVerifyArray,
       rabinPubKeyHashArray,
       prevNftAddress,
+      genesisScript,
       senderPubKey,
       senderSig,
       receiverAddress,
@@ -193,7 +202,9 @@ export class NftFactory {
 
   public static calUnlockingScriptSize(
     bsvInputLen: number,
-    opreturnData: any
+    genesisScript: Bytes,
+    opreturnData: any,
+    operation: NFT_OP_TYPE
   ): number {
     let opreturnScriptHex = "";
     if (opreturnData) {
@@ -223,10 +234,29 @@ export class NftFactory {
       prevouts = Buffer.concat([prevouts, txidBuf, indexBuf]);
     }
 
+    let unlockCheckContact = NftUnlockContractCheckFactory.getDummyInstance(
+      NFT_UNLOCK_CONTRACT_TYPE.OUT_6
+    );
+    let checkScriptTx = new bsv.Transaction(dummyTx.serialize(true));
+    checkScriptTx.addOutput(
+      new bsv.Transaction.Output({
+        script: unlockCheckContact.lockingScript,
+        satoshis: 10000,
+      })
+    );
+
+    let sellContract = NftSellFactory.getDummyInstance();
+    let sellTx = new bsv.Transaction(dummyTx.serialize(true));
+    sellTx.addOutput(
+      new bsv.Transaction.Output({
+        script: sellContract.lockingScript,
+        satoshis: 10000,
+      })
+    );
+
     let changeSatoshis = 0;
     let unlockedContract = contract.unlock({
       txPreimage: new SigHashPreimage(toHex(preimage)),
-      nftInputIndex,
       prevouts: new Bytes(toHex(prevouts)),
       rabinMsg,
       rabinPaddingArray,
@@ -235,6 +265,7 @@ export class NftFactory {
       rabinPubKeyVerifyArray: rabinPubKeyArray,
       rabinPubKeyHashArray: new Bytes(toHex(dummyRabinPubKeyHashArray)),
       prevNftAddress: new Bytes(toHex(dummyAddress.hashBuffer)),
+      genesisScript,
       senderPubKey: new PubKey(toHex(dummyPk)),
       senderSig: new Sig(toHex(sig)),
       receiverAddress: new Bytes(toHex(dummyAddress.hashBuffer)),
@@ -242,7 +273,13 @@ export class NftFactory {
       opReturnScript: new Bytes(opreturnScriptHex),
       changeAddress: new Ripemd160(toHex(dummyAddress.hashBuffer)),
       changeSatoshis: new Int(changeSatoshis),
-      operation: NFT_OP_TYPE.TRANSFER,
+      checkInputIndex: 0,
+      checkScriptTx: new Bytes(checkScriptTx.serialize(true)),
+      checkScriptTxOutIndex: 0,
+      lockContractInputIndex: 0,
+      lockContractTx: new Bytes(sellTx.serialize(true)),
+      lockContractTxOutIndex: 0,
+      operation,
     });
     return (unlockedContract.toScript() as bsv.Script).toBuffer().length;
   }

@@ -292,6 +292,7 @@ export namespace Transaction {
     inspect(): string;
     toObject(): object;
     getSize(): number;
+    toBufferWriter(writer?: encoding.BufferWriter): encoding.BufferWriter;
   }
 
   export namespace Input {

@@ -1,6 +1,5 @@
 import "util.scrypt";
 import "txUtil.scrypt";
-import "nftProto.scrypt";
 
 struct PayloadU4Data {
   bytes outpoint;
@@ -19,8 +18,6 @@ library RabinUtil {
 
   static const int ORACLE_NUM = 5;
   static const int ORACLE_VERIFY_NUM = 3;
-  //static const int ORACLE_VERIFY_NUM2 = ORACLE_VERIFY_NUM - 1;
-  static const int ORACLE_VERIFY_NUM2 = 2;
   static const int RABIN_HASH_TIMES = 11;
 
   // u4 rabin msg common format:
@@ -90,41 +87,15 @@ library RabinUtil {
 
     require(hash160(rabinPubKeyHashArray) == rabinPubKeyHashArrayHash);
 
-    loop(RabinUtil.ORACLE_VERIFY_NUM2): i {
-        require(rabinPubKeyIndexArray[i + 1] > rabinPubKeyIndexArray[i]);
-        bytes rabinBytes = Util.toLEUnsigned(rabinPubKeyArray[i], RABIN_PUBKEY_LEN);
+    int preIdx = -1;
+    loop(RabinUtil.ORACLE_VERIFY_NUM): i {
         int idx = rabinPubKeyIndexArray[i];
+        require(idx > preIdx);
+        preIdx = idx;
+        bytes rabinBytes = Util.toLEUnsigned(rabinPubKeyArray[i], RABIN_PUBKEY_LEN);   
         require(rabinPubKeyHashArray[idx * 20: (idx + 1) * 20] == hash160(rabinBytes));
     }
-    int index = rabinPubKeyIndexArray[RabinUtil.ORACLE_VERIFY_NUM - 1];
-    bytes rabinBytes = Util.toLEUnsigned(rabinPubKeyArray[RabinUtil.ORACLE_VERIFY_NUM - 1], RABIN_PUBKEY_LEN);
-    require(rabinPubKeyHashArray[index * 20: (index + 1) * 20] == hash160(rabinBytes));
     return true;
-  }
-
-  static function verifyNftMsg(int[RabinUtil.ORACLE_VERIFY_NUM] rabinPubKeyVerifyArray, bytes rabinMsg, bytes[RabinUtil.ORACLE_VERIFY_NUM] paddingArray, int[RabinUtil.ORACLE_VERIFY_NUM] sigArray, bytes thisOutpoint, bytes sensibleID, bytes script, bytes nftAddress, bytes genesisHash): bool {
-    RabinUtil.verifyRabinMsg(rabinPubKeyVerifyArray, rabinMsg, paddingArray, sigArray);
-
-    PayloadU4SpendByData pl = RabinUtil.loadPayloadU4SpendBy(rabinMsg);
-
-    require(pl.byTxId == thisOutpoint[ : 32]);
-
-    bool matchGenesis = false;
-
-    if (pl.outpoint == sensibleID) {
-      matchGenesis = true;
-    } else {
-      if (pl.scriptHash == genesisHash) {
-        matchGenesis = true;
-      } else {
-        bytes newScript = NftProto.getNewNftScript(script, len(script), nftAddress);
-        if (hash160(newScript) == pl.scriptHash) {
-          matchGenesis = true;
-        }
-      }
-    }
-
-    return matchGenesis;
   }
 
   static function verifyOtherInput(

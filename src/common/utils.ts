@@ -14,9 +14,8 @@ export function isNull(val: any) {
   }
 }
 
-export function getVarPushdataHeader(buf: Buffer) {
+export function getVarPushdataHeader(n: number): Buffer {
   let header = "";
-  let n = buf.length;
   if (n == 0) {
   } else if (n == 1) {
     //不处理这种情况，这里只考虑长脚本
@@ -30,7 +29,7 @@ export function getVarPushdataHeader(buf: Buffer) {
   } else {
     header = "4e" + toHex(TokenUtil.getUInt32Buf(n));
   }
-  return header;
+  return Buffer.from(header, "hex");
 }
 
 export enum CONTRACT_TYPE {

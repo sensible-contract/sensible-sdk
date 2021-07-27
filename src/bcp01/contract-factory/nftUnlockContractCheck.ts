@@ -1,16 +1,28 @@
+import * as BN from "../../bn.js";
 import * as bsv from "../../bsv";
 import { ContractAdapter } from "../../common/ContractAdapter";
-import { dummyCodehash } from "../../common/dummy";
+import {
+  dummyAddress,
+  dummyCodehash,
+  dummyPadding,
+  dummyPayload,
+  dummyRabinPubKey,
+  dummyRabinPubKeyHashArray,
+  dummySigBE,
+  dummyTx,
+} from "../../common/dummy";
 import {
   buildContractClass,
   Bytes,
   FunctionCall,
+  getPreimage,
   Int,
   SigHashPreimage,
   toHex,
 } from "../../scryptlib";
+import { SIGNER_VERIFY_NUM } from "../contract-proto/nft.proto";
 import * as unlockProto from "../contract-proto/nftUnlockContractCheck.proto";
-
+import { NftFactory } from "./nft";
 export class NftUnlockContractCheck extends ContractAdapter {
   constuctParams: { unlockType: NFT_UNLOCK_CONTRACT_TYPE };
   private _formatedDataPart: unlockProto.FormatedDataPart;
@@ -74,6 +86,7 @@ export class NftUnlockContractCheck extends ContractAdapter {
     rabinPubKeyHashArray,
     nOutputs,
     nftOutputIndex,
+    nftOutputAddress,
     nftOutputSatoshis,
     otherOutputArray,
   }: {
@@ -82,13 +95,14 @@ export class NftUnlockContractCheck extends ContractAdapter {
     nftScript: Bytes;
     prevouts: Bytes;
     rabinMsg: Bytes;
-    rabinPaddingArray: Bytes;
-    rabinSigArray: Bytes;
+    rabinPaddingArray: Bytes[];
+    rabinSigArray: Int[];
     rabinPubKeyIndexArray: number[];
     rabinPubKeyVerifyArray: Int[];
     rabinPubKeyHashArray: Bytes;
     nOutputs: number;
     nftOutputIndex: number;
+    nftOutputAddress: Bytes;
     nftOutputSatoshis: number;
     otherOutputArray: Bytes;
   }) {
@@ -105,6 +119,7 @@ export class NftUnlockContractCheck extends ContractAdapter {
       rabinPubKeyHashArray,
       nOutputs,
       nftOutputIndex,
+      nftOutputAddress,
       nftOutputSatoshis,
       otherOutputArray
     ) as FunctionCall;
@@ -118,7 +133,47 @@ export enum NFT_UNLOCK_CONTRACT_TYPE {
   OUT_100,
   UNSUPPORT,
 }
+
+let _unlockContractTypeInfos = [
+  {
+    type: NFT_UNLOCK_CONTRACT_TYPE.OUT_3,
+    out: 3,
+    lockingScriptSize: 0,
+  },
+  {
+    type: NFT_UNLOCK_CONTRACT_TYPE.OUT_6,
+    out: 6,
+    lockingScriptSize: 0,
+  },
+  {
+    type: NFT_UNLOCK_CONTRACT_TYPE.OUT_10,
+    out: 10,
+    lockingScriptSize: 0,
+  },
+  {
+    type: NFT_UNLOCK_CONTRACT_TYPE.OUT_20,
+    out: 20,
+    lockingScriptSize: 0,
+  },
+  {
+    type: NFT_UNLOCK_CONTRACT_TYPE.OUT_100,
+    out: 100,
+    lockingScriptSize: 0,
+  },
+];
+
 export class NftUnlockContractCheckFactory {
+  public static unlockContractTypeInfos: {
+    type: NFT_UNLOCK_CONTRACT_TYPE;
+    out: number;
+    lockingScriptSize: number;
+  }[] = _unlockContractTypeInfos;
+
+  public static getLockingScriptSize(unlockType: NFT_UNLOCK_CONTRACT_TYPE) {
+    return this.unlockContractTypeInfos.find((v) => v.type == unlockType)
+      .lockingScriptSize;
+  }
+
   public static getOptimumType(outCount: number) {
     if (outCount <= 3) {
       return NFT_UNLOCK_CONTRACT_TYPE.OUT_3;
@@ -158,5 +213,54 @@ export class NftUnlockContractCheckFactory {
   ): number {
     let contract = this.getDummyInstance(unlockType);
     return (contract.lockingScript as bsv.Script).toBuffer().length;
+  }
+
+  public static calUnlockingScriptSize(
+    unlockType: NFT_UNLOCK_CONTRACT_TYPE,
+    prevouts: Bytes,
+    otherOutputArray: Bytes
+  ): number {
+    let contract = this.getDummyInstance(unlockType);
+    let nftContractInstance = NftFactory.getDummyInstance();
+
+    const preimage = getPreimage(dummyTx, contract.lockingScript.toASM(), 1);
+    const rabinMsg = new Bytes(dummyPayload);
+    let paddingCountBuf = Buffer.alloc(2, 0);
+    paddingCountBuf.writeUInt16LE(dummyPadding.length / 2);
+    const padding = Buffer.alloc(dummyPadding.length / 2, 0);
+    padding.write(dummyPadding, "hex");
+
+    const rabinPaddingArray: Bytes[] = [];
+    const rabinSigArray: Int[] = [];
+    const rabinPubKeyIndexArray: number[] = [];
+    const rabinPubKeyArray: Int[] = [];
+    let tokenAmount = Buffer.alloc(8);
+    tokenAmount.writeInt32BE(100000);
+
+    for (let i = 0; i < SIGNER_VERIFY_NUM; i++) {
+      rabinPaddingArray.push(new Bytes(dummyPadding));
+      rabinSigArray.push(new Int(BN.fromString(dummySigBE, 16).toString(10)));
+      rabinPubKeyIndexArray.push(i);
+      rabinPubKeyArray.push(new Int(dummyRabinPubKey.toString(10)));
+    }
+
+    let unlockedContract = contract.unlock({
+      txPreimage: new SigHashPreimage(toHex(preimage)),
+      nftInputIndex: 0,
+      nftScript: new Bytes(nftContractInstance.lockingScript.toHex()),
+      prevouts: prevouts,
+      rabinMsg: rabinMsg,
+      rabinPaddingArray: rabinPaddingArray,
+      rabinSigArray: rabinSigArray,
+      rabinPubKeyIndexArray,
+      rabinPubKeyVerifyArray: rabinPubKeyArray,
+      rabinPubKeyHashArray: new Bytes(toHex(dummyRabinPubKeyHashArray)),
+      nOutputs: 2,
+      nftOutputIndex: 0,
+      nftOutputAddress: new Bytes(toHex(dummyAddress.hashBuffer)),
+      nftOutputSatoshis: 1000,
+      otherOutputArray,
+    });
+    return (unlockedContract.toScript() as bsv.Script).toBuffer().length;
   }
 }

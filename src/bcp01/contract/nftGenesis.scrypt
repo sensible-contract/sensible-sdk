@@ -62,15 +62,11 @@ contract NftGenesis {
     require(tokenIndex < totalSupply);
 
     bool isFirst = false;
-    bytes genesisHash = hash160(genesisScript);
-    if (sensibleID == b'000000000000000000000000000000000000000000000000000000000000000000000000') {
+    if (sensibleID == NftProto.NULL_SENSIBLE_ID) {
       isFirst = true;
       sensibleID = Util.outpoint(txPreimage);
     } 
-    int protoType = NftProto.getProtoType(genesisScript, genesisScriptLen);
-    require(protoType == NftProto.PROTO_TYPE);
-    bytes flag = NftProto.getProtoFlag(genesisScript, genesisScriptLen);
-    require(flag == NftProto.PROTO_FLAG);
+    require(NftProto.checkProtoHeader(genesisScript, genesisScriptLen));
     // check opreturn
     require(NftProto.checkDataLen(genesisScript, genesisScriptLen));
     require(NftProto.checkOpReturn(genesisScript, genesisScriptLen));
@@ -97,14 +93,13 @@ contract NftGenesis {
     require(sensibleID == NftProto.getSensibleID(nftScript, nftScriptLen));
     require(tokenIndex == NftProto.getTokenIndex(nftScript, nftScriptLen));
     require(totalSupply == NftProto.getTotalSupply(nftScript, nftScriptLen));
-    protoType = NftProto.getProtoType(nftScript, nftScriptLen);
-    require(protoType == NftProto.PROTO_TYPE);
-    require(NftProto.PROTO_FLAG == NftProto.getProtoFlag(nftScript, nftScriptLen));
+    require(NftProto.checkProtoHeader(nftScript, nftScriptLen));
     // check opreturn
     require(NftProto.checkDataLen(nftScript, nftScriptLen));
     require(NftProto.checkOpReturn(nftScript, nftScriptLen));
 
     //check genesisHash
+    bytes genesisHash = hash160(NftProto.getNewGenesisScript(genesisScript, genesisScriptLen, sensibleID, 0));
     require(NftProto.getGenesisHash(nftScript, nftScriptLen) == genesisHash);
 
     bytes genesisOutput = b'';
