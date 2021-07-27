@@ -50,13 +50,9 @@
             "params": []
         }
     ],
-    "buildType": "debug",
-    "file": "file:///Users/huanniangstudio/huanniangstudio/workplace/project/satoplay/subject/scrypt_proj/BCP_WORK/sensible-sdk/src/bcp01/contract/rabinUtil.scrypt",
+    "buildType": "release",
+    "file": "",
     "asm": "8001",
-    "sources": [
-        "/Users/huanniangstudio/huanniangstudio/workplace/project/satoplay/subject/scrypt_proj/BCP_WORK/sensible-sdk/src/bcp01/contract/rabinUtil.scrypt"
-    ],
-    "sourceMap": [
-        "0:28:30:28:33"
-    ]
+    "sources": [],
+    "sourceMap": []
 }
