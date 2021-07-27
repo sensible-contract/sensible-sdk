@@ -300,4 +300,20 @@ export class Sensible implements SensibleApiBase {
     });
     return ret;
   }
+
+  public async getBalance(address: string) {
+    let url = `${this.serverBase}/address/${address}/balance`;
+    let _res = await Net.httpGet(url, {});
+    const { code, data, msg } = _res as ResData;
+    if (code != 0) {
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
+    }
+    return {
+      balance: data.satoshis,
+      pendingBalance: data.pendingSatoshi,
+    };
+  }
 }

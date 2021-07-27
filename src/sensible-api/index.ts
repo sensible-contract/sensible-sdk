@@ -99,6 +99,13 @@ export interface SensibleApiBase {
   getNonFungibleTokenSummary(
     address: string
   ): Promise<NonFungibleTokenSummary[]>;
+
+  getBalance(
+    address: string
+  ): Promise<{
+    balance: number;
+    pendingBalance: number;
+  }>;
 }
 
 export class SensibleApi implements SensibleApiBase {
@@ -128,6 +135,11 @@ export class SensibleApi implements SensibleApiBase {
 
   async getUnspents(address: string) {
     return this.apiHandler.getUnspents(address);
+  }
+
+  async getBalance(address: string) {
+    let _res = await this.apiHandler.getBalance(address);
+    return { balance: _res.balance, pendingBalance: _res.pendingBalance };
   }
 
   async getRawTxData(txid: string) {

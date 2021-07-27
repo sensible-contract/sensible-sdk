@@ -1,5 +1,5 @@
 import * as bsv from "../bsv";
-import { CONTRACT_TYPE, SigHashInfo } from "../common/utils";
+import { CONTRACT_TYPE, dumpTx, SigHashInfo } from "../common/utils";
 import { getPreimage, signTx, toHex } from "../scryptlib";
 const Signature = bsv.crypto.Signature;
 export const sighashType = Signature.SIGHASH_ALL | Signature.SIGHASH_FORKID;
@@ -289,5 +289,9 @@ export class TxComposer {
       ]);
     });
     return bsv.crypto.Hash.sha256sha256(prevouts).toString("hex");
+  }
+
+  dumpTx(network?: string) {
+    dumpTx(this.tx, network);
   }
 }

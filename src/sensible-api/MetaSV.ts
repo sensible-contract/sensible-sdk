@@ -313,4 +313,20 @@ export class MetaSV implements SensibleApiBase {
     });
     return ret;
   }
+
+  public async getBalance(address: string) {
+    let path = `/address/${address}/balance`;
+    let url = this.serverBase + path;
+    let _res: any = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(path),
+      }
+    );
+    return {
+      balance: _res.confirmed,
+      pendingBalance: _res.unconfirmed,
+    };
+  }
 }

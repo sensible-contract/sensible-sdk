@@ -14,7 +14,8 @@
     "build": "npx gulp",
     "test": "mocha -r ts-node/register test/**/*.test.ts --timeout 600000",
     "test-ft": "mocha -r ts-node/register test/bcp02/ft.test.ts --timeout 5000000 --debugUri ",
-    "test-nft": "mocha -r ts-node/register test/bcp01/nft.test.ts --timeout 5000000 --debugUri "
+    "test-nft": "mocha -r ts-node/register test/bcp01/nft.test.ts --timeout 5000000 --debugUri ",
+    "test-wallet": "mocha -r ts-node/register test/others/wallet.test.ts --timeout 5000000 --debugUri "
   },
   "keywords": [
     "sCrypt",

@@ -74,6 +74,7 @@ async function main() {
       sellerWif: CoffeeShop.wif,
       tokenIndex: "0",
       satoshisPrice: 2000,
+      opreturnData: "CoffeeShop sell nft #0",
     });
     g_sellTx = sellTx;
     console.log(`CoffeeShop sell nft #0 ${tx.id}`);
@@ -86,6 +87,7 @@ async function main() {
       tokenIndex: "0",
       sellerWif: CoffeeShop.wif,
       sellUtxo: { txId: g_sellTx.id, outputIndex: 0 },
+      opreturnData: "CoffeeShop cancel sell nft #0",
     });
     console.log(`CoffeeShop cancel sell nft #0 ${tx.id}`);
   }
@@ -98,6 +100,7 @@ async function main() {
       sellerWif: CoffeeShop.wif,
       tokenIndex: "1",
       satoshisPrice: 2100,
+      opreturnData: "CoffeeShop sell nft #1",
     });
     g_sellTx = sellTx;
     console.log(`CoffeeShop sell nft #1 ${tx.id}`);
@@ -111,6 +114,7 @@ async function main() {
       tokenIndex: "1",
       buyerWif: Alice.wif,
       sellUtxo: { txId: g_sellTx.id, outputIndex: 0 },
+      opreturnData: "Alice buy nft #1",
     });
     console.log(`Alice buy nft #1 ${tx.id}`);
   }

@@ -331,4 +331,8 @@ export class MockSensibleApi implements SensibleApiBase {
   ): Promise<NonFungibleTokenSummary[]> {
     return [];
   }
+
+  public async getBalance(address: string) {
+    return { balance: 0, pendingBalance: 0 };
+  }
 }

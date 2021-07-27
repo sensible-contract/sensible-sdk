@@ -4,6 +4,7 @@ import * as bsv from "../bsv";
 import * as $ from "../common/argumentCheck";
 import { DustCalculator } from "../common/DustCalculator";
 import { CodeError, ErrCode } from "../common/error";
+import { hasProtoFlag } from "../common/protoheader.js";
 import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import { getRabinData, getRabinDatas } from "../common/satotxSignerUtil";
 import { SizeTransaction } from "../common/SizeTransaction";
@@ -3389,5 +3390,52 @@ export class SensibleNFT {
       nftUtxo.satotxInfo,
     ]);
     // this.nft.createUnlockTx()
+  }
+
+  public static parseTokenScript(
+    scriptBuf: Buffer,
+    network: API_NET = API_NET.MAIN
+  ): {
+    codehash: string;
+    genesis: string;
+    sensibleId: string;
+    metaidOutpoint: nftProto.MetaidOutpoint;
+    genesisFlag: number;
+
+    nftAddress: string;
+    totalSupply: BN;
+    tokenIndex: BN;
+    genesisHash: string;
+    rabinPubKeyHashArrayHash: string;
+    sensibleID: nftProto.SensibleID;
+    protoVersion: number;
+    protoType: number;
+  } {
+    if (!hasProtoFlag(scriptBuf)) {
+      return null;
+    }
+    const dataPart = nftProto.parseDataPart(scriptBuf);
+    const nftAddress = bsv.Address.fromPublicKeyHash(
+      Buffer.from(dataPart.nftAddress, "hex"),
+      network
+    ).toString();
+    const genesis = nftProto.getQueryGenesis(scriptBuf);
+    const codehash = nftProto.getQueryCodehash(scriptBuf);
+    const sensibleId = nftProto.getQuerySensibleID(scriptBuf);
+    return {
+      codehash,
+      genesis,
+      sensibleId,
+      metaidOutpoint: dataPart.metaidOutpoint,
+      genesisFlag: dataPart.genesisFlag,
+      nftAddress,
+      totalSupply: dataPart.totalSupply,
+      tokenIndex: dataPart.tokenIndex,
+      genesisHash: dataPart.genesisHash,
+      rabinPubKeyHashArrayHash: dataPart.rabinPubKeyHashArrayHash,
+      sensibleID: dataPart.sensibleID,
+      protoVersion: dataPart.protoVersion,
+      protoType: dataPart.protoType,
+    };
   }
 }
