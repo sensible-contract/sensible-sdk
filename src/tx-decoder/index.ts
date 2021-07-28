@@ -10,49 +10,64 @@ export enum OutputType {
   OP_RETURN,
   UNKNOWN,
 }
-export class TxDecoder {
-  static decodeTxHex(txHex: string, network: API_NET = API_NET.MAIN) {
-    let tx = new bsv.Transaction(txHex);
 
-    let outputs = [];
-    tx.outputs.forEach((v) => {
-      let scriptBuf = v.script.toBuffer();
-      if (proto.hasProtoFlag(scriptBuf)) {
-        let protoType = proto.getProtoType(scriptBuf);
-        if (protoType == proto.PROTO_TYPE.NFT) {
-          outputs.push({
-            type: OutputType.SENSIBLE_NFT,
-            satoshis: v.satoshis,
-            data: SensibleNFT.parseTokenScript(scriptBuf, network),
-          });
-        } else if (protoType == proto.PROTO_TYPE.FT) {
-          outputs.push({
-            type: OutputType.SENSIBLE_FT,
-            satoshis: v.satoshis,
-            data: SensibleFT.parseTokenScript(scriptBuf, network),
-          });
-        } else {
-          outputs.push({
-            type: OutputType.UNKNOWN,
-            satoshis: v.satoshis,
-          });
-        }
-      } else if (v.script.isPublicKeyHashOut()) {
-        outputs.push({
-          type: OutputType.P2PKH,
-          satoshis: v.satoshis,
-        });
-      } else if (v.script.isSafeDataOut()) {
-        outputs.push({
-          type: OutputType.OP_RETURN,
-          satoshis: 0,
-        });
+function decodeOutput(output: bsv.Transaction.Output, network: API_NET) {
+  let scriptBuf = output.script.toBuffer();
+  if (proto.hasProtoFlag(scriptBuf)) {
+    let protoType = proto.getProtoType(scriptBuf);
+    if (protoType == proto.PROTO_TYPE.NFT) {
+      return {
+        type: OutputType.SENSIBLE_NFT,
+        satoshis: output.satoshis,
+        data: SensibleNFT.parseTokenScript(scriptBuf, network),
+      };
+    } else if (protoType == proto.PROTO_TYPE.FT) {
+      return {
+        type: OutputType.SENSIBLE_FT,
+        satoshis: output.satoshis,
+        data: SensibleFT.parseTokenScript(scriptBuf, network),
+      };
+    } else {
+      return {
+        type: OutputType.UNKNOWN,
+        satoshis: output.satoshis,
+      };
+    }
+  } else if (output.script.isPublicKeyHashOut()) {
+    return {
+      type: OutputType.P2PKH,
+      satoshis: output.satoshis,
+      address: output.script.toAddress(network).toString(),
+    };
+  } else if (output.script.isSafeDataOut()) {
+    return {
+      type: OutputType.OP_RETURN,
+      satoshis: 0,
+    };
+  }
+}
+export class TxDecoder {
+  static decodeTx(tx: bsv.Transaction, network: API_NET = API_NET.MAIN) {
+    let inputs = [];
+    tx.inputs.forEach((v) => {
+      if (v.output) {
+        inputs.push(decodeOutput(v.output, network));
       }
     });
 
+    let outputs = [];
+    tx.outputs.forEach((v) => {
+      outputs.push(decodeOutput(v, network));
+    });
+
+    let fee =
+      inputs.reduce((pre, cur) => pre + cur.satoshis, 0) -
+      outputs.reduce((pre, cur) => pre + cur.satoshis, 0);
     return {
       txId: tx.id,
+      inputs,
       outputs,
+      fee,
     };
   }
 }
