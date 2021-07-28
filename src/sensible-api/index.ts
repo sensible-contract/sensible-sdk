@@ -46,8 +46,12 @@ export type FungibleTokenSummary = {
 export type NonFungibleTokenSummary = {
   codehash: string;
   genesis: string;
+  sensibleId: string;
   count: string;
   pendingCount: string;
+  metaTxId: string;
+  metaOutputIndex: number;
+  supply: string;
 };
 
 export type FungibleTokenBalance = {

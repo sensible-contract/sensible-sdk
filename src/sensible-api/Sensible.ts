@@ -294,8 +294,12 @@ export class Sensible implements SensibleApiBase {
       ret.push({
         codehash: v.codehash,
         genesis: v.genesis,
+        sensibleId: v.sensibleId,
         count: v.count,
         pendingCount: v.pendingCount,
+        metaTxId: v.metaTxId,
+        metaOutputIndex: v.metaOutputIndex,
+        supply: v.supply,
       });
     });
     return ret;
