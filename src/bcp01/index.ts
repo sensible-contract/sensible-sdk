@@ -1623,6 +1623,7 @@ export class SensibleNFT {
       tx: txComposer.tx,
       txHex,
       txid: txComposer.tx.id,
+      sellTxId: nftSellTxComposer.getTxId(),
       sellTx: nftSellTxComposer.getTx(),
       sellTxHex: nftSellTxHex,
     };
@@ -1837,6 +1838,7 @@ export class SensibleNFT {
       tx: txComposer.tx,
       txHex,
       txid: txComposer.tx.id,
+      unlockCheckTxId: unlockCheckTxComposer.getTxId(),
       unlockCheckTx: unlockCheckTxComposer.getTx(),
       unlockCheckTxHex: unlockCheckTxHex,
     };
@@ -2227,6 +2229,7 @@ export class SensibleNFT {
       tx: txComposer.tx,
       txHex,
       txid: txComposer.tx.id,
+      unlockCheckTxId: unlockCheckTxComposer.getTxId(),
       unlockCheckTx: unlockCheckTxComposer.getTx(),
       unlockCheckTxHex: unlockCheckTxHex,
     };
