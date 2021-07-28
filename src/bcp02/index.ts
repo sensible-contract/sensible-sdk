@@ -8,7 +8,11 @@ import { CodeError, ErrCode } from "../common/error";
 import { Prevouts } from "../common/Prevouts";
 import { hasProtoFlag } from "../common/protoheader";
 import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
-import { getRabinData, getRabinDatas } from "../common/satotxSignerUtil";
+import {
+  getRabinData,
+  getRabinDatas,
+  selectSigners,
+} from "../common/satotxSignerUtil";
 import { SizeTransaction } from "../common/SizeTransaction";
 import * as TokenUtil from "../common/tokenUtil";
 import * as Utils from "../common/utils";
@@ -372,89 +376,11 @@ export class SensibleFT {
   public static async selectSigners(
     signerConfigs: SignerConfig[] = defaultSignerConfigs
   ) {
-    let _signerConfigs = signerConfigs.map((v) => Object.assign({}, v));
-    if (_signerConfigs.length < ftProto.SIGNER_NUM) {
-      throw new CodeError(
-        ErrCode.EC_INVALID_ARGUMENT,
-        `The length of signerArray should be ${ftProto.SIGNER_NUM}`
-      );
-    }
-    let retPromises = [];
-    const SIGNER_TIMEOUT = 99999;
-    for (let i = 0; i < _signerConfigs.length; i++) {
-      let signerConfig = _signerConfigs[i];
-      let subArray = signerConfig.satotxApiPrefix.split(",");
-      let ret = new Promise(
-        (
-          resolve: ({
-            url,
-            pubKey,
-            duration,
-            idx,
-          }: {
-            url: string;
-            pubKey: string;
-            duration: number;
-            idx: number;
-          }) => void,
-          reject
-        ) => {
-          let hasResolve = false;
-          let failedCnt = 0;
-          for (let j = 0; j < subArray.length; j++) {
-            let url = subArray[j];
-            let signer = new SatotxSigner(url);
-            let d1 = Date.now();
-            signer
-              .getInfo()
-              .then(({ pubKey }) => {
-                let duration = Date.now() - d1;
-                if (!hasResolve) {
-                  hasResolve = true;
-                  resolve({ url, pubKey, duration, idx: i });
-                }
-              })
-              .catch((e) => {
-                failedCnt++;
-                if (failedCnt == subArray.length) {
-                  resolve({
-                    url,
-                    pubKey: null,
-                    duration: SIGNER_TIMEOUT,
-                    idx: i,
-                  });
-                  // reject(`failed to get info by ${url}`);
-                }
-                //ignore
-              });
-          }
-        }
-      );
-      retPromises.push(ret);
-    }
-
-    let results = [];
-    for (let i = 0; i < _signerConfigs.length; i++) {
-      let signerConfig = _signerConfigs[i];
-      let ret = await retPromises[i];
-      signerConfig.satotxApiPrefix = ret.url;
-      results.push(ret);
-    }
-    let signerSelecteds: number[] = results
-      .filter((v) => v.duration < SIGNER_TIMEOUT)
-      .sort((a, b) => a.duration - b.duration)
-      .slice(0, ftProto.SIGNER_VERIFY_NUM)
-      .map((v) => v.idx);
-    if (signerSelecteds.length < ftProto.SIGNER_VERIFY_NUM) {
-      throw new CodeError(
-        ErrCode.EC_INNER_ERROR,
-        `Less than 3 successful signer requests`
-      );
-    }
-    return {
-      signers: _signerConfigs,
-      signerSelecteds,
-    };
+    return await selectSigners(
+      signerConfigs,
+      ftProto.SIGNER_NUM,
+      ftProto.SIGNER_VERIFY_NUM
+    );
   }
 
   public setDustThreshold({

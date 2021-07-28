@@ -1,6 +1,7 @@
 import * as BN from "../bn.js";
 import { Bytes, Int, toHex } from "../scryptlib";
-import { SatotxSigner } from "./SatotxSigner";
+import { CodeError, ErrCode } from "./error";
+import { SatotxSigner, SignerConfig } from "./SatotxSigner";
 import * as TokenUtil from "./tokenUtil";
 
 export async function getRabinDataEmpty(
@@ -216,5 +217,95 @@ export async function getRabinDatas(
     checkRabinData,
     rabinPubKeyIndexArray,
     rabinPubKeyVerifyArray,
+  };
+}
+
+export async function selectSigners(
+  signerConfigs: SignerConfig[],
+  signerNum: number,
+  signerVerifyNum: number
+) {
+  let _signerConfigs = signerConfigs.map((v) => Object.assign({}, v));
+  if (_signerConfigs.length < signerNum) {
+    throw new CodeError(
+      ErrCode.EC_INVALID_ARGUMENT,
+      `The length of signerArray should be ${signerNum}`
+    );
+  }
+  let retPromises = [];
+  const SIGNER_TIMEOUT = 99999;
+  for (let i = 0; i < _signerConfigs.length; i++) {
+    let signerConfig = _signerConfigs[i];
+    let subArray = signerConfig.satotxApiPrefix.split(",");
+    let ret = new Promise(
+      (
+        resolve: ({
+          url,
+          pubKey,
+          duration,
+          idx,
+        }: {
+          url: string;
+          pubKey: string;
+          duration: number;
+          idx: number;
+        }) => void,
+        reject
+      ) => {
+        let hasResolve = false;
+        let failedCnt = 0;
+        for (let j = 0; j < subArray.length; j++) {
+          let url = subArray[j];
+          let signer = new SatotxSigner(url);
+          let d1 = Date.now();
+          signer
+            .getInfo()
+            .then(({ pubKey }) => {
+              let duration = Date.now() - d1;
+              if (!hasResolve) {
+                hasResolve = true;
+                resolve({ url, pubKey, duration, idx: i });
+              }
+            })
+            .catch((e) => {
+              failedCnt++;
+              if (failedCnt == subArray.length) {
+                resolve({
+                  url,
+                  pubKey: null,
+                  duration: SIGNER_TIMEOUT,
+                  idx: i,
+                });
+                // reject(`failed to get info by ${url}`);
+              }
+              //ignore
+            });
+        }
+      }
+    );
+    retPromises.push(ret);
+  }
+
+  let results = [];
+  for (let i = 0; i < _signerConfigs.length; i++) {
+    let signerConfig = _signerConfigs[i];
+    let ret = await retPromises[i];
+    signerConfig.satotxApiPrefix = ret.url;
+    results.push(ret);
+  }
+  let signerSelecteds: number[] = results
+    .filter((v) => v.duration < SIGNER_TIMEOUT)
+    .sort((a, b) => a.duration - b.duration)
+    .slice(0, signerVerifyNum)
+    .map((v) => v.idx);
+  if (signerSelecteds.length < signerVerifyNum) {
+    throw new CodeError(
+      ErrCode.EC_INNER_ERROR,
+      `Less than ${signerVerifyNum} successful signer requests`
+    );
+  }
+  return {
+    signers: _signerConfigs,
+    signerSelecteds,
   };
 }

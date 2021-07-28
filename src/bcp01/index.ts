@@ -6,7 +6,11 @@ import { DustCalculator } from "../common/DustCalculator";
 import { CodeError, ErrCode } from "../common/error";
 import { hasProtoFlag } from "../common/protoheader";
 import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
-import { getRabinData, getRabinDatas } from "../common/satotxSignerUtil";
+import {
+  getRabinData,
+  getRabinDatas,
+  selectSigners,
+} from "../common/satotxSignerUtil";
 import { SizeTransaction } from "../common/SizeTransaction";
 import * as TokenUtil from "../common/tokenUtil";
 import * as Utils from "../common/utils";
@@ -331,15 +335,6 @@ export class SensibleNFT {
       this.zeroAddress = new bsv.Address("mfWxJ45yp2SFn7UciZyNpvDKrzbhyfKrY8");
     }
 
-    let rabinPubKeys = this.signers.map((v) => v.satotxPubKey);
-    let rabinPubKeyHashArray = TokenUtil.getRabinPubKeyHashArray(rabinPubKeys);
-    this.rabinPubKeyHashArrayHash = bsv.crypto.Hash.sha256ripemd160(
-      rabinPubKeyHashArray
-    );
-    this.rabinPubKeyHashArray = new Bytes(toHex(rabinPubKeyHashArray));
-    this.rabinPubKeyArray = rabinPubKeys.map((v) => new Int(v.toString(10)));
-    this.unlockContractCodeHashArray = ContractUtil.unlockContractCodeHashArray;
-
     if (purse) {
       const privateKey = bsv.PrivateKey.fromWIF(purse);
       const address = privateKey.toAddress(this.network);
@@ -363,6 +358,25 @@ export class SensibleNFT {
       }
     }
     this.signerSelecteds.sort((a, b) => a - b);
+
+    let rabinPubKeys = this.signers.map((v) => v.satotxPubKey);
+    let rabinPubKeyHashArray = TokenUtil.getRabinPubKeyHashArray(rabinPubKeys);
+    this.rabinPubKeyHashArrayHash = bsv.crypto.Hash.sha256ripemd160(
+      rabinPubKeyHashArray
+    );
+    this.rabinPubKeyHashArray = new Bytes(toHex(rabinPubKeyHashArray));
+    this.rabinPubKeyArray = rabinPubKeys.map((v) => new Int(v.toString(10)));
+    this.unlockContractCodeHashArray = ContractUtil.unlockContractCodeHashArray;
+  }
+
+  public static async selectSigners(
+    signerConfigs: SignerConfig[] = defaultSignerConfigs
+  ) {
+    return await selectSigners(
+      signerConfigs,
+      nftProto.SIGNER_NUM,
+      nftProto.SIGNER_VERIFY_NUM
+    );
   }
 
   public setDustThreshold({
