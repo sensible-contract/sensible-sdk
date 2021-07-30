@@ -316,7 +316,7 @@ export class Sensible implements SensibleApiBase {
       );
     }
     return {
-      balance: data.satoshis,
+      balance: data.satoshi,
       pendingBalance: data.pendingSatoshi,
     };
   }
