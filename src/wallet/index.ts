@@ -138,4 +138,24 @@ export class Wallet {
     await this.blockChainApi.broadcast(txComposer.getRawHex());
     return txComposer;
   }
+
+  public async sendOpReturn(opreturnData: any, options?: BroadcastOptions) {
+    const txComposer = new TxComposer();
+    let utxos = await this.blockChainApi.getUnspents(this.address.toString());
+    utxos.forEach((v) => {
+      txComposer.appendP2PKHInput({
+        address: new bsv.Address(v.address, this.network),
+        txId: v.txId,
+        outputIndex: v.outputIndex,
+        satoshis: v.satoshis,
+      });
+    });
+    txComposer.appendOpReturnOutput(opreturnData);
+    txComposer.appendChangeOutput(this.address, this.feeb);
+    utxos.forEach((v, index) => {
+      txComposer.unlockP2PKHInput(this.privateKey, index);
+    });
+
+    return await this.broadcastTxComposer(txComposer, options);
+  }
 }

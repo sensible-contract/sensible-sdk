@@ -1,29 +1,10 @@
-import {
-  SIGNER_NUM,
-  SIGNER_VERIFY_NUM,
-} from "../../src/bcp01/contract-proto/nft.proto";
-import * as BN from "../../src/bn.js";
+import { SIGNER_NUM } from "../../src/bcp01/contract-proto/nft.proto";
 import * as bsv from "../../src/bsv";
 import * as Utils from "../../src/common/utils";
 import { API_NET, API_TARGET, Wallet } from "../../src/index";
-import { dummyRabinKeypairs } from "../dummyRabin";
-import { MockSatotxSigner } from "../MockSatotxSigner";
 import { MockSensibleApi } from "../MockSensibleApi";
 Utils.isNull(SIGNER_NUM);
-const signerNum = SIGNER_NUM;
-const signerVerifyNum = SIGNER_VERIFY_NUM;
-const satotxSigners: MockSatotxSigner[] = [];
-for (let i = 0; i < signerNum; i++) {
-  let { p, q } = dummyRabinKeypairs[i];
-  satotxSigners.push(
-    new MockSatotxSigner(BN.fromString(p, 10), BN.fromString(q, 10))
-  );
-}
-const signerSelecteds = new Array(signerNum)
-  .fill(0)
-  .map((v, idx) => idx)
-  .sort((a, b) => Math.random() - 0.5)
-  .slice(0, signerVerifyNum);
+
 let wallets: {
   privateKey: bsv.PrivateKey;
   publicKey: bsv.PublicKey;
@@ -37,27 +18,6 @@ for (let i = 0; i < 4; i++) {
     address: privateKey.toAddress("mainnet"),
   });
 }
-function signSigHashList(sigHashList: Utils.SigHashInfo[]) {
-  let sigList = sigHashList.map(({ sighash, sighashType, address }) => {
-    let privateKey = wallets.find((v) => v.address.toString() == address)
-      .privateKey;
-    var sig = bsv.crypto.ECDSA.sign(
-      Buffer.from(sighash, "hex"),
-      privateKey,
-      "little"
-    )
-      .set({
-        nhashtype: sighashType,
-      })
-      .toString();
-    return {
-      sig,
-      publicKey: privateKey.toPublicKey(),
-    };
-  });
-  return sigList;
-}
-
 let [FeePayer, CoffeeShop, Alice, Bob] = wallets;
 // console.log(`
 // FeePayer:   ${FeePayer.address.toString()}
@@ -164,6 +124,20 @@ describe("Wallet Test", () => {
       );
       wallet.blockChainApi = sensibleApi;
       let txComposer = await wallet.merge({
+        noBroadcast: false,
+        dump: true,
+      });
+    });
+
+    it("send opreturnData should be ok", async () => {
+      wallet = new Wallet(
+        Alice.privateKey.toWIF(),
+        API_NET.MAIN,
+        0.5,
+        API_TARGET.SENSIBLE
+      );
+      wallet.blockChainApi = sensibleApi;
+      let txComposer = await wallet.sendOpReturn("Alice and Bob are friends", {
         noBroadcast: false,
         dump: true,
       });

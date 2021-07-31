@@ -37,6 +37,7 @@ export class ServerNet {
             }
             resolve(body);
           } else {
+            console.log("request failed.", reqData);
             reject(
               new Error(
                 `RequestError: statuCode:${res.statusCode} statusMessage:${res.statusMessage} body:${body}`
@@ -44,6 +45,7 @@ export class ServerNet {
             );
           }
         } else {
+          console.log("request failed.", reqData);
           reject(err);
         }
       });
@@ -107,6 +109,7 @@ export class ServerNet {
             }
             resolve(body);
           } else {
+            console.log("request failed.", reqData);
             reject(
               new Error(
                 `RequestError: statuCode:${res.statusCode} statusMessage:${res.statusMessage} body:${body}`
@@ -114,6 +117,7 @@ export class ServerNet {
             );
           }
         } else {
+          console.log("request failed.", reqData);
           reject(err);
         }
       });
