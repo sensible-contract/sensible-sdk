@@ -534,7 +534,6 @@ describe("BCP01-NonFungibleToken Test", () => {
         genesis,
         tokenIndex: "0",
         buyerWif: Alice.privateKey.toWIF(),
-        sellUtxo: { txId: g_sellTx.id, outputIndex: 0 },
         utxoMaxCount,
         opreturnData,
       });
@@ -544,7 +543,6 @@ describe("BCP01-NonFungibleToken Test", () => {
         genesis,
         tokenIndex: "0",
         buyerWif: Alice.privateKey.toWIF(),
-        sellUtxo: { txId: g_sellTx.id, outputIndex: 0 },
         utxos,
         opreturnData,
       });
@@ -622,7 +620,6 @@ describe("BCP01-NonFungibleToken Test", () => {
         genesis,
         tokenIndex: "1",
         sellerWif: CoffeeShop.privateKey.toWIF(),
-        sellUtxo: { txId: g_sellTx.id, outputIndex: 0 },
         utxos,
         opreturnData,
       });

@@ -333,4 +333,32 @@ export class MetaSV implements SensibleApiBase {
       pendingBalance: _res.unconfirmed,
     };
   }
+
+  public async getNftSellUtxo(
+    codehash: string,
+    genesis: string,
+    tokenIndex: string
+  ) {
+    let url = `${this.serverBase}/nft/utxo-detail/${codehash}/${genesis}/${tokenIndex}`;
+    let _res = await Net.httpGet(url, {});
+    const { code, data, msg } = _res as ResData;
+    if (code != 0) {
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
+    }
+    if (!data) return null;
+    let ret = [data].map((v) => ({
+      codehash,
+      genesis,
+      tokenIndex,
+      txId: v.txid,
+      outputIndex: v.vout,
+      sellerAddress: v.address,
+      satoshisPrice: v.tokenIndex,
+      nftID: v.metaTxId,
+    }))[0];
+    return ret;
+  }
 }

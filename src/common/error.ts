@@ -26,6 +26,8 @@ export enum ErrCode {
   //金额不足
   EC_INSUFFICIENT_BSV = -200,
   EC_INSUFFICIENT_FT = -201,
+
+  EC_NFT_NOT_ON_SELL = -300,
 }
 
 export const ErrInfo = {

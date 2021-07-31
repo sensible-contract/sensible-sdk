@@ -24,6 +24,7 @@ import {
 import {
   API_NET,
   API_TARGET,
+  NftSellUtxo,
   NonFungibleTokenUnspent,
   SensibleApi,
   SensibleApiBase,
@@ -38,6 +39,7 @@ import {
 } from "./contract-factory/nftUnlockContractCheck";
 import * as nftProto from "./contract-proto/nft.proto";
 import { SIGNER_VERIFY_NUM } from "./contract-proto/nft.proto";
+import * as nftSellProto from "./contract-proto/nftSell.proto";
 import { ContractUtil } from "./contractUtil";
 const Signature = bsv.crypto.Signature;
 export const sighashType = Signature.SIGHASH_ALL | Signature.SIGHASH_FORKID;
@@ -118,7 +120,7 @@ export type ParamUtxo = {
   wif?: string;
   address?: any;
 };
-const defaultSignerConfigs: SignerConfig[] = [
+export const defaultSignerConfigs: SignerConfig[] = [
   {
     satotxApiPrefix: "https://s1.satoplay.cn,https://s1.satoplay.com",
     satotxPubKey:
@@ -145,7 +147,6 @@ const defaultSignerConfigs: SignerConfig[] = [
       "a36531727b324b34baef257d223b8ba97bac06d6b631cccb271101f20ef1de2523a0a3a5367d89d98ff354fe1a07bcfb00425ab252950ce10a90dc9040930cf86a3081f0c68ea05bfd40aab3e8bfaaaf6b5a1e7a2b202892dc9b1c0fe478210799759b31ee04e842106a58d901eb5bc538c1b58b7eb774a382e7ae0d6ed706bb0b12b9b891828da5266dd9f0b381b05ecbce99fcde628360d281800cf8ccf4630b2a0a1a25cf4d103199888984cf61edaa0dad578b80dbce25b3316985a8f846ada9bf9bdb8c930e2a43e69994a9b15ea33fe6ee29fa1a6f251f8d79a5de9f1f24152efddedc01b63e2f2468005ecce7da382a64d7936b22a7cac697e1b0a48419101a802d3be554a9b582a80e5c5d8b998e5eb9684c7aaf09ef286d3d990c71be6e3f3340fdaeb2dac70a0be928b6de6ef79f353c868def3385bccd36aa871eb7c8047d3f10b0a38135cdb3577eaafa512111a7af088e8f77821a27b195c95bf80da3c59fda5ff3dd1d40f60d61c099a608b58b6de4a76146cf7b89444c1055",
   },
 ];
-
 ContractUtil.init();
 
 function checkParamUtxoFormat(utxo) {
@@ -216,28 +217,6 @@ function checkParamCodehash(codehash) {
   );
 }
 
-function getGenesis(txid: string, index: number): string {
-  const txidBuf = Buffer.from(txid, "hex").reverse();
-  const indexBuf = Buffer.alloc(4, 0);
-  indexBuf.writeUInt32LE(index);
-  return toHex(Buffer.concat([txidBuf, indexBuf]));
-}
-
-function parseGenesis(genesis: string) {
-  let tokenIDBuf = Buffer.from(genesis, "hex");
-  let genesisTxId = tokenIDBuf.slice(0, 32).reverse().toString("hex");
-  let genesisOutputIndex = tokenIDBuf.readUIntLE(32, 4);
-  return {
-    genesisTxId,
-    genesisOutputIndex,
-  };
-}
-
-/**
- * 解析sensibleID的值
- * @param genesis
- * @returns
- */
 function parseSensibleID(sensibleID: string) {
   let sensibleIDBuf = Buffer.from(sensibleID, "hex");
   let genesisTxId = sensibleIDBuf.slice(0, 32).reverse().toString("hex");
@@ -258,7 +237,6 @@ type Purse = {
 };
 /**
 Sensible Non Fungible Token
-感应合约非同质化代币
  */
 export class SensibleNFT {
   private signers: SatotxSigner[];
@@ -278,11 +256,15 @@ export class SensibleNFT {
 
   /**
    *
-   * @param signers - 签名器
-   * @param feeb (可选)交易费率，默认0.5
-   * @param network (可选)当前网络，mainnet/testnet，默认mainnet
-   * @param purse (可选)提供手续费的私钥wif，不提供则需要在genesis/issue/transfer手动传utxos
-   * @param debug (可选)开启后将会在解锁合约时进行verify，默认关闭
+   * @param signers
+   * @param signerSelecteds (Optional) the indexs of the signers which is decided to verify
+   * @param feeb (Optional) the fee rate. default is 0.5
+   * @param network (Optional) mainnet/testnet default is mainnet
+   * @param purse (Optional) the private key to offer transacions fee. If not provided, bsv utoxs must be provided in genesis/issue/transfer.
+   * @param debug (Optional) specify if verify the tx when genesis/issue/transfer, default is false
+   * @param apiTarget (Optional) SENSIBLE/METASV, default is SENSIBLE.
+   * @param dustLimitFactor (Optional) specify the output dust rate, default is 0.25 .If the value is equal to 0, the final dust will be at least 1.
+   * @param dustAmount (Optional) specify the output dust.
    */
   constructor({
     signers = defaultSignerConfigs,
@@ -369,6 +351,11 @@ export class SensibleNFT {
     this.unlockContractCodeHashArray = ContractUtil.unlockContractCodeHashArray;
   }
 
+  /**
+   * Pick the signer with the best connectivity
+   * @param signerConfigs
+   * @returns
+   */
   public static async selectSigners(
     signerConfigs: SignerConfig[] = defaultSignerConfigs
   ) {
@@ -379,6 +366,11 @@ export class SensibleNFT {
     );
   }
 
+  /**
+   * set dust. DustAmount has a higher priority than dustLimitFactor
+   * @param dustLimitFactor specify the output dust rate, default is 0.25 .If the value is equal to 0, the final dust will be at least 1.
+   * @param dustAmount specify the output dust
+   */
   public setDustThreshold({
     dustLimitFactor,
     dustAmount,
@@ -390,15 +382,16 @@ export class SensibleNFT {
     this.dustCalculator.dustLimitFactor = dustLimitFactor;
   }
 
-  public getDustThreshold(size: number) {
+  private getDustThreshold(size: number) {
     return this.dustCalculator.getDustThreshold(size);
   }
+
   private async _pretreatUtxos(
     paramUtxos: ParamUtxo[]
   ): Promise<{ utxos: Utxo[]; utxoPrivateKeys: bsv.PrivateKey[] }> {
     let utxoPrivateKeys = [];
     let utxos: Utxo[] = [];
-    //如果没有传utxos，则由purse提供
+    //If utxos are not provided, use purse to fetch utxos
     if (!paramUtxos) {
       if (!this.purse)
         throw new CodeError(
@@ -416,7 +409,7 @@ export class SensibleNFT {
         if (v.wif) {
           let privateKey = new bsv.PrivateKey(v.wif);
           utxoPrivateKeys.push(privateKey);
-          v.address = privateKey.toAddress(this.network).toString(); //兼容旧版本只提供wif没提供address
+          v.address = privateKey.toAddress(this.network).toString(); //Compatible with the old version, only wif is provided but no address is provided
         }
       });
     }
@@ -468,7 +461,7 @@ export class SensibleNFT {
     genesisPublicKey: bsv.PublicKey;
   }) {
     let genesisContract = NftGenesisFactory.createContract(genesisPublicKey);
-    //找到utxo
+
     let { genesisTxId, genesisOutputIndex } = parseSensibleID(sensibleId);
     let genesisUtxo = await this.getIssueUtxo(
       genesisContract.getCodeHash(),
@@ -482,7 +475,6 @@ export class SensibleNFT {
         "token supply is fixed"
       );
     }
-    //补充信息
     let txHex = await this.sensibleApi.getRawTxData(genesisUtxo.txId);
     const tx = new bsv.Transaction(txHex);
     let preTxId = tx.inputs[0].prevTxId.toString("hex");
@@ -581,13 +573,13 @@ export class SensibleNFT {
   }
 
   /**
-   * 构造genesis交易
-   * @param genesisWif 发行私钥
-   * @param totalSupply 最大发行量,8字节
-   * @param opreturnData (可选)追加一个opReturn输出
-   * @param utxos (可选)指定utxos
-   * @param changeAddress (可选)找零地址
-   * @param noBroadcast (可选)是否不广播交易，默认false
+   * Create a transaction for genesis
+   * @param genesisWif the private key of the token genesiser
+   * @param totalSupply total supply, 8 bytes unsign int
+   * @param opreturnData (Optional) append an opReturn output
+   * @param utxos (Optional) specify bsv utxos
+   * @param changeAddress (Optional) specify bsv changeAddress
+   * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
    * @returns
    */
   public async genesis({
@@ -650,12 +642,12 @@ export class SensibleNFT {
   }
 
   /**
-   * 构造(未签名的)genesis交易
-   * @param genesisPublicKey 发行公钥
-   * @param totalSupply 最大发行量,8字节
-   * @param opreturnData (可选)追加一个opReturn输出
-   * @param utxos (可选)指定utxos
-   * @param changeAddress (可选)找零地址
+   * create an unsigned transaction for genesis
+   * @param genesisPublicKey the public key of the token genesiser
+   * @param totalSupply total supply, 8 bytes unsign int
+   * @param opreturnData (Optional) append an opReturn output
+   * @param utxos (Optional) specify bsv utxos
+   * @param changeAddress (Optional) specify bsv changeAddress
    * @returns
    */
   public async unsignGenesis({
@@ -761,17 +753,19 @@ export class SensibleNFT {
   }
 
   /**
-   * 构造一笔铸造NFT的交易
-   * @param genesis NFT的genesis
-   * @param codehash NFT的codehash
-   * @param genesisWif 发行私钥wif
-   * @param metaTxId NFTState
-   * @param opreturnData (可选)追加一个opReturn输出
-   * @param receiverAddress 接受者的地址
-   * @param utxos (可选)指定utxos
-   * @param changeAddress (可选)指定找零地址
-   * @param noBroadcast (可选)是否不广播交易，默认false
-   * @returns {Object} {txid,tokenIndex}
+   * Mint a NFT
+   * @param genesis the genesis of NFT.
+   * @param codehash the codehash of NFT.
+   * @param sensibleId the sensibleId of NFT.
+   * @param genesisWif the private key of the NFT genesiser
+   * @param receiverAddress the NFT receiver address
+   * @param metaTxId  the txid of meta info outpoint.To describe NFT status, metaId is recommended
+   * @param metaOutputIndex the index of meta info outpoint.
+   * @param opreturnData (Optional) append an opReturn output
+   * @param utxos (Optional) specify bsv utxos
+   * @param changeAddress (Optional) specify bsv changeAddress
+   * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
+   * @returns
    */
   public async issue({
     genesis,
@@ -846,15 +840,16 @@ export class SensibleNFT {
   }
 
   /**
-   * 构造(未签名的)发行交易
-   * @param genesis NFT的genesis
-   * @param codehash NFT的codehash
-   * @param genesisPublicKey 发行公钥
-   * @param receiverAddress 接收地址
-   * @param metaTxId NFT状态节点，推荐用metaid
-   * @param opreturnData (可选)追加一个opReturn输出
-   * @param utxos (可选)指定utxos
-   * @param changeAddress (可选)找零地址
+   * Create the unsigned transaction for issue NFT,
+   * @param genesis the genesis of NFT.
+   * @param codehash the codehash of NFT.
+   * @param genesisPublicKey the public key of the NFT genesiser
+   * @param receiverAddress the NFT receiver address
+   * @param metaTxId  the txid of meta info outpoint.To describe NFT status, metaId is recommended
+   * @param metaOutputIndex the index of meta info outpoint..
+   * @param opreturnData (Optional) append an opReturn output
+   * @param utxos (Optional) specify bsv utxos
+   * @param changeAddress (Optional) specify bsv changeAddress
    * @returns
    */
   public async unsignIssue({
@@ -1030,7 +1025,6 @@ export class SensibleNFT {
       );
     }
 
-    //计算genesisHash
     let originDataPart = genesisContract.getFormatedDataPart();
     genesisContract.setFormatedDataPart({
       sensibleID: {
@@ -1074,7 +1068,7 @@ export class SensibleNFT {
 
     const txComposer = new TxComposer();
 
-    //第一个输入为发行合约
+    //The first input is the genesis contract
     const genesisInputIndex = txComposer.appendInput(genesisUtxo);
     txComposer.addSigHashInfo({
       inputIndex: genesisInputIndex,
@@ -1083,7 +1077,6 @@ export class SensibleNFT {
       contractType: CONTRACT_TYPE.BCP01_NFT_GENESIS,
     });
 
-    //随后添加utxo作为输入
     const p2pkhInputIndexs = utxos.map((utxo) => {
       const inputIndex = txComposer.appendP2PKHInput(utxo);
       txComposer.addSigHashInfo({
@@ -1115,7 +1108,7 @@ export class SensibleNFT {
       });
     }
 
-    //添加token合约作为输出
+    //The following output is the NFT
     const nftOutputIndex = txComposer.appendOutput({
       lockingScript: nftContract.lockingScript,
       satoshis: this.getDustThreshold(
@@ -1123,7 +1116,7 @@ export class SensibleNFT {
       ),
     });
 
-    //如果有opReturn,则添加输出
+    //If there is opReturn, add it to the output
     let opreturnScriptHex = "";
     if (opreturnData) {
       const opreturnOutputIndex = txComposer.appendOpReturnOutput(opreturnData);
@@ -1195,16 +1188,17 @@ export class SensibleNFT {
   }
 
   /**
-   * 构造一笔转移NFT的交易并进行广播
-   * @param genesis NFT的genesis
-   * @param codehash NFT的genesis
-   * @param tokenIndex NFT的tokenIndex
-   * @param senderWif 发送者私钥wif
-   * @param receiverAddress 接受者的地址
-   * @param opreturnData (可选)追加一个opReturn输出
-   * @param utxos (可选)指定utxos
-   * @param changeAddress (可选)指定找零地址
-   * @param noBroadcast (可选)是否不广播交易，默认false
+   * Create a trasaction and broadcast it to transfer a NFT.
+   * @param genesis the genesis of NFT.
+   * @param codehash the codehash of NFT.
+   * @param tokenIndex the tokenIndex of NFT.
+   * @param senderWif the private key of the token sender,can be wif or other format
+   * @param senderPrivateKey the private key of the token sender
+   * @param receiverAddress  the NFT receiver address
+   * @param opreturnData (Optional) append an opReturn output
+   * @param utxos (Optional) specify bsv utxos
+   * @param changeAddress (Optional) specify bsv changeAddress
+   * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
    * @returns
    */
   public async transfer({
@@ -1214,7 +1208,6 @@ export class SensibleNFT {
 
     senderWif,
     senderPrivateKey,
-    senderPublicKey,
 
     receiverAddress,
     opreturnData,
@@ -1227,7 +1220,6 @@ export class SensibleNFT {
     tokenIndex: string;
     senderWif?: string;
     senderPrivateKey?: string | bsv.PrivateKey;
-    senderPublicKey?: string | bsv.PublicKey;
     receiverAddress: string | bsv.Address;
     opreturnData?: any;
     utxos?: any[];
@@ -1237,14 +1229,18 @@ export class SensibleNFT {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
 
+    let senderPublicKey: bsv.PublicKey;
     if (senderWif) {
       senderPrivateKey = new bsv.PrivateKey(senderWif);
       senderPublicKey = senderPrivateKey.publicKey;
     } else if (senderPrivateKey) {
       senderPrivateKey = new bsv.PrivateKey(senderPrivateKey);
       senderPublicKey = senderPrivateKey.publicKey;
-    } else if (senderPublicKey) {
-      senderPublicKey = new bsv.PublicKey(senderPublicKey);
+    } else {
+      throw new CodeError(
+        ErrCode.EC_INVALID_ARGUMENT,
+        "senderPrivateKey should be provided!"
+      );
     }
 
     let nftInfo = await this._pretreatNftUtxoToTransfer(
@@ -1283,15 +1279,15 @@ export class SensibleNFT {
   }
 
   /**
-   * 构造一笔转移NFT的交易
-   * @param genesis NFT的genesis
-   * @param codehash NFT的genesis
-   * @param tokenIndex NFT的tokenIndex
-   * @param senderPublicKey 发送者公钥
-   * @param receiverAddress 接受者的地址
-   * @param opreturnData (可选)追加一个opReturn输出
-   * @param utxos (可选)指定utxos
-   * @param changeAddress (可选)指定找零地址
+   * Create an unsigned trasaction to transfer a NFT.
+   * @param genesis the genesis of NFT.
+   * @param codehash the codehash of NFT.
+   * @param tokenIndex the tokenIndex of NFT.
+   * @param senderPublicKey the public key of the NFT sender
+   * @param receiverAddress  the NFT receiver address
+   * @param opreturnData (Optional) append an opReturn output
+   * @param utxos (Optional) specify bsv utxos
+   * @param changeAddress (Optional) specify bsv changeAddress
    * @returns
    */
   public async unsignTransfer({
@@ -1530,6 +1526,21 @@ export class SensibleNFT {
     return { txComposer };
   }
 
+  /**
+   * Create a trasaction and broadcast it to sell a NFT.
+   * @param genesis the genesis of NFT.
+   * @param codehash the codehash of NFT.
+   * @param tokenIndex the tokenIndex of NFT.
+   * @param sellerPrivateKey the private key of the token seller
+   * @param satoshisPrice  the satoshis price to sell.
+   * @param opreturnData (Optional) append an opReturn output
+   * @param utxos (Optional) specify bsv utxos
+   * @param changeAddress (Optional) specify bsv changeAddress
+   * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
+   * @param middleChangeAddress (Optional) the middle bsv changeAddress
+   * @param middlePrivateKey (Optional) the private key of the middle changeAddress
+   * @returns
+   */
   public async sell({
     genesis,
     codehash,
@@ -1537,7 +1548,6 @@ export class SensibleNFT {
 
     sellerWif,
     sellerPrivateKey,
-    sellerPublicKey,
 
     satoshisPrice,
     opreturnData,
@@ -1553,7 +1563,6 @@ export class SensibleNFT {
     tokenIndex: string;
     sellerWif?: string;
     sellerPrivateKey?: string | bsv.PrivateKey;
-    sellerPublicKey?: string | bsv.PublicKey;
     satoshisPrice: number;
     opreturnData?: any;
     utxos?: any[];
@@ -1566,14 +1575,18 @@ export class SensibleNFT {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
 
+    let sellerPublicKey: bsv.PublicKey;
     if (sellerWif) {
       sellerPrivateKey = new bsv.PrivateKey(sellerWif);
       sellerPublicKey = sellerPrivateKey.publicKey;
     } else if (sellerPrivateKey) {
       sellerPrivateKey = new bsv.PrivateKey(sellerPrivateKey);
       sellerPublicKey = sellerPrivateKey.publicKey;
-    } else if (sellerPublicKey) {
-      sellerPublicKey = new bsv.PublicKey(sellerPublicKey);
+    } else {
+      throw new CodeError(
+        ErrCode.EC_INVALID_ARGUMENT,
+        "sellerPrivateKey should be provided!"
+      );
     }
 
     let nftInfo = await this._pretreatNftUtxoToTransfer(
@@ -1602,6 +1615,7 @@ export class SensibleNFT {
     let { nftSellTxComposer, txComposer } = await this._sell({
       genesis,
       codehash,
+      tokenIndex,
       nftUtxo: nftInfo.nftUtxo,
       nftPrivateKey: nftInfo.nftUtxoPrivateKey,
       satoshisPrice,
@@ -1632,6 +1646,7 @@ export class SensibleNFT {
   private async _sell({
     genesis,
     codehash,
+    tokenIndex,
     nftUtxo,
     nftPrivateKey,
     satoshisPrice,
@@ -1645,6 +1660,7 @@ export class SensibleNFT {
   }: {
     genesis: string;
     codehash: string;
+    tokenIndex: string;
     nftUtxo: NftUtxo;
     nftPrivateKey?: bsv.PrivateKey;
     satoshisPrice: number;
@@ -1673,6 +1689,14 @@ export class SensibleNFT {
       new Bytes(ContractUtil.tokenCodeHash),
       new Bytes(toHex(nftProto.getNftID(nftUtxo.lockingScript.toBuffer())))
     );
+    nftSellContract.setFormatedDataPart({
+      codehash,
+      genesis,
+      tokenIndex: BN.fromString(tokenIndex, 10),
+      sellerAddress: toHex(nftUtxo.nftAddress.hashBuffer),
+      satoshisPrice: BN.fromNumber(satoshisPrice),
+      nftID: toHex(nftProto.getNftID(nftUtxo.lockingScript.toBuffer())),
+    });
 
     let nftSellTxComposer: TxComposer;
     {
@@ -1744,6 +1768,21 @@ export class SensibleNFT {
     return { nftSellTxComposer, txComposer };
   }
 
+  /**
+   * Create a trasaction and broadcast it to put off a NFT.
+   * @param genesis the genesis of NFT.
+   * @param codehash the codehash of NFT.
+   * @param tokenIndex the tokenIndex of NFT.
+   * @param sellerPrivateKey the private key of the token seller
+   * @param satoshisPrice  the satoshis price to sell.
+   * @param opreturnData (Optional) append an opReturn output
+   * @param utxos (Optional) specify bsv utxos
+   * @param changeAddress (Optional) specify bsv changeAddress
+   * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
+   * @param middleChangeAddress (Optional) the middle bsv changeAddress
+   * @param middlePrivateKey (Optional) the private key of the middle changeAddress
+   * @returns
+   */
   public async cancelSell({
     genesis,
     codehash,
@@ -1751,9 +1790,6 @@ export class SensibleNFT {
 
     sellerWif,
     sellerPrivateKey,
-    sellerPublicKey,
-
-    sellUtxo,
 
     opreturnData,
     utxos,
@@ -1766,10 +1802,8 @@ export class SensibleNFT {
     genesis: string;
     codehash: string;
     tokenIndex: string;
-    sellerWif?: string;
+    sellerWif?: string | bsv.PrivateKey;
     sellerPrivateKey?: string | bsv.PrivateKey;
-    sellerPublicKey?: string | bsv.PublicKey;
-    sellUtxo: { txId: string; outputIndex: number };
     opreturnData?: any;
     utxos?: any[];
     changeAddress?: string | bsv.Address;
@@ -1781,14 +1815,18 @@ export class SensibleNFT {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
 
+    let sellerPublicKey: bsv.PublicKey;
     if (sellerWif) {
       sellerPrivateKey = new bsv.PrivateKey(sellerWif);
       sellerPublicKey = sellerPrivateKey.publicKey;
     } else if (sellerPrivateKey) {
       sellerPrivateKey = new bsv.PrivateKey(sellerPrivateKey);
       sellerPublicKey = sellerPrivateKey.publicKey;
-    } else if (sellerPublicKey) {
-      sellerPublicKey = new bsv.PublicKey(sellerPublicKey);
+    } else {
+      throw new CodeError(
+        ErrCode.EC_INVALID_ARGUMENT,
+        "sellerPrivateKey should be provided!"
+      );
     }
 
     let nftInfo = await this._pretreatNftUtxoToTransfer(
@@ -1812,6 +1850,18 @@ export class SensibleNFT {
     } else {
       middleChangeAddress = utxoInfo.utxos[0].address;
       middlePrivateKey = utxoInfo.utxoPrivateKeys[0];
+    }
+
+    let sellUtxo = await this.sensibleApi.getNftSellUtxo(
+      codehash,
+      genesis,
+      tokenIndex
+    );
+    if (!sellUtxo) {
+      throw new CodeError(
+        ErrCode.EC_NFT_NOT_ON_SELL,
+        "The NFT is not for sale because  the corresponding SellUtxo cannot be found."
+      );
     }
 
     let { unlockCheckTxComposer, txComposer } = await this._cancelSell({
@@ -1862,7 +1912,7 @@ export class SensibleNFT {
     codehash: string;
     nftUtxo: NftUtxo;
     nftPrivateKey?: bsv.PrivateKey;
-    sellUtxo: { txId: string; outputIndex: number };
+    sellUtxo: NftSellUtxo;
     opreturnData?: any;
     utxos: Utxo[];
     utxoPrivateKeys: bsv.PrivateKey[];
@@ -1967,8 +2017,19 @@ export class SensibleNFT {
 
     const nftSellInputIndex = txComposer.appendInput(nftSellUtxo);
     prevouts.addVout(nftSellUtxo.txId, nftSellUtxo.outputIndex);
-    let nftSellContract = NftSellFactory.createFromASM(
-      nftSellUtxo.lockingScript.toASM()
+    // let nftSellContract = NftSellFactory.createFromASM(
+    //   nftSellUtxo.lockingScript.toASM()
+    // );
+    let nftSellContract = NftSellFactory.createContract(
+      new Ripemd160(
+        toHex(new bsv.Address(sellUtxo.sellerAddress, this.network).hashBuffer)
+      ),
+      sellUtxo.satoshisPrice,
+      new Bytes(codehash),
+      new Bytes(sellUtxo.nftID)
+    );
+    nftSellContract.setFormatedDataPart(
+      nftSellProto.parseDataPart(nftSellUtxo.lockingScript.toBuffer())
     );
 
     const nftInputIndex = txComposer.appendInput(nftInput);
@@ -2136,6 +2197,20 @@ export class SensibleNFT {
     return { unlockCheckTxComposer, txComposer };
   }
 
+  /**
+   * Create a trasaction and broadcast it to buy a NFT.
+   * @param genesis the genesis of NFT.
+   * @param codehash the codehash of NFT.
+   * @param tokenIndex the tokenIndex of NFT.
+   * @param buyerPrivateKey the private key of the token buyer
+   * @param opreturnData (Optional) append an opReturn output
+   * @param utxos (Optional) specify bsv utxos
+   * @param changeAddress (Optional) specify bsv changeAddress
+   * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
+   * @param middleChangeAddress (Optional) the middle bsv changeAddress
+   * @param middlePrivateKey (Optional) the private key of the middle changeAddress
+   * @returns
+   */
   public async buy({
     genesis,
     codehash,
@@ -2143,8 +2218,6 @@ export class SensibleNFT {
 
     buyerWif,
     buyerPrivateKey,
-    buyerPublicKey,
-    sellUtxo,
 
     opreturnData,
     utxos,
@@ -2159,8 +2232,6 @@ export class SensibleNFT {
     tokenIndex: string;
     buyerWif?: string;
     buyerPrivateKey?: string | bsv.PrivateKey;
-    buyerPublicKey?: string | bsv.PublicKey;
-    sellUtxo: { txId: string; outputIndex: number };
     opreturnData?: any;
     utxos?: any[];
     changeAddress?: string | bsv.Address;
@@ -2172,14 +2243,18 @@ export class SensibleNFT {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
 
+    let buyerPublicKey: bsv.PublicKey;
     if (buyerWif) {
       buyerPrivateKey = new bsv.PrivateKey(buyerWif);
       buyerPublicKey = buyerPrivateKey.publicKey;
     } else if (buyerPrivateKey) {
       buyerPrivateKey = new bsv.PrivateKey(buyerPrivateKey);
       buyerPublicKey = buyerPrivateKey.publicKey;
-    } else if (buyerPublicKey) {
-      buyerPublicKey = new bsv.PublicKey(buyerPublicKey);
+    } else {
+      throw new CodeError(
+        ErrCode.EC_INVALID_ARGUMENT,
+        "buyerPrivateKey should be provided!"
+      );
     }
 
     let nftInfo = await this._pretreatNftUtxoToTransfer(
@@ -2203,6 +2278,18 @@ export class SensibleNFT {
     } else {
       middleChangeAddress = utxoInfo.utxos[0].address;
       middlePrivateKey = utxoInfo.utxoPrivateKeys[0];
+    }
+
+    let sellUtxo = await this.sensibleApi.getNftSellUtxo(
+      codehash,
+      genesis,
+      tokenIndex
+    );
+    if (!sellUtxo) {
+      throw new CodeError(
+        ErrCode.EC_NFT_NOT_ON_SELL,
+        "The NFT is not for sale because  the corresponding SellUtxo cannot be found."
+      );
     }
 
     let { unlockCheckTxComposer, txComposer } = await this._buy({
@@ -2253,7 +2340,7 @@ export class SensibleNFT {
     codehash: string;
     nftUtxo: NftUtxo;
     buyerPrivateKey?: bsv.PrivateKey;
-    sellUtxo: { txId: string; outputIndex: number };
+    sellUtxo: NftSellUtxo;
     opreturnData?: any;
     utxos: Utxo[];
     utxoPrivateKeys: bsv.PrivateKey[];
@@ -2358,8 +2445,20 @@ export class SensibleNFT {
 
     const nftSellInputIndex = txComposer.appendInput(nftSellUtxo);
     prevouts.addVout(nftSellUtxo.txId, nftSellUtxo.outputIndex);
-    let nftSellContract = NftSellFactory.createFromASM(
-      nftSellUtxo.lockingScript.toASM()
+    // let nftSellContract = NftSellFactory.createFromASM(
+    //   nftSellUtxo.lockingScript.toASM()
+    // );
+    let nftSellContract = NftSellFactory.createContract(
+      new Ripemd160(
+        toHex(new bsv.Address(sellUtxo.sellerAddress, this.network).hashBuffer)
+      ),
+      sellUtxo.satoshisPrice,
+      new Bytes(codehash),
+      new Bytes(sellUtxo.nftID)
+    );
+
+    nftSellContract.setFormatedDataPart(
+      nftSellProto.parseDataPart(nftSellUtxo.lockingScript.toBuffer())
     );
 
     const nftInputIndex = txComposer.appendInput(nftInput);
@@ -2535,9 +2634,10 @@ export class SensibleNFT {
     this._checkTxFeeRate(txComposer);
     return { unlockCheckTxComposer, txComposer };
   }
+
   /**
-   * 查询某人持有的所有NFT Token列表
-   * @param address 用户地址
+   * Query the NFT list under this address.
+   * @param address
    * @returns
    */
   async getSummary(address: string) {
@@ -2545,10 +2645,10 @@ export class SensibleNFT {
   }
 
   /**
-   * 查询某人持有的某种NFT Token列表。
-   * @param codehash NFT的codehash
-   * @param genesis NFT的genesis
-   * @param address 拥有者的地址
+   * Query a kind of NFT tokens held by address.
+   * @param codehash the codehash of NFT
+   * @param genesis the genesis of NFT
+   * @param address owner address
    * @returns
    */
   async getSummaryDetail(codehash: string, genesis: string, address: string) {
@@ -2560,8 +2660,10 @@ export class SensibleNFT {
   }
 
   /**
-   * 估算genesis所需花费
+   * Estimate the cost of genesis
+   * The minimum cost required in the case of 10 utxo inputs
    * @param opreturnData
+   * @param utxoMaxCount Maximum number of BSV UTXOs supported
    * @returns
    */
   async getGenesisEstimateFee({
@@ -2589,8 +2691,12 @@ export class SensibleNFT {
   }
 
   /**
-   * 估算铸造NFT所需花费
-   * @param param0
+   * Estimate the cost of issue
+   * The minimum cost required in the case of 10 utxo inputs .
+   * @param sensibleId
+   * @param genesisPublicKey
+   * @param opreturnData
+   * @param utxoMaxCount Maximum number of BSV UTXOs supported
    * @returns
    */
   async getIssueEstimateFee({
@@ -2687,11 +2793,9 @@ export class SensibleNFT {
   }
 
   /**
-   * 估算转移NFT所花费金额
-   * @param param0
-   * @returns
+   * Estimate the cost of transfer
+   * senderPrivateKey and senderPublicKey only need to provide one of them
    */
-
   public async getTransferEstimateFee({
     genesis,
     codehash,
@@ -2845,12 +2949,14 @@ export class SensibleNFT {
   }
 
   private async _calCancelSellEstimateFee({
+    codehash,
     nftUtxoSatoshis,
     nftSellUtxo,
     genesisScript,
     opreturnData,
     utxoMaxCount,
   }: {
+    codehash: string;
     nftUtxoSatoshis: number;
     nftSellUtxo: {
       txId: string;
@@ -2945,6 +3051,10 @@ export class SensibleNFT {
     return stx1.getFee() + stx2.getFee();
   }
 
+  /**
+   * Estimate the cost of cancel sell
+   * senderPrivateKey and senderPublicKey only need to provide one of them
+   */
   public async getCancelSellEstimateFee({
     genesis,
     codehash,
@@ -3011,6 +3121,7 @@ export class SensibleNFT {
       : new Bytes("");
 
     let estimateSatoshis = await this._calCancelSellEstimateFee({
+      codehash,
       nftUtxoSatoshis: nftUtxo.satoshis,
       nftSellUtxo,
       genesisScript,
@@ -3021,13 +3132,17 @@ export class SensibleNFT {
   }
 
   private async _calBuyEstimateFee({
+    codehash,
     nftUtxoSatoshis,
     nftSellUtxo,
+    sellUtxo,
     genesisScript,
     opreturnData,
     utxoMaxCount,
   }: {
+    codehash: string;
     nftUtxoSatoshis: number;
+    sellUtxo: NftSellUtxo;
     nftSellUtxo: {
       txId: string;
       outputIndex: number;
@@ -3052,8 +3167,19 @@ export class SensibleNFT {
       NFT_UNLOCK_CONTRACT_TYPE.OUT_6
     );
 
-    let nftSellContract = NftSellFactory.createFromASM(
-      nftSellUtxo.lockingScript.toASM()
+    // let nftSellContract = NftSellFactory.createFromASM(
+    //   nftSellUtxo.lockingScript.toASM()
+    // );
+    let nftSellContract = NftSellFactory.createContract(
+      new Ripemd160(
+        toHex(new bsv.Address(sellUtxo.sellerAddress, this.network).hashBuffer)
+      ),
+      sellUtxo.satoshisPrice,
+      new Bytes(codehash),
+      new Bytes(sellUtxo.nftID)
+    );
+    nftSellContract.setFormatedDataPart(
+      nftSellProto.parseDataPart(nftSellUtxo.lockingScript.toBuffer())
     );
 
     let nftSellUnlockingSize = NftSellFactory.calUnlockingScriptSize(
@@ -3129,6 +3255,11 @@ export class SensibleNFT {
       nftSellContract.constuctParams.bsvRecAmount
     );
   }
+
+  /**
+   * Estimate the cost of buy
+   * buyerPrivateKey and buyerPublicKey only need to provide one of them
+   */
   public async getBuyEstimateFee({
     genesis,
     codehash,
@@ -3137,7 +3268,6 @@ export class SensibleNFT {
     buyerWif,
     buyerPrivateKey,
     buyerPublicKey,
-    sellUtxo,
 
     opreturnData,
     utxoMaxCount = 3,
@@ -3148,7 +3278,6 @@ export class SensibleNFT {
     buyerWif?: string;
     buyerPrivateKey?: string | bsv.PrivateKey;
     buyerPublicKey?: string | bsv.PublicKey;
-    sellUtxo: { txId: string; outputIndex: number };
     opreturnData?: any;
 
     utxoMaxCount?: number;
@@ -3174,6 +3303,18 @@ export class SensibleNFT {
       buyerPublicKey as bsv.PublicKey
     );
 
+    let sellUtxo = await this.sensibleApi.getNftSellUtxo(
+      codehash,
+      genesis,
+      tokenIndex
+    );
+    if (!sellUtxo) {
+      throw new CodeError(
+        ErrCode.EC_NFT_NOT_ON_SELL,
+        "The NFT is not for sale because  the corresponding SellUtxo cannot be found."
+      );
+    }
+
     let nftSellTxHex = await this.sensibleApi.getRawTxData(sellUtxo.txId);
     let nftSellTx = new bsv.Transaction(nftSellTxHex);
     let nftSellUtxo = {
@@ -3195,8 +3336,10 @@ export class SensibleNFT {
       : new Bytes("");
 
     let estimateSatoshis = await this._calBuyEstimateFee({
+      codehash,
       nftUtxoSatoshis: nftUtxo.satoshis,
       nftSellUtxo,
+      sellUtxo,
       genesisScript,
       utxoMaxCount,
       opreturnData,
@@ -3250,19 +3393,6 @@ export class SensibleNFT {
    * @param genesisOutputIndex (Optional) outputIndex - default value is 0.
    * @returns
    */
-  public getCodehashAndGensisByTx2(
-    genesisTx: bsv.Transaction,
-    genesisOutputIndex: number = 0
-  ) {
-    let nftContract = NftFactory.createContract(
-      this.unlockContractCodeHashArray
-    );
-    let codehash = nftContract.getCodeHash();
-    let genesis = toHex(
-      TokenUtil.getOutpointBuf(genesisTx.id, genesisOutputIndex)
-    );
-    return { codehash, genesis };
-  }
   public getCodehashAndGensisByTx(
     genesisTx: bsv.Transaction,
     genesisOutputIndex: number = 0
@@ -3314,101 +3444,12 @@ export class SensibleNFT {
     return codehash == ContractUtil.tokenCodeHash;
   }
 
-  public async _unlock({
-    codehash,
-    genesis,
-
-    nftUtxo,
-    nftPrivateKey,
-
-    utxos,
-    utxoPrivateKeys,
-    changeAddress,
-
-    middlePrivateKey,
-    middleChangeAddress,
-
-    isMerge,
-    opreturnData,
-  }: {
-    codehash: string;
-    genesis: string;
-
-    nftUtxo: NftUtxo;
-    nftPrivateKey?: bsv.PrivateKey;
-
-    utxos: Utxo[];
-    utxoPrivateKeys: bsv.PrivateKey[];
-    changeAddress: bsv.Address;
-
-    middlePrivateKey?: bsv.PrivateKey;
-    middleChangeAddress: bsv.Address;
-
-    isMerge?: boolean;
-    opreturnData?: any;
-  }) {
-    let unlockCheckTxComposer: TxComposer;
-    {
-      let unlockType = NFT_UNLOCK_CONTRACT_TYPE.OUT_6;
-      let nftLockingScriptBuf;
-      let contract = NftUnlockContractCheckFactory.createContract(unlockType);
-      contract.setFormatedDataPart({
-        nftID: nftProto.getNftID(nftLockingScriptBuf),
-        nftCodeHash: nftProto.getContractCodeHash(nftLockingScriptBuf),
-      });
-      const txComposer = new TxComposer();
-
-      const p2pkhInputIndexs = utxos.map((utxo) =>
-        txComposer.appendP2PKHInput(utxo)
-      );
-
-      const genesisOutputIndex = txComposer.appendOutput({
-        lockingScript: contract.lockingScript,
-        satoshis: this.getDustThreshold(
-          contract.lockingScript.toBuffer().length
-        ),
-      });
-
-      //If there is opReturn, add it to the second output
-      if (opreturnData) {
-        txComposer.appendOpReturnOutput(opreturnData);
-      }
-
-      txComposer.appendChangeOutput(changeAddress, this.feeb);
-      if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
-        p2pkhInputIndexs.forEach((inputIndex) => {
-          let privateKey = utxoPrivateKeys.splice(0, 1)[0];
-          txComposer.unlockP2PKHInput(privateKey, inputIndex);
-        });
-      }
-
-      this._checkTxFeeRate(txComposer);
-      unlockCheckTxComposer = txComposer;
-    }
-
-    utxos = [
-      {
-        txId: unlockCheckTxComposer.getTxId(),
-        satoshis: unlockCheckTxComposer.getOutput(
-          unlockCheckTxComposer.changeOutputIndex
-        ).satoshis,
-        outputIndex: unlockCheckTxComposer.changeOutputIndex,
-        address: middleChangeAddress,
-      },
-    ];
-    utxoPrivateKeys = utxos.map((v) => middlePrivateKey).filter((v) => v);
-
-    let {
-      checkRabinData,
-      rabinDatas,
-      rabinPubKeyIndexArray,
-      rabinPubKeyVerifyArray,
-    } = await getRabinDatas(this.signers, this.signerSelecteds, [
-      nftUtxo.satotxInfo,
-    ]);
-    // this.nft.createUnlockTx()
-  }
-
+  /**
+   * parse a output script to get NFT info
+   * @param scriptBuf
+   * @param network
+   * @returns
+   */
   public static parseTokenScript(
     scriptBuf: Buffer,
     network: API_NET = API_NET.MAIN

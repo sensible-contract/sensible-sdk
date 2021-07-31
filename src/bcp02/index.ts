@@ -49,7 +49,7 @@ const PLACE_HOLDER_UNSIGN_PREVOUTS =
   "4444444444444444444444444444444444444444444444444444444444444444";
 const PLACE_HOLDER_UNSIGN_CHECKTX = "PLACE_HOLDER_UNSIGN_CHECKTX";
 const _ = bsv.deps._;
-const defaultSignerConfigs: SignerConfig[] = [
+export const defaultSignerConfigs: SignerConfig[] = [
   {
     satotxApiPrefix: "https://s1.satoplay.cn,https://s1.satoplay.com",
     satotxPubKey:
@@ -287,6 +287,7 @@ export class SensibleFT {
    * @param debug (Optional) specify if verify the tx when genesis/issue/transfer, default is false
    * @param apiTarget (Optional) SENSIBLE/METASV, default is SENSIBLE.
    * @param dustLimitFactor (Optional) specify the output dust rate, default is 0.25 .If the value is equal to 0, the final dust will be at least 1.
+   * @param dustAmount (Optional) specify the output dust.
    */
   constructor({
     signers = defaultSignerConfigs,
@@ -373,6 +374,11 @@ export class SensibleFT {
     this.unlockContractCodeHashArray = ContractUtil.unlockContractCodeHashArray;
   }
 
+  /**
+   * Pick the signer with the best connectivity
+   * @param signerConfigs
+   * @returns
+   */
   public static async selectSigners(
     signerConfigs: SignerConfig[] = defaultSignerConfigs
   ) {
@@ -383,6 +389,11 @@ export class SensibleFT {
     );
   }
 
+  /**
+   * set dust. DustAmount has a higher priority than dustLimitFactor
+   * @param dustLimitFactor specify the output dust rate, default is 0.25 .If the value is equal to 0, the final dust will be at least 1.
+   * @param dustAmount specify the output dust
+   */
   public setDustThreshold({
     dustLimitFactor,
     dustAmount,
@@ -394,7 +405,7 @@ export class SensibleFT {
     this.dustCalculator.dustLimitFactor = dustLimitFactor;
   }
 
-  public getDustThreshold(size: number) {
+  private getDustThreshold(size: number) {
     return this.dustCalculator.getDustThreshold(size);
   }
 
@@ -404,7 +415,7 @@ export class SensibleFT {
     let utxoPrivateKeys = [];
     let utxos: Utxo[] = [];
 
-    //如果没有传utxos，则由purse提供
+    //If utxos are not provided, use purse to fetch utxos
     if (!paramUtxos) {
       if (!this.purse)
         throw new CodeError(
@@ -422,7 +433,7 @@ export class SensibleFT {
         if (v.wif) {
           let privateKey = new bsv.PrivateKey(v.wif);
           utxoPrivateKeys.push(privateKey);
-          v.address = privateKey.toAddress(this.network).toString(); //兼容旧版本只提供wif没提供address
+          v.address = privateKey.toAddress(this.network).toString(); //Compatible with the old version, only wif is provided but no address is provided
         }
       });
     }
@@ -501,7 +512,7 @@ export class SensibleFT {
   }
 
   /**
-   * Creaate a transaction for genesis
+   * Create a transaction for genesis
    * @param tokenName token name, limited to 20 bytes
    * @param tokenSymbol the token symbol, limited to 10 bytes
    * @param decimalNum the decimal number, range 0-255
@@ -959,8 +970,6 @@ export class SensibleFT {
       );
     }
 
-    //Get preTx
-    //补充信息
     let txHex = await this.sensibleApi.getRawTxData(genesisUtxo.txId);
     const tx = new bsv.Transaction(txHex);
     let preTxId = tx.inputs[0].prevTxId.toString("hex");
@@ -1485,7 +1494,7 @@ export class SensibleFT {
     genesis: string;
     receivers?: TokenReceiver[];
 
-    senderPublicKey?: any;
+    senderPublicKey: string | bsv.PublicKey;
     ftUtxos?: ParamFtUtxo[];
     ftChangeAddress?: string | bsv.Address;
     utxos?: ParamUtxo[];
@@ -1501,6 +1510,9 @@ export class SensibleFT {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
     checkParamReceivers(receivers);
+
+    senderPublicKey = new bsv.PublicKey(senderPublicKey);
+
     let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
       changeAddress = new bsv.Address(changeAddress, this.network);
@@ -2682,6 +2694,12 @@ export class SensibleFT {
     }
   }
 
+  /**
+   * parse a output script to get Token info
+   * @param scriptBuf
+   * @param network
+   * @returns
+   */
   public static parseTokenScript(
     scriptBuf: Buffer,
     network: API_NET = API_NET.MAIN

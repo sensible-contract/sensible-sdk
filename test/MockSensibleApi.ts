@@ -1,4 +1,5 @@
 import * as nftProto from "../src/bcp01/contract-proto/nft.proto";
+import * as nftSellProto from "../src/bcp01/contract-proto/nftSell.proto";
 import * as ftProto from "../src/bcp02/contract-proto/token.proto";
 import * as BN from "../src/bn.js";
 import * as bsv from "../src/bsv";
@@ -9,6 +10,7 @@ import {
   AuthorizationOption,
   FungibleTokenSummary,
   FungibleTokenUnspent,
+  NftSellUtxo,
   NonFungibleTokenSummary,
   NonFungibleTokenUnspent,
   SensibleApiBase,
@@ -22,6 +24,7 @@ enum UtxoType {
   bsv,
   ft,
   nft,
+  nftSell,
   other,
 }
 type UtxoPack = {
@@ -44,6 +47,11 @@ type UtxoPack = {
     codehash: string;
     genesis: string;
     nftUtxo: NonFungibleTokenUnspent;
+  };
+  nftSell?: {
+    codehash: string;
+    genesis: string;
+    nftSellUtxo: NftSellUtxo;
   };
 };
 export class MockSensibleApi implements SensibleApiBase {
@@ -174,6 +182,30 @@ export class MockSensibleApi implements SensibleApiBase {
                 tokenIndex: dataPart.tokenIndex.toString(10),
                 metaTxId: "",
                 metaOutputIndex: 0,
+              },
+            },
+          });
+        } else if (protoType == PROTO_TYPE.NFT_SELL) {
+          let dataPart = nftSellProto.parseDataPart(scriptBuf);
+          let address = bsv.Address.fromPublicKeyHash(
+            Buffer.from(dataPart.sellerAddress, "hex"),
+            this.network
+          );
+          this.utxoPacks.push({
+            outpoint: getOutpoint(tx.id, index),
+            type: UtxoType.nftSell,
+            nftSell: {
+              genesis: dataPart.genesis,
+              codehash: dataPart.codehash,
+              nftSellUtxo: {
+                genesis: dataPart.genesis,
+                codehash: dataPart.codehash,
+                tokenIndex: dataPart.tokenIndex.toString(10),
+                txId: tx.id,
+                outputIndex: index,
+                sellerAddress: address.toString(),
+                satoshisPrice: dataPart.satoshisPrice.toNumber(),
+                nftID: dataPart.nftID,
               },
             },
           });
@@ -334,5 +366,26 @@ export class MockSensibleApi implements SensibleApiBase {
 
   public async getBalance(address: string) {
     return { balance: 0, pendingBalance: 0 };
+  }
+
+  public async getNftSellUtxo(
+    codehash: string,
+    genesis: string,
+    tokenIndex: string
+  ) {
+    let arr = [];
+    for (let i = 0; i < this.utxoPacks.length; i++) {
+      let utxoPack = this.utxoPacks[i];
+      if (utxoPack.type == UtxoType.nftSell) {
+        if (
+          utxoPack.nftSell.codehash == codehash &&
+          utxoPack.nftSell.genesis == genesis &&
+          utxoPack.nftSell.nftSellUtxo.tokenIndex == tokenIndex
+        ) {
+          arr.push(utxoPack.nftSell.nftSellUtxo);
+        }
+      }
+    }
+    return arr[0];
   }
 }

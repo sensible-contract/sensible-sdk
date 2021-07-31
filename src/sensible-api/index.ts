@@ -61,6 +61,16 @@ export type FungibleTokenBalance = {
   decimal: number;
 };
 
+export type NftSellUtxo = {
+  codehash: string;
+  genesis: string;
+  tokenIndex: string;
+  txId: string;
+  outputIndex: number;
+  sellerAddress: string;
+  satoshisPrice: number;
+  nftID: string;
+};
 export type AuthorizationOption = {
   /**
    * should be provided in MetaSV
@@ -110,6 +120,12 @@ export interface SensibleApiBase {
     balance: number;
     pendingBalance: number;
   }>;
+
+  getNftSellUtxo(
+    codehash: string,
+    genesis: string,
+    tokenIndex: string
+  ): Promise<NftSellUtxo>;
 }
 
 export class SensibleApi implements SensibleApiBase {
@@ -203,5 +219,9 @@ export class SensibleApi implements SensibleApiBase {
 
   async getNonFungibleTokenSummary(address: string) {
     return this.apiHandler.getNonFungibleTokenSummary(address);
+  }
+
+  async getNftSellUtxo(codehash: string, genesis: string, tokenIndex: string) {
+    return this.apiHandler.getNftSellUtxo(codehash, genesis, tokenIndex);
   }
 }

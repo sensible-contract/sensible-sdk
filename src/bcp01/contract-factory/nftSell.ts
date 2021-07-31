@@ -1,6 +1,13 @@
+import { BN } from "../../bn.js";
 import * as bsv from "../../bsv";
 import { ContractAdapter } from "../../common/ContractAdapter";
-import { dummyAddress, dummyPk, dummyTx } from "../../common/dummy";
+import {
+  dummyAddress,
+  dummyCodehash,
+  dummyPk,
+  dummyTx,
+} from "../../common/dummy";
+import { PROTO_TYPE } from "../../common/protoheader";
 import { PLACE_HOLDER_SIG } from "../../common/utils";
 import {
   buildContractClass,
@@ -13,6 +20,7 @@ import {
   SigHashPreimage,
   toHex,
 } from "../../scryptlib";
+import * as nftSellProto from "../contract-proto/nftSell.proto";
 import { NftFactory } from "./nft";
 
 export enum NFT_SELL_OP {
@@ -20,6 +28,7 @@ export enum NFT_SELL_OP {
   CANCEL = 2,
 }
 export class NftSell extends ContractAdapter {
+  private _formatedDataPart: nftSellProto.FormatedDataPart;
   constuctParams: {
     senderAddress: Ripemd160;
     bsvRecAmount: number;
@@ -62,8 +71,29 @@ export class NftSell extends ContractAdapter {
   }
 
   clone() {
-    let nft = new NftSell(this.constuctParams);
-    return nft;
+    let contract = new NftSell(this.constuctParams);
+    contract.setFormatedDataPart(this.getFormatedDataPart());
+    return contract;
+  }
+
+  public setFormatedDataPart(dataPart: nftSellProto.FormatedDataPart): void {
+    this._formatedDataPart = Object.assign(
+      {},
+      this._formatedDataPart,
+      dataPart
+    );
+    this._formatedDataPart.protoVersion = nftSellProto.PROTO_VERSION;
+    this._formatedDataPart.protoType = PROTO_TYPE.NFT_SELL;
+    super.setDataPart(toHex(nftSellProto.newDataPart(this._formatedDataPart)));
+  }
+
+  public getFormatedDataPart() {
+    return this._formatedDataPart;
+  }
+
+  public setFormatedDataPartFromLockingScript(script: bsv.Script) {
+    let dataPart = nftSellProto.parseDataPart(script.toBuffer());
+    this.setFormatedDataPart(dataPart);
   }
 
   public unlock({
@@ -130,6 +160,14 @@ export class NftSellFactory {
   }
   public static calLockingScriptSize() {
     let contract = this.getDummyInstance();
+    contract.setFormatedDataPart({
+      codehash: toHex(dummyCodehash),
+      genesis: toHex(dummyCodehash),
+      tokenIndex: BN.fromString("10000000000", 10),
+      sellerAddress: toHex(dummyAddress.hashBuffer),
+      satoshisPrice: BN.fromString("100000000", 10),
+      nftID: toHex(dummyCodehash),
+    });
     let size = contract.lockingScript.toBuffer().length;
     return size;
   }
