@@ -3496,4 +3496,37 @@ export class SensibleNFT {
       protoType: dataPart.protoType,
     };
   }
+
+  /**
+   * query the supply info of NFT
+   * @param sensibleId the sensibleId fo NFT
+   * @returns
+   */
+  async getSupplyInfo(sensibleId: string) {
+    let { genesisTxId, genesisOutputIndex } = parseSensibleID(sensibleId);
+    let txHex = await this.sensibleApi.getRawTxData(genesisTxId);
+    let tx = new bsv.Transaction(txHex);
+    let output = tx.outputs[genesisOutputIndex];
+
+    let codehash = toHex(
+      nftProto.getContractCodeHash(output.script.toBuffer())
+    );
+
+    let genesisUtxo = await this.getIssueUtxo(
+      codehash,
+      genesisTxId,
+      genesisOutputIndex
+    );
+
+    let genesisTxHex = await this.sensibleApi.getRawTxData(genesisUtxo.txId);
+    let genesisTx = new bsv.Transaction(genesisTxHex);
+    let genesisOutput = genesisTx.outputs[genesisUtxo.outputIndex];
+    let genesisInfo = SensibleNFT.parseTokenScript(
+      genesisOutput.script.toBuffer()
+    );
+    return {
+      totalSupply: genesisInfo.totalSupply.toString(10),
+      circulation: genesisInfo.tokenIndex.toString(10),
+    };
+  }
 }
