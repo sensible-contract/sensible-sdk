@@ -2651,11 +2651,19 @@ export class SensibleNFT {
    * @param address owner address
    * @returns
    */
-  async getSummaryDetail(codehash: string, genesis: string, address: string) {
+  async getSummaryDetail(
+    codehash: string,
+    genesis: string,
+    address: string,
+    cursor: number = 0,
+    size: number = 20
+  ) {
     return await this.sensibleApi.getNonFungibleTokenUnspents(
       codehash,
       genesis,
-      address
+      address,
+      cursor,
+      size
     );
   }
 

@@ -133,7 +133,7 @@ export class Sensible implements SensibleApiBase {
     codehash: string,
     genesis: string,
     address: string,
-    size: number = 10
+    size: number = 20
   ): Promise<FungibleTokenUnspent[]> {
     let url = `${this.serverBase}/ft/utxo/${codehash}/${genesis}/${address}?size=${size}`;
     let _res = await Net.httpGet(url, {});
@@ -188,9 +188,11 @@ export class Sensible implements SensibleApiBase {
   public async getNonFungibleTokenUnspents(
     codehash: string,
     genesis: string,
-    address: string
+    address: string,
+    cursor: number = 0,
+    size: number = 20
   ): Promise<NonFungibleTokenUnspent[]> {
-    let url = `${this.serverBase}/nft/utxo/${codehash}/${genesis}/${address}`;
+    let url = `${this.serverBase}/nft/utxo/${codehash}/${genesis}/${address}?cursor=${cursor}&size=${size}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {

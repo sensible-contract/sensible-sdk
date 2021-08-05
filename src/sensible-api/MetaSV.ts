@@ -231,9 +231,11 @@ export class MetaSV implements SensibleApiBase {
   public async getNonFungibleTokenUnspents(
     codehash: string,
     genesis: string,
-    address: string
+    address: string,
+    cursor: number = 0,
+    size: number = 20
   ): Promise<NonFungibleTokenUnspent[]> {
-    let url = `https://api.sensiblequery.com/nft/utxo/${codehash}/${genesis}/${address}`;
+    let url = `https://api.sensiblequery.com/nft/utxo/${codehash}/${genesis}/${address}?cursor=${cursor}&size=${size}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {

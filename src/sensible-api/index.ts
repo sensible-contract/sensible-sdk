@@ -102,7 +102,9 @@ export interface SensibleApiBase {
   getNonFungibleTokenUnspents(
     codehash: string,
     genesis: string,
-    address: string
+    address: string,
+    cursor?: number,
+    size?: number
   ): Promise<NonFungibleTokenUnspent[]>;
   getNonFungibleTokenUnspentDetail(
     codehash: string,
@@ -197,12 +199,16 @@ export class SensibleApi implements SensibleApiBase {
   async getNonFungibleTokenUnspents(
     codehash: string,
     genesis: string,
-    address: string
+    address: string,
+    cursor?: number,
+    size?: number
   ) {
     return this.apiHandler.getNonFungibleTokenUnspents(
       codehash,
       genesis,
-      address
+      address,
+      cursor,
+      size
     );
   }
   async getNonFungibleTokenUnspentDetail(
