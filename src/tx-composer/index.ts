@@ -4,7 +4,7 @@ import { getPreimage, signTx, toHex } from "../scryptlib";
 const Signature = bsv.crypto.Signature;
 export const sighashType = Signature.SIGHASH_ALL | Signature.SIGHASH_FORKID;
 const P2PKH_UNLOCK_SIZE = 1 + 1 + 71 + 1 + 33;
-
+const P2PKH_DUST_AMOUNT = 135;
 export class TxComposer {
   tx: bsv.Transaction;
   sigHashList: SigHashInfo[] = [];
@@ -154,7 +154,7 @@ export class TxComposer {
     );
 
     let changeAmount = this.getUnspentValue() - fee;
-    if (changeAmount >= bsv.Transaction.DUST_AMOUNT) {
+    if (changeAmount >= P2PKH_DUST_AMOUNT) {
       this.changeOutputIndex = this.appendP2PKHOutput({
         address: changeAddress,
         satoshis: changeAmount,
