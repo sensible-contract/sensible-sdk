@@ -140,7 +140,7 @@ export class TxComposer {
       this.changeOutputIndex = 0;
     }
   }
-  appendChangeOutput(changeAddress: bsv.Address, feeb = 0.5) {
+  appendChangeOutput(changeAddress: bsv.Address, feeb = 0.5, extraSize = 0) {
     //Calculate the fee and determine whether to change
     //If there is change, it will be output in the last item
     const unlockSize =
@@ -149,6 +149,7 @@ export class TxComposer {
     let fee = Math.ceil(
       (this.tx.toBuffer().length +
         unlockSize +
+        extraSize +
         bsv.Transaction.CHANGE_OUTPUT_MAX_SIZE) *
         feeb
     );

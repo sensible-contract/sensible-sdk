@@ -1552,6 +1552,7 @@ export class SensibleFT {
       middleChangeAddress,
       opreturnData,
       isMerge,
+      unsigned: true,
     });
 
     let routeCheckTx = transferCheckTxComposer.getTx();
@@ -1750,6 +1751,7 @@ export class SensibleFT {
 
     isMerge,
     opreturnData,
+    unsigned,
   }: {
     codehash: string;
     genesis: string;
@@ -1769,6 +1771,7 @@ export class SensibleFT {
 
     isMerge?: boolean;
     opreturnData?: any;
+    unsigned?: boolean;
   }) {
     if (utxos.length > 3) {
       throw new CodeError(
@@ -1858,11 +1861,19 @@ export class SensibleFT {
       middleChangeAddress
     );
 
+    let unsignSigPlaceHolderSize = 0;
     if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
       transferCheck_p2pkhInputIndexs.forEach((inputIndex) => {
         let privateKey = utxoPrivateKeys.splice(0, 1)[0];
         transferCheckTxComposer.unlockP2PKHInput(privateKey, inputIndex);
       });
+    } else {
+      //To supplement the size calculation when unsigned
+      transferCheck_p2pkhInputIndexs.forEach((v) => {
+        unsignSigPlaceHolderSize += Utils.P2PKH_UNLOCK_SIZE;
+      });
+      //Each ftUtxo need to unlock with the size
+      unsignSigPlaceHolderSize = unsignSigPlaceHolderSize * ftUtxos.length;
     }
 
     utxos = [
@@ -1999,7 +2010,8 @@ export class SensibleFT {
       txComposer.clearChangeOutput();
       const changeOutputIndex = txComposer.appendChangeOutput(
         changeAddress,
-        this.feeb
+        this.feeb,
+        unsignSigPlaceHolderSize
       );
       let rabinPubKeyArray = [];
       for (let j = 0; j < ftProto.SIGNER_VERIFY_NUM; j++) {
@@ -2396,7 +2408,7 @@ export class SensibleFT {
     genesis: string;
     receivers?: TokenReceiver[];
 
-    senderWif: string;
+    senderWif?: string;
     senderPrivateKey?: string | bsv.PrivateKey;
     senderPublicKey?: string | bsv.PublicKey;
     ftUtxos?: ParamFtUtxo[];

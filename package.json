@@ -1,6 +1,6 @@
 {
   "name": "sensible-sdk",
-  "version": "7.2.3-beta.5",
+  "version": "7.2.3-beta.6",
   "description": "Sensible-SDK",
   "main": "dist/index.js",
   "engines": {
