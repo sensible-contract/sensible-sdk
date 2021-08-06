@@ -1494,7 +1494,7 @@ export class SensibleFT {
     genesis: string;
     receivers?: TokenReceiver[];
 
-    senderPublicKey: string | bsv.PublicKey;
+    senderPublicKey?: string | bsv.PublicKey;
     ftUtxos?: ParamFtUtxo[];
     ftChangeAddress?: string | bsv.Address;
     utxos?: ParamUtxo[];
@@ -1511,7 +1511,9 @@ export class SensibleFT {
     checkParamCodehash(codehash);
     checkParamReceivers(receivers);
 
-    senderPublicKey = new bsv.PublicKey(senderPublicKey);
+    if (senderPublicKey) {
+      senderPublicKey = new bsv.PublicKey(senderPublicKey);
+    }
 
     let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
@@ -1531,7 +1533,7 @@ export class SensibleFT {
       codehash,
       genesis,
       null,
-      senderPublicKey
+      senderPublicKey as bsv.PublicKey
     );
     if (ftChangeAddress) {
       ftChangeAddress = new bsv.Address(ftChangeAddress, this.network);
