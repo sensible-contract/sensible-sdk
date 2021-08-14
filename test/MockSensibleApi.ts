@@ -205,7 +205,6 @@ export class MockSensibleApi implements SensibleApiBase {
                 outputIndex: index,
                 sellerAddress: address.toString(),
                 satoshisPrice: dataPart.satoshisPrice.toNumber(),
-                nftID: dataPart.nftID,
               },
             },
           });
@@ -387,5 +386,21 @@ export class MockSensibleApi implements SensibleApiBase {
       }
     }
     return arr[0];
+  }
+  public async getNftSellList(
+    codehash: string,
+    genesis: string,
+    cursor: number = 0,
+    size: number = 20
+  ) {
+    return [];
+  }
+
+  public async getNftSellListByAddress(
+    address: string,
+    cursor: number = 0,
+    size: number = 20
+  ) {
+    return [];
   }
 }

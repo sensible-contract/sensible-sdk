@@ -69,7 +69,6 @@ export type NftSellUtxo = {
   outputIndex: number;
   sellerAddress: string;
   satoshisPrice: number;
-  nftID: string;
 };
 export type AuthorizationOption = {
   /**
@@ -128,6 +127,19 @@ export interface SensibleApiBase {
     genesis: string,
     tokenIndex: string
   ): Promise<NftSellUtxo>;
+
+  getNftSellList(
+    codehash: string,
+    genesis: string,
+    cursor?: number,
+    size?: number
+  ): Promise<NftSellUtxo[]>;
+
+  getNftSellListByAddress(
+    address: string,
+    cursor?: number,
+    size?: number
+  ): Promise<NftSellUtxo[]>;
 }
 
 export class SensibleApi implements SensibleApiBase {
@@ -229,5 +241,22 @@ export class SensibleApi implements SensibleApiBase {
 
   async getNftSellUtxo(codehash: string, genesis: string, tokenIndex: string) {
     return this.apiHandler.getNftSellUtxo(codehash, genesis, tokenIndex);
+  }
+
+  async getNftSellList(
+    codehash: string,
+    genesis: string,
+    cursor?: number,
+    size?: number
+  ) {
+    return this.apiHandler.getNftSellList(codehash, genesis, cursor, size);
+  }
+
+  async getNftSellListByAddress(
+    address: string,
+    cursor?: number,
+    size?: number
+  ) {
+    return this.apiHandler.getNftSellListByAddress(address, cursor, size);
   }
 }

@@ -341,7 +341,7 @@ export class MetaSV implements SensibleApiBase {
     genesis: string,
     tokenIndex: string
   ) {
-    let url = `${this.serverBase}/nft/utxo-detail/${codehash}/${genesis}/${tokenIndex}`;
+    let url = `${this.serverBase}/nft/sell/utxo-detail/${codehash}/${genesis}/${tokenIndex}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
@@ -358,9 +358,63 @@ export class MetaSV implements SensibleApiBase {
       txId: v.txid,
       outputIndex: v.vout,
       sellerAddress: v.address,
-      satoshisPrice: v.tokenIndex,
-      nftID: v.metaTxId,
+      satoshisPrice: v.price,
     }))[0];
+    return ret;
+  }
+
+  public async getNftSellList(
+    codehash: string,
+    genesis: string,
+    cursor: number = 0,
+    size: number = 20
+  ) {
+    let url = `${this.serverBase}/nft/sell/utxo/${codehash}/${genesis}?cursor=${cursor}&size=${size}`;
+    let _res = await Net.httpGet(url, {});
+    const { code, data, msg } = _res as ResData;
+    if (code != 0) {
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
+    }
+    if (!data) return null;
+    let ret = data.map((v) => ({
+      codehash,
+      genesis,
+      tokenIndex: v.tokenIndex,
+      txId: v.txid,
+      outputIndex: v.vout,
+      sellerAddress: v.address,
+      satoshisPrice: v.price,
+    }));
+    return ret;
+  }
+
+  public async getNftSellListByAddress(
+    address: string,
+    cursor: number = 0,
+    size: number = 20
+  ) {
+    let url = `${this.serverBase}/nft/sell/utxo-by-address/${address}?cursor=${cursor}&size=${size}`;
+    let _res = await Net.httpGet(url, {});
+    const { code, data, msg } = _res as ResData;
+    if (code != 0) {
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
+    }
+    if (!data) return null;
+    let ret = data.map((v) => ({
+      codehash: v.codehash,
+      genesis: v.genesis,
+      tokenIndex: v.tokenIndex,
+      txId: v.txid,
+      outputIndex: v.vout,
+      sellerAddress: v.address,
+      satoshisPrice: v.price,
+    }));
     return ret;
   }
 }

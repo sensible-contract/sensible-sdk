@@ -1934,12 +1934,13 @@ export class SensibleNFT {
 
     let nftInput = nftUtxo;
 
+    let nftID = nftProto.getNftID(nftInput.lockingScript.toBuffer());
     let unlockContract = NftUnlockContractCheckFactory.createContract(
       NFT_UNLOCK_CONTRACT_TYPE.OUT_6
     );
     unlockContract.setFormatedDataPart({
       nftCodeHash: Buffer.from(ContractUtil.tokenCodeHash, "hex"),
-      nftID: nftProto.getNftID(nftInput.lockingScript.toBuffer()),
+      nftID,
     });
 
     const unlockCheckTxComposer = new TxComposer();
@@ -2026,7 +2027,7 @@ export class SensibleNFT {
       ),
       sellUtxo.satoshisPrice,
       new Bytes(codehash),
-      new Bytes(sellUtxo.nftID)
+      new Bytes(toHex(nftID))
     );
     nftSellContract.setFormatedDataPart(
       nftSellProto.parseDataPart(nftSellUtxo.lockingScript.toBuffer())
@@ -2361,13 +2362,13 @@ export class SensibleNFT {
     );
 
     let nftInput = nftUtxo;
-
+    let nftID = nftProto.getNftID(nftInput.lockingScript.toBuffer());
     let unlockContract = NftUnlockContractCheckFactory.createContract(
       NFT_UNLOCK_CONTRACT_TYPE.OUT_6
     );
     unlockContract.setFormatedDataPart({
       nftCodeHash: Buffer.from(ContractUtil.tokenCodeHash, "hex"),
-      nftID: nftProto.getNftID(nftInput.lockingScript.toBuffer()),
+      nftID,
     });
 
     const unlockCheckTxComposer = new TxComposer();
@@ -2454,7 +2455,7 @@ export class SensibleNFT {
       ),
       sellUtxo.satoshisPrice,
       new Bytes(codehash),
-      new Bytes(sellUtxo.nftID)
+      new Bytes(toHex(nftID))
     );
 
     nftSellContract.setFormatedDataPart(
@@ -3175,6 +3176,9 @@ export class SensibleNFT {
       NFT_UNLOCK_CONTRACT_TYPE.OUT_6
     );
 
+    let dataPart = nftSellProto.parseDataPart(
+      nftSellUtxo.lockingScript.toBuffer()
+    );
     // let nftSellContract = NftSellFactory.createFromASM(
     //   nftSellUtxo.lockingScript.toASM()
     // );
@@ -3184,7 +3188,7 @@ export class SensibleNFT {
       ),
       sellUtxo.satoshisPrice,
       new Bytes(codehash),
-      new Bytes(sellUtxo.nftID)
+      new Bytes(dataPart.nftID)
     );
     nftSellContract.setFormatedDataPart(
       nftSellProto.parseDataPart(nftSellUtxo.lockingScript.toBuffer())
@@ -3536,5 +3540,46 @@ export class SensibleNFT {
       totalSupply: genesisInfo.totalSupply.toString(10),
       circulation: genesisInfo.tokenIndex.toString(10),
     };
+  }
+
+  /**
+   * Query sell list of NFT tokens
+   * @param codehash the codehash of NFT
+   * @param genesis the genesis of NFT
+   * @param cursor cursor
+   * @param size size of page
+   * @returns
+   */
+  async getSellList(
+    codehash: string,
+    genesis: string,
+    cursor: number = 0,
+    size: number = 20
+  ) {
+    return await this.sensibleApi.getNftSellList(
+      codehash,
+      genesis,
+      cursor,
+      size
+    );
+  }
+
+  /**
+   * Query sell list of NFT tokens by seller's address
+   * @param address seller's address
+   * @param cursor cursor
+   * @param size size of page
+   * @returns
+   */
+  async getSellListByAddress(
+    address: string,
+    cursor: number = 0,
+    size: number = 20
+  ) {
+    return await this.sensibleApi.getNftSellListByAddress(
+      address,
+      cursor,
+      size
+    );
   }
 }
