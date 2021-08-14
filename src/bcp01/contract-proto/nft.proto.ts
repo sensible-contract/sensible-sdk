@@ -202,12 +202,17 @@ export function newDataPart({
 
   let totalSupplyBuf = Buffer.alloc(TOTAL_SUPPLY_LEN, 0);
   if (totalSupply) {
-    totalSupplyBuf = totalSupply.toBuffer({ endian: "little", size: 8 });
+    totalSupplyBuf = totalSupply
+      .toBuffer({ endian: "little", size: TOTAL_SUPPLY_LEN })
+      .slice(0, TOTAL_SUPPLY_LEN);
   }
 
   let tokenIndexBuf = Buffer.alloc(TOKEN_INDEX_LEN, 0);
   if (tokenIndex) {
-    tokenIndexBuf = tokenIndex.toBuffer({ endian: "little", size: 8 });
+    tokenIndexBuf = tokenIndex.toBuffer({
+      endian: "little",
+      size: TOKEN_INDEX_LEN,
+    });
   }
 
   const genesisHashBuf = Buffer.alloc(GENESIS_HASH_LEN, 0);

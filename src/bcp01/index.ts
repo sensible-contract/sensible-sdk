@@ -3384,7 +3384,7 @@ export class SensibleNFT {
     Utils.dumpTx(tx, this.network);
   }
 
-  private async _checkTxFeeRate(txComposer: TxComposer) {
+  private _checkTxFeeRate(txComposer: TxComposer) {
     //Determine whether the final fee is sufficient
     let feeRate = txComposer.getFeeRate();
     if (feeRate < this.feeb) {

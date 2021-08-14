@@ -241,7 +241,9 @@ export function newDataPart({
 
   let tokenAmountBuf = Buffer.alloc(TOKEN_AMOUNT_LEN, 0);
   if (tokenAmount) {
-    tokenAmountBuf = tokenAmount.toBuffer({ endian: "little", size: 8 });
+    tokenAmountBuf = tokenAmount
+      .toBuffer({ endian: "little", size: TOKEN_AMOUNT_LEN })
+      .slice(0, TOKEN_AMOUNT_LEN);
   }
 
   const genesisHashBuf = Buffer.alloc(GENESIS_HASH_LEN, 0);
