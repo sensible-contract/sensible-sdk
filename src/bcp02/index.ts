@@ -2640,12 +2640,34 @@ export class SensibleFT {
   }
 
   /**
-   * Check if codehash is valid
+   * Check if codehash is supported
    * @param codehash
    * @returns
    */
   public static isSupportedToken(codehash: string): boolean {
     return codehash == ContractUtil.tokenCodeHash;
+  }
+
+  /**
+   * Check if codehash and sensibleID is supported
+   * @param codehash
+   * @param sensibleId
+   * @returns
+   */
+  public async isSupportedToken(codehash: string, sensibleId: string) {
+    let { genesisTxId } = parseSensibleID(sensibleId);
+    let txHex = await this.sensibleApi.getRawTxData(genesisTxId);
+    let tx = new bsv.Transaction(txHex);
+    let dataPart = ftProto.parseDataPart(tx.outputs[0].script.toBuffer());
+    if (
+      dataPart.rabinPubKeyHashArrayHash != toHex(this.rabinPubKeyHashArrayHash)
+    ) {
+      return false;
+    }
+    if (codehash != ContractUtil.tokenCodeHash) {
+      return false;
+    }
+    return true;
   }
 
   /**

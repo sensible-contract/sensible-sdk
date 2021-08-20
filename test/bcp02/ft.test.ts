@@ -240,6 +240,11 @@ describe("BCP02-FungibleToken Test", () => {
       expectTokenBalance(ft, codehash, genesis, Alice.address, "400");
       expectTokenBalance(ft, codehash, genesis, CoffeeShop.address, "1600");
     });
+
+    it("check token supported should be ok", async () => {
+      let valid = await ft.isSupportedToken(codehash, sensibleId);
+      expect(valid == true).to.be.true;
+    });
   });
 
   describe("unsign test ", () => {
