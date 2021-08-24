@@ -500,6 +500,34 @@ describe("BCP02-FungibleToken Test", () => {
       });
       expectFeeb(_res.tx, feeb);
     });
+
+    it("transfer estimate fee2 should be ok", async () => {
+      cleanBsvUtxos();
+      let estimateFee = await ft.getTransferEstimateFee2({
+        bsvInputLen: 3,
+        tokenInputLen: 1,
+        tokenOutputLen: 6,
+      });
+
+      let utxos = await genDummyFeeUtxos(estimateFee, 3);
+      let _res = await ft.transfer({
+        codehash,
+        genesis,
+        senderWif: CoffeeShop.privateKey.toWIF(),
+        receivers: [
+          { address: CoffeeShop.address.toString(), amount: "1" },
+          { address: CoffeeShop.address.toString(), amount: "1" },
+          { address: CoffeeShop.address.toString(), amount: "1" },
+          { address: CoffeeShop.address.toString(), amount: "1" },
+          { address: CoffeeShop.address.toString(), amount: "1" },
+        ],
+        utxos,
+      });
+      Utils.dumpTx(_res.tx);
+      expectFeeb(_res.routeCheckTx, feeb);
+      expectFeeb(_res.tx, feeb);
+    });
+
     it("transfer estimate fee should be ok", async () => {
       cleanBsvUtxos();
       let estimateFee = await ft.getTransferEstimateFee({

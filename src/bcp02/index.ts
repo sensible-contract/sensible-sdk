@@ -2610,6 +2610,51 @@ export class SensibleFT {
   }
 
   /**
+   * Estimate the cost of transfer
+   */
+  public async getTransferEstimateFee2({
+    bsvInputLen,
+    tokenInputLen,
+    tokenOutputLen,
+    opreturnData,
+  }: {
+    bsvInputLen: number;
+    tokenInputLen: number;
+    tokenOutputLen: number;
+    opreturnData?: any;
+  }) {
+    let tokenTransferType = TokenTransferCheckFactory.getOptimumType(
+      tokenInputLen,
+      tokenOutputLen
+    );
+    if (tokenTransferType == TOKEN_TRANSFER_TYPE.UNSUPPORT) {
+      throw new CodeError(
+        ErrCode.EC_TOO_MANY_FT_UTXOS,
+        "Too many token-utxos, should merge them to continue."
+      );
+    }
+
+    let dustAmount = this.getDustThreshold(TokenFactory.getLockingScriptSize());
+    console.log(dustAmount);
+    let tokenInputArray = [];
+    for (let i = 0; i < tokenInputLen; i++) {
+      tokenInputArray.push({ satoshis: dustAmount });
+    }
+    let tokenOutputArray = [];
+    for (let i = 0; i < tokenOutputLen; i++) {
+      tokenOutputArray.push({});
+    }
+    let estimateSatoshis = this._calTransferEstimateFee({
+      p2pkhInputNum: bsvInputLen,
+      tokenInputArray,
+      tokenOutputArray,
+      tokenTransferType,
+      opreturnData,
+    });
+
+    return estimateSatoshis;
+  }
+  /**
    * Print tx
    * @param tx
    */
