@@ -8,7 +8,7 @@ import {
   FungibleTokenUnspent,
   NonFungibleTokenSummary,
   NonFungibleTokenUnspent,
-  SensibleApiBase,
+  SensibleApiBase
 } from "./index";
 type ResData = {
   code: number;
@@ -328,7 +328,7 @@ export class Sensible implements SensibleApiBase {
     genesis: string,
     tokenIndex: string
   ) {
-    let url = `${this.serverBase}/nft/sell/utxo-detail/${codehash}/${genesis}/${tokenIndex}`;
+    let url = `${this.serverBase}/nft/sell/utxo-detail/${codehash}/${genesis}/${tokenIndex}?isReadyOnly=true`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
@@ -338,7 +338,7 @@ export class Sensible implements SensibleApiBase {
       );
     }
     if (!data) return null;
-    let ret = [data].map((v) => ({
+    let ret = data.filter(v=>v.isReady==true).map((v) => ({
       codehash,
       genesis,
       tokenIndex,
