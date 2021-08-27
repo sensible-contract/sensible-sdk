@@ -9,7 +9,7 @@ import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import {
   getRabinData,
   getRabinDatas,
-  selectSigners
+  selectSigners,
 } from "../common/satotxSignerUtil";
 import { SizeTransaction } from "../common/SizeTransaction";
 import * as TokenUtil from "../common/tokenUtil";
@@ -19,15 +19,14 @@ import {
   PLACE_HOLDER_PUBKEY,
   PLACE_HOLDER_SIG,
   SigHashInfo,
-  SigInfo
+  SigInfo,
 } from "../common/utils";
 import {
   API_NET,
   API_TARGET,
-  NftSellUtxo,
   NonFungibleTokenUnspent,
   SensibleApi,
-  SensibleApiBase
+  SensibleApiBase,
 } from "../sensible-api";
 import { TxComposer } from "../tx-composer";
 import { NftFactory } from "./contract-factory/nft";
@@ -35,7 +34,7 @@ import { NftGenesisFactory } from "./contract-factory/nftGenesis";
 import { NftSellFactory, NFT_SELL_OP } from "./contract-factory/nftSell";
 import {
   NftUnlockContractCheckFactory,
-  NFT_UNLOCK_CONTRACT_TYPE
+  NFT_UNLOCK_CONTRACT_TYPE,
 } from "./contract-factory/nftUnlockContractCheck";
 import * as nftProto from "./contract-proto/nft.proto";
 import { SIGNER_VERIFY_NUM } from "./contract-proto/nft.proto";
@@ -57,6 +56,12 @@ const dummyUtxo = {
   wif: dummyWif,
 };
 
+type SellUtxo = {
+  txId: string;
+  outputIndex: number;
+  sellerAddress: string;
+  satoshisPrice: number;
+};
 export class Prevouts {
   _buf: Buffer;
   constructor() {
@@ -1534,7 +1539,7 @@ export class SensibleNFT {
    * @param sellerPrivateKey the private key of the token seller
    * @param satoshisPrice  the satoshis price to sell.
    * @param opreturnData (Optional) append an opReturn output
-   * @param utxos (Optional) specify bsv utxos which should be no more than 3 
+   * @param utxos (Optional) specify bsv utxos which should be no more than 3
    * @param changeAddress (Optional) specify bsv changeAddress
    * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
    * @param middleChangeAddress (Optional) the middle bsv changeAddress
@@ -1671,14 +1676,14 @@ export class SensibleNFT {
 
     middlePrivateKey?: bsv.PrivateKey;
     middleChangeAddress: bsv.Address;
-    }): Promise<{ nftSellTxComposer: TxComposer; txComposer: TxComposer }> {
+  }): Promise<{ nftSellTxComposer: TxComposer; txComposer: TxComposer }> {
     if (utxos.length > 3) {
       throw new CodeError(
         ErrCode.EC_UTXOS_MORE_THAN_3,
         "Bsv utxos should be no more than 3 in this operation, please merge it first "
       );
     }
-    
+
     if (!middleChangeAddress) {
       middleChangeAddress = utxos[0].address;
       middlePrivateKey = utxoPrivateKeys[0];
@@ -1699,7 +1704,7 @@ export class SensibleNFT {
     let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
 
     let estimateSatoshis1 = await this._calSellEstimateFee({
-      utxoMaxCount:utxos.length,
+      utxoMaxCount: utxos.length,
       opreturnData,
     });
     let estimateSatoshis2 = await this._calTransferEstimateFee({
@@ -1753,10 +1758,10 @@ export class SensibleNFT {
         ),
       });
 
-      //If there is opReturn, add it to the second output
-      if (opreturnData) {
-        txComposer.appendOpReturnOutput(opreturnData);
-      }
+      // put opreturn data to the transfer tx
+      // if (opreturnData) {
+      //   txComposer.appendOpReturnOutput(opreturnData);
+      // }
 
       let changeOutputIndex = txComposer.appendChangeOutput(
         changeAddress,
@@ -1808,8 +1813,9 @@ export class SensibleNFT {
    * @param tokenIndex the tokenIndex of NFT.
    * @param sellerPrivateKey the private key of the token seller
    * @param satoshisPrice  the satoshis price to sell.
+   * @param sellUtxo (Optional) sometimes you may need to specify the sellUtxo
    * @param opreturnData (Optional) append an opReturn output
-   * @param utxos (Optional) specify bsv utxos which should be no more than 3 
+   * @param utxos (Optional) specify bsv utxos which should be no more than 3
    * @param changeAddress (Optional) specify bsv changeAddress
    * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
    * @param middleChangeAddress (Optional) the middle bsv changeAddress
@@ -1824,6 +1830,7 @@ export class SensibleNFT {
     sellerWif,
     sellerPrivateKey,
 
+    sellUtxo,
     opreturnData,
     utxos,
     changeAddress,
@@ -1842,6 +1849,7 @@ export class SensibleNFT {
     changeAddress?: string | bsv.Address;
     noBroadcast?: boolean;
 
+    sellUtxo?: SellUtxo;
     middleChangeAddress?: string | bsv.Address;
     middlePrivateKey?: string | bsv.PrivateKey;
   }) {
@@ -1885,11 +1893,13 @@ export class SensibleNFT {
       middlePrivateKey = utxoInfo.utxoPrivateKeys[0];
     }
 
-    let sellUtxo = await this.sensibleApi.getNftSellUtxo(
-      codehash,
-      genesis,
-      tokenIndex
-    );
+    if (!sellUtxo) {
+      sellUtxo = await this.sensibleApi.getNftSellUtxo(
+        codehash,
+        genesis,
+        tokenIndex
+      );
+    }
     if (!sellUtxo) {
       throw new CodeError(
         ErrCode.EC_NFT_NOT_ON_SELL,
@@ -1945,7 +1955,7 @@ export class SensibleNFT {
     codehash: string;
     nftUtxo: NftUtxo;
     nftPrivateKey?: bsv.PrivateKey;
-    sellUtxo: NftSellUtxo;
+    sellUtxo: SellUtxo;
     opreturnData?: any;
     utxos: Utxo[];
     utxoPrivateKeys: bsv.PrivateKey[];
@@ -1953,14 +1963,14 @@ export class SensibleNFT {
 
     middlePrivateKey?: bsv.PrivateKey;
     middleChangeAddress: bsv.Address;
-    }): Promise<{ unlockCheckTxComposer: TxComposer; txComposer: TxComposer }> {
-      if (utxos.length > 3) {
-        throw new CodeError(
-          ErrCode.EC_UTXOS_MORE_THAN_3,
-          "Bsv utxos should be no more than 3 in this operation, please merge it first "
-        );
-      }
-    
+  }): Promise<{ unlockCheckTxComposer: TxComposer; txComposer: TxComposer }> {
+    if (utxos.length > 3) {
+      throw new CodeError(
+        ErrCode.EC_UTXOS_MORE_THAN_3,
+        "Bsv utxos should be no more than 3 in this operation, please merge it first "
+      );
+    }
+
     if (!middleChangeAddress) {
       middleChangeAddress = utxos[0].address;
       middlePrivateKey = utxoPrivateKeys[0];
@@ -1981,7 +1991,7 @@ export class SensibleNFT {
       satoshis: nftSellTx.outputs[sellUtxo.outputIndex].satoshis,
       lockingScript: nftSellTx.outputs[sellUtxo.outputIndex].script,
     };
-    
+
     let genesisScript = nftUtxo.preNftAddress.hashBuffer.equals(
       Buffer.alloc(20, 0)
     )
@@ -1994,7 +2004,7 @@ export class SensibleNFT {
       nftUtxoSatoshis: nftUtxo.satoshis,
       nftSellUtxo,
       genesisScript,
-      utxoMaxCount:utxos.length,
+      utxoMaxCount: utxos.length,
       opreturnData,
     });
     if (balance < estimateSatoshis) {
@@ -2266,8 +2276,9 @@ export class SensibleNFT {
    * @param codehash the codehash of NFT.
    * @param tokenIndex the tokenIndex of NFT.
    * @param buyerPrivateKey the private key of the token buyer
+   * @param sellUtxo (Optional) sometimes you may need to specify the sellUtxo
    * @param opreturnData (Optional) append an opReturn output
-   * @param utxos (Optional) specify bsv utxos which should be no more than 3 
+   * @param utxos (Optional) specify bsv utxos which should be no more than 3
    * @param changeAddress (Optional) specify bsv changeAddress
    * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
    * @param middleChangeAddress (Optional) the middle bsv changeAddress
@@ -2282,6 +2293,7 @@ export class SensibleNFT {
     buyerWif,
     buyerPrivateKey,
 
+    sellUtxo,
     opreturnData,
     utxos,
     changeAddress,
@@ -2295,6 +2307,7 @@ export class SensibleNFT {
     tokenIndex: string;
     buyerWif?: string;
     buyerPrivateKey?: string | bsv.PrivateKey;
+    sellUtxo?: SellUtxo;
     opreturnData?: any;
     utxos?: any[];
     changeAddress?: string | bsv.Address;
@@ -2343,11 +2356,14 @@ export class SensibleNFT {
       middlePrivateKey = utxoInfo.utxoPrivateKeys[0];
     }
 
-    let sellUtxo = await this.sensibleApi.getNftSellUtxo(
-      codehash,
-      genesis,
-      tokenIndex
-    );
+    if (!sellUtxo) {
+      sellUtxo = await this.sensibleApi.getNftSellUtxo(
+        codehash,
+        genesis,
+        tokenIndex
+      );
+    }
+
     if (!sellUtxo) {
       throw new CodeError(
         ErrCode.EC_NFT_NOT_ON_SELL,
@@ -2403,7 +2419,7 @@ export class SensibleNFT {
     codehash: string;
     nftUtxo: NftUtxo;
     buyerPrivateKey?: bsv.PrivateKey;
-    sellUtxo: NftSellUtxo;
+    sellUtxo: SellUtxo;
     opreturnData?: any;
     utxos: Utxo[];
     utxoPrivateKeys: bsv.PrivateKey[];
@@ -2411,14 +2427,14 @@ export class SensibleNFT {
 
     middlePrivateKey?: bsv.PrivateKey;
     middleChangeAddress: bsv.Address;
-    }): Promise<{ unlockCheckTxComposer: TxComposer; txComposer: TxComposer }> {
-      if (utxos.length > 3) {
-        throw new CodeError(
-          ErrCode.EC_UTXOS_MORE_THAN_3,
-          "Bsv utxos should be no more than 3 in this operation, please merge it first "
-        );
-      }
-    
+  }): Promise<{ unlockCheckTxComposer: TxComposer; txComposer: TxComposer }> {
+    if (utxos.length > 3) {
+      throw new CodeError(
+        ErrCode.EC_UTXOS_MORE_THAN_3,
+        "Bsv utxos should be no more than 3 in this operation, please merge it first "
+      );
+    }
+
     if (!middleChangeAddress) {
       middleChangeAddress = utxos[0].address;
       middlePrivateKey = utxoPrivateKeys[0];
@@ -2453,7 +2469,7 @@ export class SensibleNFT {
       nftSellUtxo,
       sellUtxo,
       genesisScript,
-      utxoMaxCount:utxos.length,
+      utxoMaxCount: utxos.length,
       opreturnData,
     });
     if (balance < estimateSatoshis) {
@@ -2462,7 +2478,7 @@ export class SensibleNFT {
         `Insufficient balance.It take more than ${estimateSatoshis}, but only ${balance}.`
       );
     }
-    
+
     let nftInput = nftUtxo;
     let nftID = nftProto.getNftID(nftInput.lockingScript.toBuffer());
     let unlockContract = NftUnlockContractCheckFactory.createContract(
@@ -2523,8 +2539,6 @@ export class SensibleNFT {
       lockingScript: unlockCheckTxComposer.getOutput(unlockCheckOutputIndex)
         .script,
     };
-
-
 
     let {
       rabinDatas,
@@ -3251,7 +3265,7 @@ export class SensibleNFT {
   }: {
     codehash: string;
     nftUtxoSatoshis: number;
-    sellUtxo: NftSellUtxo;
+    sellUtxo: SellUtxo;
     nftSellUtxo: {
       txId: string;
       outputIndex: number;
