@@ -1946,7 +1946,14 @@ export class SensibleNFT {
 
     middlePrivateKey?: bsv.PrivateKey;
     middleChangeAddress: bsv.Address;
-  }): Promise<{ unlockCheckTxComposer: TxComposer; txComposer: TxComposer }> {
+    }): Promise<{ unlockCheckTxComposer: TxComposer; txComposer: TxComposer }> {
+      if (utxos.length > 3) {
+        throw new CodeError(
+          ErrCode.EC_UTXOS_MORE_THAN_3,
+          "Bsv utxos should be no more than 3 in this operation, please merge it first "
+        );
+      }
+    
     if (!middleChangeAddress) {
       middleChangeAddress = utxos[0].address;
       middlePrivateKey = utxoPrivateKeys[0];
@@ -2397,7 +2404,14 @@ export class SensibleNFT {
 
     middlePrivateKey?: bsv.PrivateKey;
     middleChangeAddress: bsv.Address;
-  }): Promise<{ unlockCheckTxComposer: TxComposer; txComposer: TxComposer }> {
+    }): Promise<{ unlockCheckTxComposer: TxComposer; txComposer: TxComposer }> {
+      if (utxos.length > 3) {
+        throw new CodeError(
+          ErrCode.EC_UTXOS_MORE_THAN_3,
+          "Bsv utxos should be no more than 3 in this operation, please merge it first "
+        );
+      }
+    
     if (!middleChangeAddress) {
       middleChangeAddress = utxos[0].address;
       middlePrivateKey = utxoPrivateKeys[0];
@@ -3051,6 +3065,12 @@ export class SensibleNFT {
     utxoMaxCount: number;
   }) {
     let p2pkhInputNum = utxoMaxCount;
+    if (p2pkhInputNum > 3) {
+      throw new CodeError(
+        ErrCode.EC_UTXOS_MORE_THAN_3,
+        "Bsv utxos should be no more than 3 in this operation."
+      );
+    }
 
     let nftUnlockingSize = NftFactory.calUnlockingScriptSize(
       p2pkhInputNum,
@@ -3236,6 +3256,13 @@ export class SensibleNFT {
     utxoMaxCount: number;
   }) {
     let p2pkhInputNum = utxoMaxCount;
+
+    if (p2pkhInputNum > 3) {
+      throw new CodeError(
+        ErrCode.EC_UTXOS_MORE_THAN_3,
+        "Bsv utxos should be no more than 3 in this operation."
+      );
+    }
 
     let nftUnlockingSize = NftFactory.calUnlockingScriptSize(
       p2pkhInputNum,
