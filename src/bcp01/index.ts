@@ -9,7 +9,7 @@ import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import {
   getRabinData,
   getRabinDatas,
-  selectSigners,
+  selectSigners
 } from "../common/satotxSignerUtil";
 import { SizeTransaction } from "../common/SizeTransaction";
 import * as TokenUtil from "../common/tokenUtil";
@@ -19,7 +19,7 @@ import {
   PLACE_HOLDER_PUBKEY,
   PLACE_HOLDER_SIG,
   SigHashInfo,
-  SigInfo,
+  SigInfo
 } from "../common/utils";
 import {
   API_NET,
@@ -27,7 +27,7 @@ import {
   NftSellUtxo,
   NonFungibleTokenUnspent,
   SensibleApi,
-  SensibleApiBase,
+  SensibleApiBase
 } from "../sensible-api";
 import { TxComposer } from "../tx-composer";
 import { NftFactory } from "./contract-factory/nft";
@@ -35,7 +35,7 @@ import { NftGenesisFactory } from "./contract-factory/nftGenesis";
 import { NftSellFactory, NFT_SELL_OP } from "./contract-factory/nftSell";
 import {
   NftUnlockContractCheckFactory,
-  NFT_UNLOCK_CONTRACT_TYPE,
+  NFT_UNLOCK_CONTRACT_TYPE
 } from "./contract-factory/nftUnlockContractCheck";
 import * as nftProto from "./contract-proto/nft.proto";
 import { SIGNER_VERIFY_NUM } from "./contract-proto/nft.proto";
@@ -1683,6 +1683,32 @@ export class SensibleNFT {
       genesis
     );
 
+    let genesisScript = nftUtxo.preNftAddress.hashBuffer.equals(
+      Buffer.alloc(20, 0)
+    )
+      ? new Bytes(nftUtxo.preLockingScript.toHex())
+      : new Bytes("");
+
+    let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
+
+    let estimateSatoshis1 = await this._calSellEstimateFee({
+      utxoMaxCount:utxos.length,
+      opreturnData,
+    });
+    let estimateSatoshis2 = await this._calTransferEstimateFee({
+      nftUtxoSatoshis: nftUtxo.satoshis,
+      genesisScript,
+      opreturnData,
+      utxoMaxCount: 1,
+    });
+    let estimateSatoshis = estimateSatoshis1 + estimateSatoshis2;
+    if (balance < estimateSatoshis) {
+      throw new CodeError(
+        ErrCode.EC_INSUFFICIENT_BSV,
+        `Insufficient balance.It take more than ${estimateSatoshis}, but only ${balance}.`
+      );
+    }
+
     let nftSellContract = NftSellFactory.createContract(
       new Ripemd160(toHex(nftUtxo.nftAddress.hashBuffer)),
       satoshisPrice,
@@ -1932,6 +1958,38 @@ export class SensibleNFT {
       genesis
     );
 
+    let nftAddress = nftPrivateKey.toAddress(this.network);
+    let nftSellTxHex = await this.sensibleApi.getRawTxData(sellUtxo.txId);
+    let nftSellTx = new bsv.Transaction(nftSellTxHex);
+    let nftSellUtxo = {
+      txId: sellUtxo.txId,
+      outputIndex: sellUtxo.outputIndex,
+      satoshis: nftSellTx.outputs[sellUtxo.outputIndex].satoshis,
+      lockingScript: nftSellTx.outputs[sellUtxo.outputIndex].script,
+    };
+    
+    let genesisScript = nftUtxo.preNftAddress.hashBuffer.equals(
+      Buffer.alloc(20, 0)
+    )
+      ? new Bytes(nftUtxo.preLockingScript.toHex())
+      : new Bytes("");
+
+    let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
+    let estimateSatoshis = await this._calCancelSellEstimateFee({
+      codehash,
+      nftUtxoSatoshis: nftUtxo.satoshis,
+      nftSellUtxo,
+      genesisScript,
+      utxoMaxCount:utxos.length,
+      opreturnData,
+    });
+    if (balance < estimateSatoshis) {
+      throw new CodeError(
+        ErrCode.EC_INSUFFICIENT_BSV,
+        `Insufficient balance.It take more than ${estimateSatoshis}, but only ${balance}.`
+      );
+    }
+
     let nftInput = nftUtxo;
 
     let nftID = nftProto.getNftID(nftInput.lockingScript.toBuffer());
@@ -1992,16 +2050,6 @@ export class SensibleNFT {
         .satoshis,
       lockingScript: unlockCheckTxComposer.getOutput(unlockCheckOutputIndex)
         .script,
-    };
-
-    let nftAddress = nftPrivateKey.toAddress(this.network);
-    let nftSellTxHex = await this.sensibleApi.getRawTxData(sellUtxo.txId);
-    let nftSellTx = new bsv.Transaction(nftSellTxHex);
-    let nftSellUtxo = {
-      txId: sellUtxo.txId,
-      outputIndex: sellUtxo.outputIndex,
-      satoshis: nftSellTx.outputs[sellUtxo.outputIndex].satoshis,
-      lockingScript: nftSellTx.outputs[sellUtxo.outputIndex].script,
     };
 
     let {
@@ -2355,12 +2403,45 @@ export class SensibleNFT {
       middlePrivateKey = utxoPrivateKeys[0];
     }
 
+    let nftAddress = buyerPrivateKey.toAddress(this.network);
+    let nftSellTxHex = await this.sensibleApi.getRawTxData(sellUtxo.txId);
+    let nftSellTx = new bsv.Transaction(nftSellTxHex);
+    let nftSellUtxo = {
+      txId: sellUtxo.txId,
+      outputIndex: sellUtxo.outputIndex,
+      satoshis: nftSellTx.outputs[sellUtxo.outputIndex].satoshis,
+      lockingScript: nftSellTx.outputs[sellUtxo.outputIndex].script,
+    };
+
     nftUtxo = await this._pretreatNftUtxoToTransferOn(
       nftUtxo,
       codehash,
       genesis
     );
 
+    let genesisScript = nftUtxo.preNftAddress.hashBuffer.equals(
+      Buffer.alloc(20, 0)
+    )
+      ? new Bytes(nftUtxo.preLockingScript.toHex())
+      : new Bytes("");
+
+    let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
+    let estimateSatoshis = await this._calBuyEstimateFee({
+      codehash,
+      nftUtxoSatoshis: nftUtxo.satoshis,
+      nftSellUtxo,
+      sellUtxo,
+      genesisScript,
+      utxoMaxCount:utxos.length,
+      opreturnData,
+    });
+    if (balance < estimateSatoshis) {
+      throw new CodeError(
+        ErrCode.EC_INSUFFICIENT_BSV,
+        `Insufficient balance.It take more than ${estimateSatoshis}, but only ${balance}.`
+      );
+    }
+    
     let nftInput = nftUtxo;
     let nftID = nftProto.getNftID(nftInput.lockingScript.toBuffer());
     let unlockContract = NftUnlockContractCheckFactory.createContract(
@@ -2422,15 +2503,7 @@ export class SensibleNFT {
         .script,
     };
 
-    let nftAddress = buyerPrivateKey.toAddress(this.network);
-    let nftSellTxHex = await this.sensibleApi.getRawTxData(sellUtxo.txId);
-    let nftSellTx = new bsv.Transaction(nftSellTxHex);
-    let nftSellUtxo = {
-      txId: sellUtxo.txId,
-      outputIndex: sellUtxo.outputIndex,
-      satoshis: nftSellTx.outputs[sellUtxo.outputIndex].satoshis,
-      lockingScript: nftSellTx.outputs[sellUtxo.outputIndex].script,
-    };
+
 
     let {
       rabinDatas,
