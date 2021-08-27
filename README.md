@@ -79,6 +79,7 @@ let { txid } = await ft.transfer({
 });
 ```
 
+
 ### Query Balance
 
 Query token's balance
@@ -150,6 +151,48 @@ let { txid } = await nft.transfer({
   genesis: genesis,
   tokenIndex: "1",
 });
+```
+
+### Sell
+
+Sell #1 NFT 
+
+```js
+let { sellTx, tx } = await nft.sell({
+  codehash,
+  genesis,
+  sellerWif: Alice.wif,
+  tokenIndex: "1",
+  satoshisPrice: 2000
+});
+
+```
+
+### Cancel Sell
+
+Cancel Sell #1 NFT 
+
+```js
+let { unlockCheckTx, tx } = await nft.cancelSell({
+  codehash,
+  genesis,
+  tokenIndex: "1",
+  sellerWif: Alice.wif
+});
+
+```
+
+### Buy
+
+Buy #1 NFT 
+```js
+let { unlockCheckTx, tx } = await nft.buy({
+  codehash,
+  genesis,
+  tokenIndex: "1",
+  buyerWif: Bob.wif,
+});
+
 ```
 
 ## Example

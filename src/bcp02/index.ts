@@ -11,7 +11,7 @@ import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import {
   getRabinData,
   getRabinDatas,
-  selectSigners,
+  selectSigners
 } from "../common/satotxSignerUtil";
 import { SizeTransaction } from "../common/SizeTransaction";
 import * as TokenUtil from "../common/tokenUtil";
@@ -21,21 +21,21 @@ import {
   PLACE_HOLDER_PUBKEY,
   PLACE_HOLDER_SIG,
   SigHashInfo,
-  SigInfo,
+  SigInfo
 } from "../common/utils";
 import {
   API_NET,
   API_TARGET,
   FungibleTokenUnspent,
   SensibleApi,
-  SensibleApiBase,
+  SensibleApiBase
 } from "../sensible-api";
 import { TxComposer } from "../tx-composer";
 import { TokenFactory } from "./contract-factory/token";
 import { TokenGenesisFactory } from "./contract-factory/tokenGenesis";
 import {
   TokenTransferCheckFactory,
-  TOKEN_TRANSFER_TYPE,
+  TOKEN_TRANSFER_TYPE
 } from "./contract-factory/tokenTransferCheck";
 import * as ftProto from "./contract-proto/token.proto";
 import { ContractUtil } from "./contractUtil";
@@ -1336,11 +1336,11 @@ export class SensibleFT {
    * @param senderWif the private key of the token sender,can be wif or other format
    * @param ftUtxos (Optional) specify token utxos
    * @param ftChangeAddress (Optional) specify ft changeAddress 
-   * @param utxos (Optional) specify bsv utxos
+   * @param utxos (Optional) specify bsv utxos which should be no more than 3 
    * @param changeAddress (Optional) specify bsv changeAddress
    * @param middleChangeAddress (Optional) the middle bsv changeAddress
    * @param middlePrivateKey (Optional) the private key of the middle changeAddress
-   * @param isMerge (Optional) specify if this is a merge
+   * @param isMerge (Optional) do not use this param.Please use function Merge.
    * @param opreturnData (Optional) append an opReturn output
    * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
 
@@ -2131,7 +2131,7 @@ export class SensibleFT {
    * @param genesis the genesis of token.
    * @param codehash the codehash of token.
    * @param ownerWif the private key of the token owner,can be wif or other format
-   * @param utxos (Optional) specify bsv utxos
+   * @param utxos (Optional) specify bsv utxos which should be no more than 3 
    * @param changeAddress (Optional) specify bsv changeAddress
    * @param opreturnData (Optional) append an opReturn output
    * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false

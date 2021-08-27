@@ -1534,7 +1534,7 @@ export class SensibleNFT {
    * @param sellerPrivateKey the private key of the token seller
    * @param satoshisPrice  the satoshis price to sell.
    * @param opreturnData (Optional) append an opReturn output
-   * @param utxos (Optional) specify bsv utxos
+   * @param utxos (Optional) specify bsv utxos which should be no more than 3 
    * @param changeAddress (Optional) specify bsv changeAddress
    * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
    * @param middleChangeAddress (Optional) the middle bsv changeAddress
@@ -1671,7 +1671,14 @@ export class SensibleNFT {
 
     middlePrivateKey?: bsv.PrivateKey;
     middleChangeAddress: bsv.Address;
-  }): Promise<{ nftSellTxComposer: TxComposer; txComposer: TxComposer }> {
+    }): Promise<{ nftSellTxComposer: TxComposer; txComposer: TxComposer }> {
+    if (utxos.length > 3) {
+      throw new CodeError(
+        ErrCode.EC_UTXOS_MORE_THAN_3,
+        "Bsv utxos should be no more than 3 in this operation, please merge it first "
+      );
+    }
+    
     if (!middleChangeAddress) {
       middleChangeAddress = utxos[0].address;
       middlePrivateKey = utxoPrivateKeys[0];
@@ -1802,7 +1809,7 @@ export class SensibleNFT {
    * @param sellerPrivateKey the private key of the token seller
    * @param satoshisPrice  the satoshis price to sell.
    * @param opreturnData (Optional) append an opReturn output
-   * @param utxos (Optional) specify bsv utxos
+   * @param utxos (Optional) specify bsv utxos which should be no more than 3 
    * @param changeAddress (Optional) specify bsv changeAddress
    * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
    * @param middleChangeAddress (Optional) the middle bsv changeAddress
@@ -2260,7 +2267,7 @@ export class SensibleNFT {
    * @param tokenIndex the tokenIndex of NFT.
    * @param buyerPrivateKey the private key of the token buyer
    * @param opreturnData (Optional) append an opReturn output
-   * @param utxos (Optional) specify bsv utxos
+   * @param utxos (Optional) specify bsv utxos which should be no more than 3 
    * @param changeAddress (Optional) specify bsv changeAddress
    * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
    * @param middleChangeAddress (Optional) the middle bsv changeAddress
