@@ -8,7 +8,7 @@ import {
   FungibleTokenUnspent,
   NonFungibleTokenSummary,
   NonFungibleTokenUnspent,
-  SensibleApiBase
+  SensibleApiBase,
 } from "./index";
 type ResData = {
   code: number;
@@ -190,7 +190,7 @@ export class Sensible implements SensibleApiBase {
     genesis: string,
     address: string,
     cursor: number = 0,
-    size: number = 20
+    size: number = 100
   ): Promise<NonFungibleTokenUnspent[]> {
     let url = `${this.serverBase}/nft/utxo/${codehash}/${genesis}/${address}?cursor=${cursor}&size=${size}`;
     let _res = await Net.httpGet(url, {});
@@ -338,15 +338,17 @@ export class Sensible implements SensibleApiBase {
       );
     }
     if (!data) return null;
-    let ret = data.filter(v=>v.isReady==true).map((v) => ({
-      codehash,
-      genesis,
-      tokenIndex,
-      txId: v.txid,
-      outputIndex: v.vout,
-      sellerAddress: v.address,
-      satoshisPrice: v.price,
-    }))[0];
+    let ret = data
+      .filter((v) => v.isReady == true)
+      .map((v) => ({
+        codehash,
+        genesis,
+        tokenIndex,
+        txId: v.txid,
+        outputIndex: v.vout,
+        sellerAddress: v.address,
+        satoshisPrice: v.price,
+      }))[0];
     return ret;
   }
 
@@ -403,5 +405,19 @@ export class Sensible implements SensibleApiBase {
       satoshisPrice: v.price,
     }));
     return ret;
+  }
+
+  public async getOutpointSpent(txId: string, index: number) {
+    let url = `${this.serverBase}/tx/${txId}/out/${index}/spent`;
+    let _res = await Net.httpGet(url, {});
+    const { code, data, msg } = _res as ResData;
+    if (code != 0) {
+      return null;
+    }
+    if (!data) return null;
+    return {
+      spentTxId: data.txid,
+      spentInputIndex: data.idx,
+    };
   }
 }

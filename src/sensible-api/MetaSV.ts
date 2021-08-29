@@ -417,4 +417,18 @@ export class MetaSV implements SensibleApiBase {
     }));
     return ret;
   }
+
+  public async getOutpointSpent(txId: string, index: number) {
+    let url = `https://api.sensiblequery.com/tx/${txId}/out/${index}/spent`;
+    let _res = await Net.httpGet(url, {});
+    const { code, data, msg } = _res as ResData;
+    if (code != 0) {
+      return null;
+    }
+    if (!data) return null;
+    return {
+      spentTxId: data.txid,
+      spentInputIndex: data.idx,
+    };
+  }
 }

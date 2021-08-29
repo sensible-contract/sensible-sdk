@@ -938,6 +938,15 @@ export class SensibleNFT {
     unspent = genesisUtxos.find(
       (v) => v.txId == genesisTxId && v.outputIndex == genesisOutputIndex
     );
+
+    // let spent = await this.sensibleApi.getOutpointSpent(genesisTxId, genesisOutputIndex)
+    // if (!spent) {
+    //   return {
+    //     txId: genesisTxId,
+    //     outputIndex:genesisOutputIndex
+    //   }
+    // }
+
     if (!unspent) {
       let _dataPartObj = nftProto.parseDataPart(scriptBuffer);
       _dataPartObj.sensibleID = {

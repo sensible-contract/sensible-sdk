@@ -81,6 +81,10 @@ export type AuthorizationOption = {
   privateKey?: any;
 };
 
+export type OutpointSpent = {
+  spentTxId: string;
+  spentInputIndex: number;
+};
 export interface SensibleApiBase {
   authorize: (options: AuthorizationOption) => void;
   getUnspents: (address: string) => Promise<SA_utxo[]>;
@@ -140,6 +144,8 @@ export interface SensibleApiBase {
     cursor?: number,
     size?: number
   ): Promise<NftSellUtxo[]>;
+
+  getOutpointSpent(txId: string, index: number): Promise<OutpointSpent>;
 }
 
 export class SensibleApi implements SensibleApiBase {
@@ -258,5 +264,9 @@ export class SensibleApi implements SensibleApiBase {
     size?: number
   ) {
     return this.apiHandler.getNftSellListByAddress(address, cursor, size);
+  }
+
+  async getOutpointSpent(txId: string, index: number) {
+    return this.apiHandler.getOutpointSpent(txId, index);
   }
 }

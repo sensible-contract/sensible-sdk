@@ -27,6 +27,7 @@ enum UtxoType {
   nftSell,
   other,
 }
+
 type UtxoPack = {
   outpoint: string;
   type: UtxoType;
@@ -54,9 +55,17 @@ type UtxoPack = {
     nftSellUtxo: NftSellUtxo;
   };
 };
+
+type Spent = {
+  txId: string;
+  index: number;
+  spentTxId: string;
+  spentInputIndex: number;
+};
 export class MockSensibleApi implements SensibleApiBase {
   serverBase: string;
   transactions: { [key: string]: bsv.Transaction } = {};
+  spents: Spent[] = [];
   utxoPacks: UtxoPack[] = [];
   network: "mainnet" | "testnet";
   constructor(apiNet: API_NET = API_NET.MAIN) {
@@ -66,6 +75,7 @@ export class MockSensibleApi implements SensibleApiBase {
   public cleanCacheds() {
     this.utxoPacks = [];
     this.transactions = {};
+    this.spents = [];
   }
 
   public cleanBsvUtxos() {
@@ -101,7 +111,7 @@ export class MockSensibleApi implements SensibleApiBase {
    */
   public async broadcast(txHex: string): Promise<string> {
     let tx = new bsv.Transaction(txHex);
-    tx.inputs.forEach((input) => {
+    tx.inputs.forEach((input, index) => {
       let inputTxId = input.prevTxId.toString("hex");
       let outpoint = getOutpoint(inputTxId, input.outputIndex);
 
@@ -113,6 +123,13 @@ export class MockSensibleApi implements SensibleApiBase {
       this.utxoPacks = this.utxoPacks.filter((v) => v != utxoPack);
 
       input.output = this.transactions[inputTxId].outputs[input.outputIndex];
+
+      this.spents.push({
+        txId: inputTxId,
+        index: input.outputIndex,
+        spentTxId: tx.id,
+        spentInputIndex: index,
+      });
     });
 
     if (tx.inputs.length > 0) {
@@ -402,5 +419,10 @@ export class MockSensibleApi implements SensibleApiBase {
     size: number = 20
   ) {
     return [];
+  }
+
+  public async getOutpointSpent(txId: string, index: number) {
+    let spent = this.spents.find((v) => v.txId == txId && v.index == index);
+    return spent;
   }
 }
