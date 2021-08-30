@@ -1205,7 +1205,7 @@ export class SensibleNFT {
   }
 
   /**
-   * Create a trasaction and broadcast it to transfer a NFT.
+   * Create a transaction and broadcast it to transfer a NFT.
    * @param genesis the genesis of NFT.
    * @param codehash the codehash of NFT.
    * @param tokenIndex the tokenIndex of NFT.
@@ -1296,7 +1296,7 @@ export class SensibleNFT {
   }
 
   /**
-   * Create an unsigned trasaction to transfer a NFT.
+   * Create an unsigned transaction to transfer a NFT.
    * @param genesis the genesis of NFT.
    * @param codehash the codehash of NFT.
    * @param tokenIndex the tokenIndex of NFT.
@@ -1544,7 +1544,7 @@ export class SensibleNFT {
   }
 
   /**
-   * Create a trasaction and broadcast it to sell a NFT.
+   * Create a transaction and broadcast it to sell a NFT.
    * @param genesis the genesis of NFT.
    * @param codehash the codehash of NFT.
    * @param tokenIndex the tokenIndex of NFT.
@@ -1819,7 +1819,206 @@ export class SensibleNFT {
   }
 
   /**
-   * Create a trasaction and broadcast it to put off a NFT.
+   * Create a sellUtxo transaction.To sell a NFT you should transfer it to this sellAddress.
+   * @param genesis the genesis of NFT.
+   * @param codehash the codehash of NFT.
+   * @param tokenIndex the tokenIndex of NFT.
+   * @param sellerPrivateKey the private key of the token seller
+   * @param satoshisPrice  the satoshis price to sell.
+   * @param opreturnData (Optional) append an opReturn output
+   * @param utxos (Optional) specify bsv utxos which should be no more than 3
+   * @param changeAddress (Optional) specify bsv changeAddress
+   * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
+   * @returns
+   */
+  public async sell2({
+    genesis,
+    codehash,
+    tokenIndex,
+
+    sellerWif,
+    sellerPrivateKey,
+
+    satoshisPrice,
+    opreturnData,
+    utxos,
+    changeAddress,
+    noBroadcast = false,
+  }: {
+    genesis: string;
+    codehash: string;
+    tokenIndex: string;
+    sellerWif?: string;
+    sellerPrivateKey?: string | bsv.PrivateKey;
+    satoshisPrice: number;
+    opreturnData?: any;
+    utxos?: any[];
+    changeAddress?: string | bsv.Address;
+    noBroadcast?: boolean;
+  }) {
+    checkParamGenesis(genesis);
+    checkParamCodehash(codehash);
+
+    let sellerPublicKey: bsv.PublicKey;
+    if (sellerWif) {
+      sellerPrivateKey = new bsv.PrivateKey(sellerWif);
+      sellerPublicKey = sellerPrivateKey.publicKey;
+    } else if (sellerPrivateKey) {
+      sellerPrivateKey = new bsv.PrivateKey(sellerPrivateKey);
+      sellerPublicKey = sellerPrivateKey.publicKey;
+    } else {
+      throw new CodeError(
+        ErrCode.EC_INVALID_ARGUMENT,
+        "sellerPrivateKey should be provided!"
+      );
+    }
+
+    let nftInfo = await this._pretreatNftUtxoToTransfer(
+      tokenIndex,
+      codehash,
+      genesis,
+      sellerPrivateKey as bsv.PrivateKey,
+      sellerPublicKey as bsv.PublicKey
+    );
+
+    let utxoInfo = await this._pretreatUtxos(utxos);
+    if (changeAddress) {
+      changeAddress = new bsv.Address(changeAddress, this.network);
+    } else {
+      changeAddress = utxoInfo.utxos[0].address;
+    }
+    let { txComposer, sellAddress } = await this._sell2({
+      genesis,
+      codehash,
+      tokenIndex,
+      nftUtxo: nftInfo.nftUtxo,
+      satoshisPrice,
+      opreturnData,
+      utxos: utxoInfo.utxos,
+      utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
+      changeAddress,
+    });
+
+    let txHex = txComposer.getRawHex();
+    if (!noBroadcast) {
+      await this.sensibleApi.broadcast(txHex);
+    }
+    return {
+      tx: txComposer.tx,
+      txHex,
+      txid: txComposer.tx.id,
+      sellAddress: sellAddress.toString(),
+    };
+  }
+
+  private async _sell2({
+    genesis,
+    codehash,
+    tokenIndex,
+    nftUtxo,
+    satoshisPrice,
+    opreturnData,
+    utxos,
+    utxoPrivateKeys,
+    changeAddress,
+  }: {
+    genesis: string;
+    codehash: string;
+    tokenIndex: string;
+    nftUtxo: NftUtxo;
+    satoshisPrice: number;
+    opreturnData?: any;
+    utxos: Utxo[];
+    utxoPrivateKeys: bsv.PrivateKey[];
+    changeAddress: bsv.Address;
+  }): Promise<{ txComposer: TxComposer; sellAddress: bsv.Address }> {
+    if (utxos.length > 3) {
+      throw new CodeError(
+        ErrCode.EC_UTXOS_MORE_THAN_3,
+        "Bsv utxos should be no more than 3 in this operation, please merge it first "
+      );
+    }
+
+    nftUtxo = await this._pretreatNftUtxoToTransferOn(
+      nftUtxo,
+      codehash,
+      genesis
+    );
+
+    let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
+
+    let estimateSatoshis1 = await this._calSellEstimateFee({
+      utxoMaxCount: utxos.length,
+      opreturnData,
+    });
+    let estimateSatoshis = estimateSatoshis1;
+    if (balance < estimateSatoshis) {
+      throw new CodeError(
+        ErrCode.EC_INSUFFICIENT_BSV,
+        `Insufficient balance.It take more than ${estimateSatoshis}, but only ${balance}.`
+      );
+    }
+
+    let nftSellContract = NftSellFactory.createContract(
+      new Ripemd160(toHex(nftUtxo.nftAddress.hashBuffer)),
+      satoshisPrice,
+      new Bytes(ContractUtil.tokenCodeHash),
+      new Bytes(toHex(nftProto.getNftID(nftUtxo.lockingScript.toBuffer())))
+    );
+    nftSellContract.setFormatedDataPart({
+      codehash,
+      genesis,
+      tokenIndex: BN.fromString(tokenIndex, 10),
+      sellerAddress: toHex(nftUtxo.nftAddress.hashBuffer),
+      satoshisPrice: BN.fromNumber(satoshisPrice),
+      nftID: toHex(nftProto.getNftID(nftUtxo.lockingScript.toBuffer())),
+    });
+
+    const txComposer = new TxComposer();
+
+    const p2pkhInputIndexs = utxos.map((utxo) => {
+      const inputIndex = txComposer.appendP2PKHInput(utxo);
+      txComposer.addSigHashInfo({
+        inputIndex,
+        address: utxo.address.toString(),
+        sighashType,
+        contractType: Utils.CONTRACT_TYPE.P2PKH,
+      });
+      return inputIndex;
+    });
+
+    const nftSellOutputIndex = txComposer.appendOutput({
+      lockingScript: nftSellContract.lockingScript,
+      satoshis: this.getDustThreshold(
+        nftSellContract.lockingScript.toBuffer().length
+      ),
+    });
+
+    if (opreturnData) {
+      txComposer.appendOpReturnOutput(opreturnData);
+    }
+
+    let changeOutputIndex = txComposer.appendChangeOutput(
+      changeAddress,
+      this.feeb
+    );
+    if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
+      p2pkhInputIndexs.forEach((inputIndex) => {
+        let privateKey = utxoPrivateKeys.splice(0, 1)[0];
+        txComposer.unlockP2PKHInput(privateKey, inputIndex);
+      });
+    }
+
+    this._checkTxFeeRate(txComposer);
+
+    let sellAddress = new bsv.Address(
+      TokenUtil.getScriptHashBuf(nftSellContract.lockingScript.toBuffer()),
+      this.network
+    );
+    return { txComposer, sellAddress };
+  }
+  /**
+   * Create a transaction and broadcast it to put off a NFT.
    * @param genesis the genesis of NFT.
    * @param codehash the codehash of NFT.
    * @param tokenIndex the tokenIndex of NFT.
@@ -2283,7 +2482,7 @@ export class SensibleNFT {
   }
 
   /**
-   * Create a trasaction and broadcast it to buy a NFT.
+   * Create a transaction and broadcast it to buy a NFT.
    * @param genesis the genesis of NFT.
    * @param codehash the codehash of NFT.
    * @param tokenIndex the tokenIndex of NFT.
@@ -3075,6 +3274,28 @@ export class SensibleNFT {
       utxoMaxCount: 1,
     });
     return estimateSatoshis1 + estimateSatoshis2;
+  }
+
+  public async getSell2EstimateFee({
+    genesis,
+    codehash,
+
+    opreturnData,
+    utxoMaxCount = 10,
+  }: {
+    genesis: string;
+    codehash: string;
+    opreturnData?: any;
+    utxoMaxCount?: number;
+  }) {
+    checkParamGenesis(genesis);
+    checkParamCodehash(codehash);
+
+    let estimateSatoshis1 = await this._calSellEstimateFee({
+      utxoMaxCount,
+      opreturnData,
+    });
+    return estimateSatoshis1;
   }
 
   private async _calCancelSellEstimateFee({

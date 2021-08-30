@@ -121,6 +121,18 @@ async function expectNftOwner(
     `${address} should has #${tokenIndex} NFT `
   ).to.not.be.null;
 }
+
+function expectFeeb(tx: bsv.Transaction, feeb: number) {
+  let txComposer = new TxComposer(tx);
+  let finalFeeb = txComposer.getFeeRate();
+  let feeGap = finalFeeb - feeb;
+  let isValid = feeGap > 0 && feeGap < 0.05;
+  if (!isValid) {
+    Utils.dumpTx(tx);
+  }
+  expect(isValid, `feeb should be ${feeb} but finally is ${finalFeeb}`).to.be
+    .true;
+}
 describe("BCP01-NonFungibleToken Test", () => {
   describe("basic test ", () => {
     let nft: SensibleNFT;
@@ -508,16 +520,7 @@ describe("BCP01-NonFungibleToken Test", () => {
 
       g_sellTx = sellTx;
 
-      let txComposer = new TxComposer(tx);
-      let finalFeeb = txComposer.getFeeRate();
-      let feeGap = finalFeeb - feeb;
-      let isValid = feeGap > 0 && feeGap < 0.01;
-      if (!isValid) {
-        console.log("estimateFee", estimateFee);
-        Utils.dumpTx(tx);
-      }
-      expect(isValid, `feeb should be ${feeb} but finally is ${finalFeeb}`).to
-        .be.true;
+      expectFeeb(tx, feeb);
 
       let pkh = bsv.crypto.Hash.sha256ripemd160(
         sellTx.outputs[0].script.toBuffer()
@@ -547,16 +550,7 @@ describe("BCP01-NonFungibleToken Test", () => {
         opreturnData,
       });
       // Utils.dumpTx(tx);
-      let txComposer = new TxComposer(tx);
-      let finalFeeb = txComposer.getFeeRate();
-      let feeGap = finalFeeb - feeb;
-      let isValid = feeGap > 0 && feeGap < 0.01;
-      if (!isValid) {
-        console.log("estimateFee", estimateFee);
-        Utils.dumpTx(tx);
-      }
-      expect(isValid, `feeb should be ${feeb} but finally is ${finalFeeb}`).to
-        .be.true;
+      expectFeeb(tx, feeb);
       expectNftOwner(nft, codehash, genesis, Alice.address, "0");
     });
 
@@ -623,18 +617,123 @@ describe("BCP01-NonFungibleToken Test", () => {
         utxos,
         opreturnData,
       });
-      // Utils.dumpTx(tx);
-      let txComposer = new TxComposer(tx);
-      let finalFeeb = txComposer.getFeeRate();
-      let feeGap = finalFeeb - feeb;
-      let isValid = feeGap > 0 && feeGap < 0.01;
-      if (!isValid) {
-        console.log("estimateFee", estimateFee);
-        Utils.dumpTx(tx);
-      }
-      expect(isValid, `feeb should be ${feeb} but finally is ${finalFeeb}`).to
-        .be.true;
+      expectFeeb(tx, feeb);
       expectNftOwner(nft, codehash, genesis, CoffeeShop.address, "1");
+    });
+  });
+
+  describe("sell2 test ", () => {
+    let nft: SensibleNFT;
+    let codehash: string;
+    let genesis: string;
+    let sensibleId: string;
+    let g_sellTx: bsv.Transaction;
+    let network: API_NET = API_NET.MAIN;
+    let feeb: number = 0.5;
+    let opreturnData = "dummy_opreturn_data";
+    before(async () => {
+      nft = new SensibleNFT({
+        signers: [],
+        signerSelecteds,
+        feeb,
+        network,
+        purse: FeePayer.privateKey.toWIF(),
+        debug: true,
+        mockData: {
+          satotxSigners,
+          sensibleApi,
+        },
+      });
+      sensibleApi.cleanCacheds();
+    });
+
+    afterEach(() => {});
+    it("genesis should be ok", async () => {
+      let utxos = await genDummyFeeUtxos(100000001);
+      let _res = await nft.genesis({
+        genesisWif: CoffeeShop.privateKey,
+        totalSupply: "3",
+      });
+      // Utils.dumpTx(_res.tx);
+      genesis = _res.genesis;
+      codehash = _res.codehash;
+      sensibleId = _res.sensibleId;
+    });
+    it("issue should be ok", async () => {
+      await nft.issue({
+        codehash,
+        genesis,
+        sensibleId,
+        genesisWif: CoffeeShop.privateKey.toString(),
+        receiverAddress: CoffeeShop.address.toString(),
+        metaTxId:
+          "a9a6634a67e0785f33efa1ff91b12888be28bac28878c28687055f69be2adac1",
+      });
+    });
+    it("put on sell nft #0 should be ok", async () => {
+      cleanBsvUtxos();
+      let utxoMaxCount = 3;
+      let estimateFee1 = await nft.getSell2EstimateFee({
+        codehash,
+        genesis,
+        utxoMaxCount,
+        opreturnData,
+      });
+      let utxos = await genDummyFeeUtxos(estimateFee1, utxoMaxCount);
+      let { tx, sellAddress } = await nft.sell2({
+        codehash,
+        genesis,
+        sellerWif: CoffeeShop.privateKey.toWIF(),
+        tokenIndex: "0",
+        satoshisPrice: 10000,
+        utxos,
+        opreturnData,
+      });
+
+      expectFeeb(tx, feeb);
+
+      let estimateFee2 = await nft.getTransferEstimateFee({
+        codehash,
+        genesis,
+        tokenIndex: "0",
+        utxoMaxCount,
+        opreturnData,
+      });
+      utxos = await genDummyFeeUtxos(estimateFee2, utxoMaxCount);
+      let _res = await nft.transfer({
+        codehash,
+        genesis,
+        senderWif: CoffeeShop.privateKey.toWIF(),
+        receiverAddress: sellAddress,
+        tokenIndex: "0",
+        utxos,
+        opreturnData,
+      });
+      expectFeeb(_res.tx, feeb);
+    });
+
+    it("buy nft #0 should be ok", async () => {
+      cleanBsvUtxos();
+      let utxoMaxCount = 3;
+      let estimateFee = await nft.getBuyEstimateFee({
+        codehash,
+        genesis,
+        tokenIndex: "0",
+        buyerWif: Alice.privateKey.toWIF(),
+        utxoMaxCount,
+        opreturnData,
+      });
+      let utxos = await genDummyFeeUtxos(estimateFee, utxoMaxCount);
+      let { unlockCheckTx, tx } = await nft.buy({
+        codehash,
+        genesis,
+        tokenIndex: "0",
+        buyerWif: Alice.privateKey.toWIF(),
+        utxos,
+        opreturnData,
+      });
+      expectFeeb(tx, feeb);
+      expectNftOwner(nft, codehash, genesis, Alice.address, "0");
     });
   });
 });
