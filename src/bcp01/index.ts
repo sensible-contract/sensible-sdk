@@ -3430,7 +3430,7 @@ export class SensibleNFT {
     sellerWif?: string;
     sellerPrivateKey?: string | bsv.PrivateKey;
     sellerPublicKey?: string | bsv.PublicKey;
-    sellUtxo: { txId: string; outputIndex: number };
+    sellUtxo?: SellUtxo;
     opreturnData?: any;
 
     utxoMaxCount?: number;
@@ -3455,6 +3455,20 @@ export class SensibleNFT {
       sellerPrivateKey as bsv.PrivateKey,
       sellerPublicKey as bsv.PublicKey
     );
+
+    if (!sellUtxo) {
+      sellUtxo = await this.sensibleApi.getNftSellUtxo(
+        codehash,
+        genesis,
+        tokenIndex
+      );
+    }
+    if (!sellUtxo) {
+      throw new CodeError(
+        ErrCode.EC_NFT_NOT_ON_SELL,
+        "The NFT is not for sale because  the corresponding SellUtxo cannot be found."
+      );
+    }
 
     let nftSellTxHex = await this.sensibleApi.getRawTxData(sellUtxo.txId);
     let nftSellTx = new bsv.Transaction(nftSellTxHex);
@@ -3634,6 +3648,7 @@ export class SensibleNFT {
     buyerWif,
     buyerPrivateKey,
     buyerPublicKey,
+    sellUtxo,
 
     opreturnData,
     utxoMaxCount = 3,
@@ -3644,6 +3659,7 @@ export class SensibleNFT {
     buyerWif?: string;
     buyerPrivateKey?: string | bsv.PrivateKey;
     buyerPublicKey?: string | bsv.PublicKey;
+    sellUtxo?: SellUtxo;
     opreturnData?: any;
 
     utxoMaxCount?: number;
@@ -3669,11 +3685,13 @@ export class SensibleNFT {
       buyerPublicKey as bsv.PublicKey
     );
 
-    let sellUtxo = await this.sensibleApi.getNftSellUtxo(
-      codehash,
-      genesis,
-      tokenIndex
-    );
+    if (!sellUtxo) {
+      sellUtxo = await this.sensibleApi.getNftSellUtxo(
+        codehash,
+        genesis,
+        tokenIndex
+      );
+    }
     if (!sellUtxo) {
       throw new CodeError(
         ErrCode.EC_NFT_NOT_ON_SELL,
