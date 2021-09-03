@@ -2,6 +2,7 @@ import { CodeError, ErrCode } from "../common/error";
 import { Net } from "../net";
 import {
   API_NET,
+  API_TARGET,
   AuthorizationOption,
   FungibleTokenBalance,
   FungibleTokenSummary,
@@ -36,11 +37,22 @@ type SensibleQueryUtxo = {
 };
 export class Sensible implements SensibleApiBase {
   serverBase: string;
-  constructor(apiNet: API_NET) {
-    if (apiNet == API_NET.MAIN) {
-      this.serverBase = "https://api.sensiblequery.com";
-    } else {
-      this.serverBase = "https://api.sensiblequery.com/test";
+  constructor(apiTarget: API_TARGET, apiNet: API_NET) {
+    if (apiTarget == API_TARGET.SENSIBLE) {
+      if (apiNet == API_NET.MAIN) {
+        this.serverBase = "https://api.sensiblequery.com";
+      } else {
+        this.serverBase = "https://api.sensiblequery.com/test";
+      }
+    } else if (apiTarget == API_TARGET.SHOW) {
+      if (apiNet == API_NET.MAIN) {
+        this.serverBase = "https://sensiblequery.show.sv";
+      } else {
+        throw new CodeError(
+          ErrCode.EC_SENSIBLE_API_ERROR,
+          "show only support mainnet"
+        );
+      }
     }
   }
 

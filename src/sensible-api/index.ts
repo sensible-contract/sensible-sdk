@@ -9,6 +9,7 @@ export enum API_NET {
 export enum API_TARGET {
   SENSIBLE = "sensible",
   METASV = "metasv",
+  SHOW = "show",
 }
 
 export type NonFungibleTokenUnspent = {
@@ -158,7 +159,7 @@ export class SensibleApi implements SensibleApiBase {
         break;
       }
       default: {
-        this.apiHandler = new Sensible(apiNet);
+        this.apiHandler = new Sensible(apiTarget, apiNet);
         break;
       }
     }
