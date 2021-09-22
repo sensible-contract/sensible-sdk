@@ -1,6 +1,6 @@
 {
   "name": "sensible-sdk",
-  "version": "7.2.7",
+  "version": "7.2.8",
   "description": "Sensible-SDK",
   "main": "dist/index.js",
   "engines": {
@@ -29,8 +29,7 @@
   "license": "MIT",
   "dependencies": {
     "request": "^2.88.2",
-    "scryptlib": "^0.4.2-beta1",
-    "zlib": "^1.0.5"
+    "scryptlib": "^0.4.2-beta1"
   },
   "devDependencies": {
     "@types/chai": "^4.2.20",
