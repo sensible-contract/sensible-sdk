@@ -46,13 +46,14 @@
           purse: feeWif,
         });
 
-        let { txid, genesis, codehash } = await nft.genesis({
+        let { txid, genesis, codehash, sensibleId } = await nft.genesis({
           genesisWif: CoffeeShop.wif,
           totalSupply: "3",
         });
         console.log(`genesis success: ${txid}
       genesis: ${genesis}
-      codehash: ${codehash}`);
+      codehash: ${codehash}
+      sensibleId: ${sensibleId}`);
 
         for (let i = 0; i < 3; i++) {
           await sleep(3);
@@ -60,6 +61,7 @@
             let { txid, tokenIndex } = await nft.issue({
               genesis,
               codehash,
+              sensibleId,
               genesisWif: CoffeeShop.wif,
               receiverAddress: CoffeeShop.address,
               metaTxId:

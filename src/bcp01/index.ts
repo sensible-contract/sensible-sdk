@@ -222,6 +222,15 @@ function checkParamCodehash(codehash) {
   );
 }
 
+function checkParamSensibleId(sensibleId) {
+  if (typeof sensibleId != "string" || sensibleId.length != 72) {
+    throw new CodeError(
+      ErrCode.EC_INVALID_ARGUMENT,
+      `CodehashFormatError:sensibleId should be a string with 72 length `
+    );
+  }
+}
+
 function parseSensibleID(sensibleID: string) {
   let sensibleIDBuf = Buffer.from(sensibleID, "hex");
   let genesisTxId = sensibleIDBuf.slice(0, 32).reverse().toString("hex");
@@ -804,6 +813,7 @@ export class SensibleNFT {
   }> {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
+    checkParamSensibleId(sensibleId);
 
     const genesisPrivateKey = new bsv.PrivateKey(genesisWif);
     const genesisPublicKey = genesisPrivateKey.toPublicKey();
@@ -886,6 +896,7 @@ export class SensibleNFT {
   }> {
     checkParamGenesis(genesis);
     checkParamCodehash(codehash);
+    checkParamSensibleId(sensibleId);
 
     genesisPublicKey = new bsv.PublicKey(genesisPublicKey);
     let utxoInfo = await this._pretreatUtxos(utxos);
