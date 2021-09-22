@@ -1068,6 +1068,13 @@ export class SensibleFT {
       })
     );
 
+    if (
+      genesisContract.getFormatedDataPart().rabinPubKeyHashArrayHash !=
+      toHex(this.rabinPubKeyHashArrayHash)
+    ) {
+      throw new CodeError(ErrCode.EC_INVALID_SIGNERS, "Invalid signers.");
+    }
+
     let {
       rabinData,
       rabinPubKeyIndexArray,
@@ -2027,6 +2034,12 @@ export class SensibleFT {
         let dataPartObj = ftProto.parseDataPart(
           ftUtxo.lockingScript.toBuffer()
         );
+        if (
+          dataPartObj.rabinPubKeyHashArrayHash !=
+          toHex(this.rabinPubKeyHashArrayHash)
+        ) {
+          throw new CodeError(ErrCode.EC_INVALID_SIGNERS, "Invalid signers.");
+        }
         const dataPart = ftProto.newDataPart(dataPartObj);
 
         const tokenContract = TokenFactory.createContract(

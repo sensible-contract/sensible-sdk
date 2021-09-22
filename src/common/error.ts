@@ -17,6 +17,7 @@ export enum ErrCode {
   EC_INNER_ERROR = -1,
   EC_INVALID_ARGUMENT = -2,
   EC_SENSIBLE_API_ERROR = -3,
+  EC_INVALID_SIGNERS = -4,
 
   //需要特殊处理
   EC_UTXOS_MORE_THAN_3 = -100,

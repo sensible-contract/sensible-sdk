@@ -1073,6 +1073,13 @@ export class SensibleNFT {
       },
     });
 
+    if (
+      originDataPart.rabinPubKeyHashArrayHash !=
+      toHex(this.rabinPubKeyHashArrayHash)
+    ) {
+      throw new CodeError(ErrCode.EC_INVALID_SIGNERS, "Invalid signers.");
+    }
+
     let {
       rabinData,
       rabinPubKeyIndexArray,
@@ -1407,6 +1414,18 @@ export class SensibleNFT {
       );
     }
 
+    //validate signers
+    const nftScriptBuf = nftUtxo.lockingScript.toBuffer();
+    let dataPartObj = nftProto.parseDataPart(nftScriptBuf);
+    dataPartObj.nftAddress = toHex(receiverAddress.hashBuffer);
+    const lockingScriptBuf = nftProto.updateScript(nftScriptBuf, dataPartObj);
+    if (
+      dataPartObj.rabinPubKeyHashArrayHash !=
+      toHex(this.rabinPubKeyHashArrayHash)
+    ) {
+      throw new CodeError(ErrCode.EC_INVALID_SIGNERS, "Invalid signers.");
+    }
+
     let {
       rabinDatas,
       rabinPubKeyIndexArray,
@@ -1443,10 +1462,6 @@ export class SensibleNFT {
     });
 
     //tx addOutput nft
-    const nftScriptBuf = nftInput.lockingScript.toBuffer();
-    let dataPartObj = nftProto.parseDataPart(nftScriptBuf);
-    dataPartObj.nftAddress = toHex(receiverAddress.hashBuffer);
-    const lockingScriptBuf = nftProto.updateScript(nftScriptBuf, dataPartObj);
     const nftOutputIndex = txComposer.appendOutput({
       lockingScript: bsv.Script.fromBuffer(lockingScriptBuf),
       satoshis: this.getDustThreshold(lockingScriptBuf.length),
