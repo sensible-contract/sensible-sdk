@@ -2648,7 +2648,6 @@ export class SensibleFT {
     }
 
     let dustAmount = this.getDustThreshold(TokenFactory.getLockingScriptSize());
-    console.log(dustAmount);
     let tokenInputArray = [];
     for (let i = 0; i < tokenInputLen; i++) {
       tokenInputArray.push({ satoshis: dustAmount });

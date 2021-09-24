@@ -1,4 +1,4 @@
-import { bsv } from "scryptlib";
+import * as bsv from "../bsv";
 import { dumpTx } from "../common/utils";
 import {
   API_NET,
@@ -17,8 +17,8 @@ type BroadcastOptions = {
   dump?: boolean;
 };
 export class Wallet {
-  private privateKey: any;
-  private address: any;
+  privateKey: bsv.PrivateKey;
+  address: bsv.Address;
   feeb: number;
   blockChainApi: SensibleApiBase;
   network: API_NET;
@@ -34,7 +34,7 @@ export class Wallet {
     } else {
       this.privateKey = bsv.PrivateKey.fromRandom(network);
     }
-    this.address = this.privateKey.toAddress();
+    this.address = this.privateKey.toAddress(network);
     this.blockChainApi = new SensibleApi(network, apiTarget);
     this.feeb = feeb;
     this.network = network;
