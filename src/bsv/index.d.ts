@@ -248,6 +248,8 @@ export namespace crypto {
     static SIGHASH_SINGLE: number;
     static SIGHASH_FORKID: number;
     static SIGHASH_ANYONECANPAY: number;
+    r: BN;
+    s: BN;
     nhashtype: number;
     toString(): string;
     toBuffer(): Buffer;

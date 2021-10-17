@@ -1,4 +1,10 @@
 const { bsv } = require("scryptlib");
+const Message = require("bsv/message");
+const Mnemonic = require("bsv/mnemonic");
+const ECIES = require("bsv/ecies");
 bsv.Script.Interpreter.MAX_SCRIPT_ELEMENT_SIZE = Number.MAX_SAFE_INTEGER;
 bsv.Script.Interpreter.MAXIMUM_ELEMENT_SIZE = Number.MAX_SAFE_INTEGER;
+bsv.Message = Message;
+bsv.Mnemonic = Mnemonic;
+bsv.ECIES = ECIES;
 module.exports = bsv;

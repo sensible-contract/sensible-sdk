@@ -202,6 +202,11 @@ function checkParamReceivers(receivers: TokenReceiver[]) {
       `
       );
     }
+
+    let amount = new BN(receiver.amount.toString());
+    if (amount.lten(0)) {
+      throw `receiver amount must greater than 0 but now is ${receiver.amount}`;
+    }
   }
 }
 
