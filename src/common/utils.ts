@@ -53,7 +53,7 @@ export type SigHashInfo = {
 
 export type SigInfo = {
   sig: string;
-  publicKey: any;
+  publicKey: string | bsv.PublicKey;
 };
 export const PLACE_HOLDER_SIG =
   "41682c2074686973206973206120706c61636520686f6c64657220616e642077696c6c206265207265706c6163656420696e207468652066696e616c207369676e61747572652e00";

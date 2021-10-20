@@ -1484,7 +1484,6 @@ export class SensibleFT {
    * @param middleChangeAddress (Optional) the middle bsv changeAddress
    * @param isMerge (Optional) specify if this is a merge
    * @param opreturnData (Optional) append an opReturn output
-   * @param noBroadcast (Optional) whether not to broadcast the transaction, the default is false
    * @returns
    */
   public async unsignPreTransfer({

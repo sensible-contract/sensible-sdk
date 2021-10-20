@@ -292,12 +292,12 @@ export class SensibleNFT {
     dustLimitFactor = 300,
     dustAmount,
   }: {
-    signers: SignerConfig[];
+    signers?: SignerConfig[];
     signerSelecteds?: number[];
-    feeb: number;
-    network: API_NET;
-    purse: string;
-    debug: boolean;
+    feeb?: number;
+    network?: API_NET;
+    purse?: string;
+    debug?: boolean;
     apiTarget?: API_TARGET;
     mockData?: MockData;
     dustLimitFactor?: number;
@@ -3307,7 +3307,7 @@ export class SensibleNFT {
     codehash,
 
     opreturnData,
-    utxoMaxCount = 10,
+    utxoMaxCount = 3,
   }: {
     genesis: string;
     codehash: string;
