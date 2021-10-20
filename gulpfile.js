@@ -54,24 +54,4 @@ gulp.task("browserify", function () {
     .pipe(gulp.dest("dist"));
 });
 
-gulp.task("typedoc", function () {
-  return gulp.src(["src/**/*.ts"]).pipe(
-    typedoc({
-      entryPoints: ["./src/index.ts"],
-      out: "./docs",
-      name: "sensible-sdk",
-      tsconfig: "tsconfig.json",
-      excludePrivate: true,
-    })
-  );
-});
-gulp.task(
-  "default",
-  gulp.series(
-    "clean",
-    "tsc",
-    "copy_file",
-    "browserify"
-    // "typedoc"
-  )
-);
+gulp.task("default", gulp.series("clean", "tsc", "copy_file", "browserify"));

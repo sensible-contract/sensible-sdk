@@ -3,11 +3,9 @@ import {
   SIGNER_NUM,
   SIGNER_VERIFY_NUM,
 } from "../../src/bcp01/contract-proto/nft.proto";
-import * as BN from "../../src/bn.js";
-import * as bsv from "../../src/bsv";
 import { CodeError, ErrCode } from "../../src/common/error";
 import * as Utils from "../../src/common/utils";
-import { API_NET, SensibleNFT } from "../../src/index";
+import { API_NET, BN, bsv, SensibleNFT } from "../../src/index";
 import { TxComposer } from "../../src/tx-composer";
 import { dummyRabinKeypairs } from "../dummyRabin";
 import { MockSatotxSigner } from "../MockSatotxSigner";

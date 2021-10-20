@@ -3,10 +3,8 @@ import {
   SIGNER_NUM,
   SIGNER_VERIFY_NUM,
 } from "../../src/bcp02/contract-proto/token.proto";
-import * as BN from "../../src/bn.js";
-import * as bsv from "../../src/bsv";
 import * as Utils from "../../src/common/utils";
-import { API_NET, SensibleFT } from "../../src/index";
+import { API_NET, BN, bsv, SensibleFT } from "../../src/index";
 import { TxComposer } from "../../src/tx-composer";
 import { dummyRabinKeypairs } from "../dummyRabin";
 import { MockSatotxSigner } from "../MockSatotxSigner";
