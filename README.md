@@ -1,10 +1,10 @@
 # Sensible-SDK
 
-## Links
-
 - [![npm version](https://img.shields.io/npm/v/sensible-sdk.svg)](https://www.npmjs.com/package/sensible-sdk)
-- [![TypeDoc](https://img.shields.io/badge/documentation-TypeDoc-green.svg)](https://sensible-contract.github.io/sensible-sdk/)
-- [![Documentation](https://img.shields.io/badge/documentation-sensiblecontract.org-green.svg)](https://sensiblecontract.org/)
+
+This sdk helps you to interact with [sensible contracts][sensible]
+
+Please read the [documentation][docs] for more.
 
 ## How to install
 
@@ -78,7 +78,6 @@ let { txid } = await ft.transfer({
   genesis: genesis,
 });
 ```
-
 
 ### Query Balance
 
@@ -155,7 +154,7 @@ let { txid } = await nft.transfer({
 
 ### Sell
 
-Sell #1 NFT 
+Sell #1 NFT
 
 ```js
 let { sellTx, tx } = await nft.sell({
@@ -163,28 +162,27 @@ let { sellTx, tx } = await nft.sell({
   genesis,
   sellerWif: Alice.wif,
   tokenIndex: "1",
-  satoshisPrice: 2000
+  satoshisPrice: 2000,
 });
-
 ```
 
 ### Cancel Sell
 
-Cancel Sell #1 NFT 
+Cancel Sell #1 NFT
 
 ```js
 let { unlockCheckTx, tx } = await nft.cancelSell({
   codehash,
   genesis,
   tokenIndex: "1",
-  sellerWif: Alice.wif
+  sellerWif: Alice.wif,
 });
-
 ```
 
 ### Buy
 
-Buy #1 NFT 
+Buy #1 NFT
+
 ```js
 let { unlockCheckTx, tx } = await nft.buy({
   codehash,
@@ -192,9 +190,11 @@ let { unlockCheckTx, tx } = await nft.buy({
   tokenIndex: "1",
   buyerWif: Bob.wif,
 });
-
 ```
 
 ## Example
 
 <a href="https://github.com/sensible-contract/sensible-sdk/tree/master/examples">Go to examples</a>
+
+[docs]: http://sensible-sdk.readthedocs.io/
+[sensible]: https://sensiblecontract.org/
