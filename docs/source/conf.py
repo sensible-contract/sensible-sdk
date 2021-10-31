@@ -18,8 +18,8 @@
 # -- Project information -----------------------------------------------------
 
 project = 'sensible-sdk'
-copyright = '2021, cc, Jiedo, huanniangstudio'
-author = 'cc, Jiedo, huanniangstudio'
+copyright = '2021, sensiblecontract.org'
+author = 'sensiblecontract.org'
 
 version = '7.3.0'
 

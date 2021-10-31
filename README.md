@@ -1,6 +1,6 @@
 # Sensible-SDK
 
-- [![npm version](https://img.shields.io/npm/v/sensible-sdk.svg)](https://www.npmjs.com/package/sensible-sdk)
+[![npm version](https://img.shields.io/npm/v/sensible-sdk.svg)](https://www.npmjs.com/package/sensible-sdk)
 
 This sdk helps you to interact with [sensible contracts][sensible]
 

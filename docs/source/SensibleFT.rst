@@ -1324,6 +1324,7 @@ Example
 -------
 
 .. code-block:: javascript
+
     const ft = new sensible.SensibleFT({});
 
     let ftUtxos = await ft.getFtUtxos(
@@ -1424,6 +1425,7 @@ Example
 -------
 
 .. code-block:: javascript
+    
     const SensibleFT = sensible.SensibleFT;
     const { signers, signerSelecteds } = await SensibleFT.selectSigners();
     const ft = new SensibleFT({
