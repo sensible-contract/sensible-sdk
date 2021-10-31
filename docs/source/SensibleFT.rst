@@ -1292,14 +1292,107 @@ Example
             decimal: 3
         }
     ]
+    
 ------------------------------------------------------------------------------
+
+
+getBalance
+=====================
+
+.. code-block:: javascript
+
+    ft.getBalance(options)
+
+Query token balance.
+
+----------
+Parameters
+----------
+* ``options`` - ``Object``:
+    * ``genesis`` - ``string``: the genesis of token.
+    * ``codehash`` - ``string``: the codehash of token.
+    * ``address`` - ``string``  token address
+
+
+-------
+Returns
+-------
+
+``Promise`` returns ``string``: amount of token
+
+-------
+Example
+-------
+
+.. code-block:: javascript
+
+    const ft = new sensible.SensibleFT({});
+
+    let balance = await ft.getBalance({
+        codehash: "777e4dd291059c9f7a0fd563f7204576dcceb791",
+        genesis: "8e9c53e1a38ff28772db99ee34a23bb305062a1a",
+        address: "18WoTi5rkjtqrR74pQ2q6gSzshCosjyTTr",
+    });
+    console.log(balance);
+    > 
+    631034354
+
+------------------------------------------------------------------------------
+
+getBalanceDetail
+=====================
+
+.. code-block:: javascript
+
+    ft.getBalanceDetail(options)
+
+Query token balance.
+
+----------
+Parameters
+----------
+* ``options`` - ``Object``:
+    * ``genesis`` - ``string``: the genesis of token.
+    * ``codehash`` - ``string``: the codehash of token.
+    * ``address`` - ``string``  token address
+
+
+-------
+Returns
+-------
+
+``Promise`` returns ``Object``:
+    * ``balance`` - ``string``: confirmed balance.
+    * ``pendingBalance`` - ``string``: pending balance.
+    * ``utxoCount`` - ``number``: the number of the token utxo 
+    * ``decimal`` - ``number``: token decimal
+
+-------
+Example
+-------
+
+.. code-block:: javascript
+
+    const ft = new sensible.SensibleFT({});
+
+    let detail = await ft.getBalanceDetail({
+        codehash: "777e4dd291059c9f7a0fd563f7204576dcceb791",
+        genesis: "8e9c53e1a38ff28772db99ee34a23bb305062a1a",
+        address: "18WoTi5rkjtqrR74pQ2q6gSzshCosjyTTr",
+    });
+    console.log(detail);
+    > 
+    { balance: '631034354', pendingBalance: '0', utxoCount: 1, decimal: 3 }
+
+------------------------------------------------------------------------------
+
 
 getFtUtxos
 =====================
 
 .. code-block:: javascript
 
-    ft.getFtUtxos(options)
+    ft.getFtUtxos(genesis,codehash,address[, count])
 
 Query token utxos.
 
@@ -1425,7 +1518,7 @@ Example
 -------
 
 .. code-block:: javascript
-    
+
     const SensibleFT = sensible.SensibleFT;
     const { signers, signerSelecteds } = await SensibleFT.selectSigners();
     const ft = new SensibleFT({
@@ -1481,7 +1574,7 @@ parseTokenScript
 
 .. code-block:: javascript
 
-    SensibleFT.parseTokenScript(scriptBuf,[network])
+    SensibleFT.parseTokenScript(scriptBuf[ ,network])
 
 a function to parse output script
 
