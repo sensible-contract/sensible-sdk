@@ -103,7 +103,6 @@ sensibleId: ${sensibleId}`);
       genesis,
       tokenIndex: "0",
       sellerWif: CoffeeShop.wif,
-      sellUtxo: { txId: g_sellTx.id, outputIndex: 0 },
       opreturnData: "CoffeeShop cancel sell nft #0",
     });
     console.log(`CoffeeShop cancel sell nft #0 ${tx.id}`);
@@ -130,7 +129,6 @@ sensibleId: ${sensibleId}`);
       genesis,
       tokenIndex: "1",
       buyerWif: Alice.wif,
-      sellUtxo: { txId: g_sellTx.id, outputIndex: 0 },
       opreturnData: "Alice buy nft #1",
     });
     console.log(`Alice buy nft #1 ${tx.id}`);

@@ -99,8 +99,15 @@ export class MetaSV implements SensibleApiBase {
    * @param {string} address
    */
   public async getUnspents(address: string): Promise<SA_utxo[]> {
-    let url = `${this.serverBase}/address/${address}/utxo`;
-    let _res: any = await Net.httpGet(url, {});
+    let path = `/address/${address}/utxo`;
+    let url = this.serverBase + path;
+    let _res: any = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(path),
+      }
+    );
 
     let ret: SA_utxo[] = _res.map((v: any) => ({
       txId: v.txid,
@@ -115,10 +122,17 @@ export class MetaSV implements SensibleApiBase {
    * @param {string} hex
    */
   public async broadcast(hex: string): Promise<string> {
-    let url = `${this.serverBase}/tx/broadcast`;
-    let _res: any = await Net.httpPost(url, {
-      hex,
-    });
+    let path = `/tx/broadcast`;
+    let url = this.serverBase + path;
+    let _res: any = await Net.httpPost(
+      url,
+      {
+        hex,
+      },
+      {
+        headers: this._getHeaders(path),
+      }
+    );
     return _res.txid;
   }
 
@@ -126,8 +140,15 @@ export class MetaSV implements SensibleApiBase {
    * @param {string} txid
    */
   public async getRawTxData(txid: string): Promise<string> {
-    let url = `${this.serverBase}/tx/${txid}/raw`;
-    let _res: any = await Net.httpGet(url, {});
+    let path = `/tx/${txid}/raw`;
+    let url = this.serverBase + path;
+    let _res: any = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(path),
+      }
+    );
     return _res.hex;
   }
 
@@ -341,7 +362,7 @@ export class MetaSV implements SensibleApiBase {
     genesis: string,
     tokenIndex: string
   ) {
-    let url = `${this.serverBase}/nft/sell/utxo-detail/${codehash}/${genesis}/${tokenIndex}`;
+    let url = `https://api.sensiblequery.com/nft/sell/utxo-detail/${codehash}/${genesis}/${tokenIndex}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
@@ -351,15 +372,17 @@ export class MetaSV implements SensibleApiBase {
       );
     }
     if (!data) return null;
-    let ret = [data].map((v) => ({
-      codehash,
-      genesis,
-      tokenIndex,
-      txId: v.txid,
-      outputIndex: v.vout,
-      sellerAddress: v.address,
-      satoshisPrice: v.price,
-    }))[0];
+    let ret = data
+      .filter((v) => v.isReady == true)
+      .map((v) => ({
+        codehash,
+        genesis,
+        tokenIndex,
+        txId: v.txid,
+        outputIndex: v.vout,
+        sellerAddress: v.address,
+        satoshisPrice: v.price,
+      }))[0];
     return ret;
   }
 
@@ -369,7 +392,7 @@ export class MetaSV implements SensibleApiBase {
     cursor: number = 0,
     size: number = 20
   ) {
-    let url = `${this.serverBase}/nft/sell/utxo/${codehash}/${genesis}?cursor=${cursor}&size=${size}`;
+    let url = `https://api.sensiblequery.com/nft/sell/utxo/${codehash}/${genesis}?cursor=${cursor}&size=${size}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
@@ -396,7 +419,7 @@ export class MetaSV implements SensibleApiBase {
     cursor: number = 0,
     size: number = 20
   ) {
-    let url = `${this.serverBase}/nft/sell/utxo-by-address/${address}?cursor=${cursor}&size=${size}`;
+    let url = `https://api.sensiblequery.com/nft/sell/utxo-by-address/${address}?cursor=${cursor}&size=${size}`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
