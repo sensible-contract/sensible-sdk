@@ -29,7 +29,8 @@
   "license": "MIT",
   "dependencies": {
     "request": "^2.88.2",
-    "scryptlib": "^0.4.2-beta1"
+    "scryptlib": "^0.4.2-beta1",
+    "minimist": "1.2.5"
   },
   "devDependencies": {
     "@types/chai": "^4.2.20",

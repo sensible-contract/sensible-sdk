@@ -1,6 +1,5 @@
 const ts = require("gulp-typescript");
 const tsProject = ts.createProject("tsconfig.json");
-const typedoc = require("gulp-typedoc");
 const gulp = require("gulp");
 const browserify = require("browserify");
 const source = require("vinyl-source-stream");
