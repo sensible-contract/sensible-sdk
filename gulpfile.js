@@ -25,7 +25,9 @@ gulp.task("tsc", function () {
 });
 gulp.task("copy_file", function () {
   return gulp
-    .src(["./src/**/*.js", "./src/**/*.json"], { base: "./src" })
+    .src(["./src/**/*.js", "./src/**/*.json", "./src/**/*.d.ts"], {
+      base: "./src",
+    })
     .pipe(gulp.dest("dist"));
 });
 gulp.task("browserify", function () {
@@ -53,4 +55,4 @@ gulp.task("browserify", function () {
     .pipe(gulp.dest("dist"));
 });
 
-gulp.task("default", gulp.series("clean", "tsc", "copy_file", "browserify"));
+gulp.task("default", gulp.series("clean", "tsc", "copy_file"));

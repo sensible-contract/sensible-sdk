@@ -36,14 +36,25 @@ import {
   NFT_UNLOCK_CONTRACT_TYPE,
 } from "./nftUnlockContractCheck";
 
+enum NFT_CODE_VERSION {
+  V1,
+  V2,
+}
 export class Nft extends ContractAdapter {
   constuctParams: {
     unlockContractCodeHashArray: Bytes[];
+    codeVersion: NFT_CODE_VERSION;
   };
   private _formatedDataPart: nftProto.FormatedDataPart;
 
-  constructor(constuctParams: { unlockContractCodeHashArray: Bytes[] }) {
-    let desc = require("../contract-desc/nft_desc.json");
+  constructor(constuctParams: {
+    unlockContractCodeHashArray: Bytes[];
+    codeVersion: NFT_CODE_VERSION;
+  }) {
+    let desc =
+      constuctParams.codeVersion == NFT_CODE_VERSION.V1
+        ? require("../contract-desc/nft_desc.json")
+        : require("../contract-desc/nft_v2_desc.json");
     let ClassObj = buildContractClass(desc);
     let contract = new ClassObj(constuctParams.unlockContractCodeHashArray);
     super(contract);
@@ -146,33 +157,59 @@ export class Nft extends ContractAdapter {
       lockContractTx = new Bytes("");
       lockContractTxOutIndex = 0;
     }
-
-    return this._contract.unlock(
-      txPreimage,
-      prevouts,
-      rabinMsg,
-      rabinPaddingArray,
-      rabinSigArray,
-      rabinPubKeyIndexArray,
-      rabinPubKeyVerifyArray,
-      rabinPubKeyHashArray,
-      prevNftAddress,
-      genesisScript,
-      senderPubKey,
-      senderSig,
-      receiverAddress,
-      nftOutputSatoshis,
-      opReturnScript,
-      changeAddress,
-      changeSatoshis,
-      checkInputIndex,
-      checkScriptTx,
-      checkScriptTxOutIndex,
-      lockContractInputIndex,
-      lockContractTx,
-      lockContractTxOutIndex,
-      operation
-    ) as FunctionCall;
+    if (this.constuctParams.codeVersion == NFT_CODE_VERSION.V1) {
+      return this._contract.unlock(
+        txPreimage,
+        prevouts,
+        rabinMsg,
+        rabinPaddingArray,
+        rabinSigArray,
+        rabinPubKeyIndexArray,
+        rabinPubKeyVerifyArray,
+        rabinPubKeyHashArray,
+        prevNftAddress,
+        genesisScript,
+        senderPubKey,
+        senderSig,
+        receiverAddress,
+        nftOutputSatoshis,
+        opReturnScript,
+        changeAddress,
+        changeSatoshis,
+        checkInputIndex,
+        checkScriptTx,
+        checkScriptTxOutIndex,
+        lockContractInputIndex,
+        lockContractTx,
+        lockContractTxOutIndex,
+        operation
+      ) as FunctionCall;
+    } else {
+      return this._contract.unlock(
+        txPreimage,
+        prevouts,
+        rabinMsg,
+        rabinPaddingArray,
+        rabinSigArray,
+        rabinPubKeyIndexArray,
+        rabinPubKeyVerifyArray,
+        rabinPubKeyHashArray,
+        prevNftAddress,
+        genesisScript,
+        senderPubKey,
+        senderSig,
+        receiverAddress,
+        nftOutputSatoshis,
+        opReturnScript,
+        changeAddress,
+        changeSatoshis,
+        checkInputIndex,
+        checkScriptTx,
+        lockContractInputIndex,
+        lockContractTx,
+        operation
+      ) as FunctionCall;
+    }
   }
 }
 
@@ -183,8 +220,28 @@ export class NftFactory {
     return this.lockingScriptSize;
   }
 
-  public static createContract(unlockContractCodeHashArray: Bytes[]): Nft {
-    return new Nft({ unlockContractCodeHashArray });
+  public static createContractV1(unlockContractCodeHashArray: Bytes[]): Nft {
+    return new Nft({
+      unlockContractCodeHashArray,
+      codeVersion: NFT_CODE_VERSION.V1,
+    });
+  }
+
+  public static createContractV2(unlockContractCodeHashArray: Bytes[]): Nft {
+    return new Nft({
+      unlockContractCodeHashArray,
+      codeVersion: NFT_CODE_VERSION.V2,
+    });
+  }
+
+  public static createContract(
+    unlockContractCodeHashArray: Bytes[],
+    codehash?: string
+  ): Nft {
+    if (codehash == "0d0fc08db6e27dc0263b594d6b203f55fb5282e2") {
+      return this.createContractV1(unlockContractCodeHashArray);
+    }
+    return this.createContractV2(unlockContractCodeHashArray);
   }
 
   public static getDummyInstance() {

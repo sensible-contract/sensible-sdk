@@ -1,7 +1,6 @@
 import { Bytes, Int, PubKey, Ripemd160, Sig, toHex } from "scryptlib";
 import * as BN from "../bn.js";
 import * as bsv from "../bsv";
-import * as $ from "../common/argumentCheck";
 import { DustCalculator } from "../common/DustCalculator";
 import { CodeError, ErrCode } from "../common/error";
 import { hasProtoFlag } from "../common/protoheader";
@@ -216,10 +215,10 @@ function checkParamCodehash(codehash) {
       `CodehashFormatError:codehash should be a string with 40 length `
     );
   }
-  $.checkArgument(
-    codehash == ContractUtil.tokenCodeHash,
-    `a valid codehash should be ${ContractUtil.tokenCodeHash}, but the provided is ${codehash} `
-  );
+  // $.checkArgument(
+  //   codehash == ContractUtil.tokenCodeHash,
+  //   `a valid codehash should be ${ContractUtil.tokenCodeHash}, but the provided is ${codehash} `
+  // );
 }
 
 function checkParamSensibleId(sensibleId) {
@@ -357,9 +356,8 @@ export class SensibleNFT {
 
     let rabinPubKeys = this.signers.map((v) => v.satotxPubKey);
     let rabinPubKeyHashArray = TokenUtil.getRabinPubKeyHashArray(rabinPubKeys);
-    this.rabinPubKeyHashArrayHash = bsv.crypto.Hash.sha256ripemd160(
-      rabinPubKeyHashArray
-    );
+    this.rabinPubKeyHashArrayHash =
+      bsv.crypto.Hash.sha256ripemd160(rabinPubKeyHashArray);
     this.rabinPubKeyHashArray = new Bytes(toHex(rabinPubKeyHashArray));
     this.rabinPubKeyArray = rabinPubKeys.map((v) => new Int(v.toString(10)));
     this.unlockContractCodeHashArray = ContractUtil.unlockContractCodeHashArray;
@@ -936,9 +934,8 @@ export class SensibleNFT {
     let firstGenesisTxHex = await this.sensibleApi.getRawTxData(genesisTxId);
     let firstGenesisTx = new bsv.Transaction(firstGenesisTxHex);
 
-    let scriptBuffer = firstGenesisTx.outputs[
-      genesisOutputIndex
-    ].script.toBuffer();
+    let scriptBuffer =
+      firstGenesisTx.outputs[genesisOutputIndex].script.toBuffer();
 
     // let originGenesis = nftProto.getQueryGenesis(scriptBuffer);
     // let genesisUtxos = await this.sensibleApi.getNonFungibleTokenUnspents(
@@ -1033,12 +1030,8 @@ export class SensibleNFT {
     utxoPrivateKeys?: bsv.PrivateKey[];
     changeAddress: bsv.Address;
   }): Promise<{ txComposer: TxComposer; tokenIndex: string }> {
-    let {
-      genesisContract,
-      genesisTxId,
-      genesisOutputIndex,
-      genesisUtxo,
-    } = await this._pretreatNftUtxoToIssue({ sensibleId, genesisPublicKey });
+    let { genesisContract, genesisTxId, genesisOutputIndex, genesisUtxo } =
+      await this._pretreatNftUtxoToIssue({ sensibleId, genesisPublicKey });
 
     let balance = utxos.reduce((pre, cur) => pre + cur.satoshis, 0);
     let estimateSatoshis = await this._calIssueEstimateFee({
@@ -1065,7 +1058,8 @@ export class SensibleNFT {
     genesisContract.setFormatedDataPart(originDataPart);
 
     let nftContract = NftFactory.createContract(
-      this.unlockContractCodeHashArray
+      this.unlockContractCodeHashArray,
+      codehash
     );
     nftContract.setFormatedDataPart({
       metaidOutpoint: {
@@ -1076,8 +1070,8 @@ export class SensibleNFT {
       totalSupply: genesisContract.getFormatedDataPart().totalSupply,
       tokenIndex: genesisContract.getFormatedDataPart().tokenIndex,
       genesisHash,
-      rabinPubKeyHashArrayHash: genesisContract.getFormatedDataPart()
-        .rabinPubKeyHashArrayHash,
+      rabinPubKeyHashArrayHash:
+        genesisContract.getFormatedDataPart().rabinPubKeyHashArrayHash,
       sensibleID: {
         txid: genesisTxId,
         index: genesisOutputIndex,
@@ -1091,15 +1085,12 @@ export class SensibleNFT {
       throw new CodeError(ErrCode.EC_INVALID_SIGNERS, "Invalid signers.");
     }
 
-    let {
-      rabinData,
-      rabinPubKeyIndexArray,
-      rabinPubKeyVerifyArray,
-    } = await getRabinData(
-      this.signers,
-      this.signerSelecteds,
-      genesisContract.isFirstGenesis() ? null : genesisUtxo.satotxInfo
-    );
+    let { rabinData, rabinPubKeyIndexArray, rabinPubKeyVerifyArray } =
+      await getRabinData(
+        this.signers,
+        this.signerSelecteds,
+        genesisContract.isFirstGenesis() ? null : genesisUtxo.satotxInfo
+      );
 
     const txComposer = new TxComposer();
 
@@ -1131,7 +1122,8 @@ export class SensibleNFT {
       )
     ) {
       genesisDataPartObj.tokenIndex = genesisDataPartObj.tokenIndex.add(BN.One);
-      genesisDataPartObj.sensibleID = nftContract.getFormatedDataPart().sensibleID;
+      genesisDataPartObj.sensibleID =
+        nftContract.getFormatedDataPart().sensibleID;
       let nextGenesisContract = genesisContract.clone();
       nextGenesisContract.setFormatedDataPart(genesisDataPartObj);
       genesisContractSatoshis = this.getDustThreshold(
@@ -1437,13 +1429,10 @@ export class SensibleNFT {
       throw new CodeError(ErrCode.EC_INVALID_SIGNERS, "Invalid signers.");
     }
 
-    let {
-      rabinDatas,
-      rabinPubKeyIndexArray,
-      rabinPubKeyVerifyArray,
-    } = await getRabinDatas(this.signers, this.signerSelecteds, [
-      nftUtxo.satotxInfo,
-    ]);
+    let { rabinDatas, rabinPubKeyIndexArray, rabinPubKeyVerifyArray } =
+      await getRabinDatas(this.signers, this.signerSelecteds, [
+        nftUtxo.satotxInfo,
+      ]);
 
     const txComposer = new TxComposer();
     let nftInput = nftUtxo;
@@ -1499,7 +1488,8 @@ export class SensibleNFT {
       );
 
       const nftContract = NftFactory.createContract(
-        this.unlockContractCodeHashArray
+        this.unlockContractCodeHashArray,
+        codehash
       );
       let dataPartObj = nftProto.parseDataPart(
         nftInput.lockingScript.toBuffer()
@@ -2283,9 +2273,8 @@ export class SensibleNFT {
       ),
     });
 
-    let changeOutputIndex = unlockCheckTxComposer.appendChangeOutput(
-      middleChangeAddress
-    );
+    let changeOutputIndex =
+      unlockCheckTxComposer.appendChangeOutput(middleChangeAddress);
 
     if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
       unlockCheck_p2pkhInputIndexs.forEach((inputIndex) => {
@@ -2390,7 +2379,8 @@ export class SensibleNFT {
       );
 
       const nftContract = NftFactory.createContract(
-        this.unlockContractCodeHashArray
+        this.unlockContractCodeHashArray,
+        codehash
       );
       let dataPartObj = nftProto.parseDataPart(
         nftInput.lockingScript.toBuffer()
@@ -2747,9 +2737,8 @@ export class SensibleNFT {
       ),
     });
 
-    let changeOutputIndex = unlockCheckTxComposer.appendChangeOutput(
-      middleChangeAddress
-    );
+    let changeOutputIndex =
+      unlockCheckTxComposer.appendChangeOutput(middleChangeAddress);
 
     if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
       unlockCheck_p2pkhInputIndexs.forEach((inputIndex) => {
@@ -2870,7 +2859,8 @@ export class SensibleNFT {
       );
 
       const nftContract = NftFactory.createContract(
-        this.unlockContractCodeHashArray
+        this.unlockContractCodeHashArray,
+        codehash
       );
       let dataPartObj = nftProto.parseDataPart(
         nftInput.lockingScript.toBuffer()
@@ -3399,11 +3389,12 @@ export class SensibleNFT {
     otherOutputsLen = otherOutputsLen + 4 + 8 + 4 + 25;
     let otherOutputs = new Bytes(toHex(Buffer.alloc(otherOutputsLen, 0)));
 
-    let unlockContractUnlockingSize = NftUnlockContractCheckFactory.calUnlockingScriptSize(
-      NFT_UNLOCK_CONTRACT_TYPE.OUT_6,
-      new Bytes(prevouts.toHex()),
-      otherOutputs
-    );
+    let unlockContractUnlockingSize =
+      NftUnlockContractCheckFactory.calUnlockingScriptSize(
+        NFT_UNLOCK_CONTRACT_TYPE.OUT_6,
+        new Bytes(prevouts.toHex()),
+        otherOutputs
+      );
 
     stx2.addInput(
       unlockContractUnlockingSize,
@@ -3623,11 +3614,12 @@ export class SensibleNFT {
     otherOutputsLen = otherOutputsLen + 4 + 8 + 4 + 25;
     let otherOutputs = new Bytes(toHex(Buffer.alloc(otherOutputsLen, 0)));
 
-    let unlockContractUnlockingSize = NftUnlockContractCheckFactory.calUnlockingScriptSize(
-      NFT_UNLOCK_CONTRACT_TYPE.OUT_6,
-      new Bytes(prevouts.toHex()),
-      otherOutputs
-    );
+    let unlockContractUnlockingSize =
+      NftUnlockContractCheckFactory.calUnlockingScriptSize(
+        NFT_UNLOCK_CONTRACT_TYPE.OUT_6,
+        new Bytes(prevouts.toHex()),
+        otherOutputs
+      );
 
     stx2.addInput(
       unlockContractUnlockingSize,
@@ -3810,9 +3802,8 @@ export class SensibleNFT {
     //calculate genesis/codehash
     let genesis: string, codehash: string, sensibleId: string;
     let genesisTxId = genesisTx.id;
-    let genesisLockingScriptBuf = genesisTx.outputs[
-      genesisOutputIndex
-    ].script.toBuffer();
+    let genesisLockingScriptBuf =
+      genesisTx.outputs[genesisOutputIndex].script.toBuffer();
     const dataPartObj = nftProto.parseDataPart(genesisLockingScriptBuf);
     dataPartObj.sensibleID = {
       txid: genesisTxId,
