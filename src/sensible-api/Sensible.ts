@@ -60,9 +60,7 @@ export class Sensible implements SensibleApiBase {
   /**
    * @param {string} address
    */
-  public async getUnspents(
-    address: string
-  ): Promise<
+  public async getUnspents(address: string): Promise<
     {
       txId: string;
       outputIndex: number;
@@ -70,7 +68,7 @@ export class Sensible implements SensibleApiBase {
       address: string;
     }[]
   > {
-    let url = `${this.serverBase}/address/${address}/utxo`;
+    let url = `${this.serverBase}/address/${address}/utxo?size=100`;
     let _res = await Net.httpGet(url, {});
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
@@ -304,18 +302,21 @@ export class Sensible implements SensibleApiBase {
     }
 
     let ret: NonFungibleTokenSummary[] = [];
-    data.forEach((v) => {
-      ret.push({
-        codehash: v.codehash,
-        genesis: v.genesis,
-        sensibleId: v.sensibleId,
-        count: v.count,
-        pendingCount: v.pendingCount,
-        metaTxId: v.metaTxId,
-        metaOutputIndex: v.metaOutputIndex,
-        supply: v.supply,
+    if (data) {
+      data.forEach((v) => {
+        ret.push({
+          codehash: v.codehash,
+          genesis: v.genesis,
+          sensibleId: v.sensibleId,
+          count: v.count,
+          pendingCount: v.pendingCount,
+          metaTxId: v.metaTxId,
+          metaOutputIndex: v.metaOutputIndex,
+          supply: v.supply,
+        });
       });
-    });
+    }
+
     return ret;
   }
 
