@@ -55,4 +55,4 @@ gulp.task("browserify", function () {
     .pipe(gulp.dest("dist"));
 });
 
-gulp.task("default", gulp.series("clean", "tsc", "copy_file"));
+gulp.task("default", gulp.series("clean", "tsc", "copy_file", "browserify"));

@@ -1752,7 +1752,7 @@ export class SensibleNFT {
     let nftSellContract = NftSellFactory.createContract(
       new Ripemd160(toHex(nftUtxo.nftAddress.hashBuffer)),
       satoshisPrice,
-      new Bytes(ContractUtil.tokenCodeHash),
+      new Bytes(codehash),
       new Bytes(toHex(nftProto.getNftID(nftUtxo.lockingScript.toBuffer())))
     );
     nftSellContract.setFormatedDataPart({
@@ -1978,7 +1978,7 @@ export class SensibleNFT {
     let nftSellContract = NftSellFactory.createContract(
       new Ripemd160(toHex(nftUtxo.nftAddress.hashBuffer)),
       satoshisPrice,
-      new Bytes(ContractUtil.tokenCodeHash),
+      new Bytes(codehash),
       new Bytes(toHex(nftProto.getNftID(nftUtxo.lockingScript.toBuffer())))
     );
     nftSellContract.setFormatedDataPart({
@@ -2248,7 +2248,7 @@ export class SensibleNFT {
       NFT_UNLOCK_CONTRACT_TYPE.OUT_6
     );
     unlockContract.setFormatedDataPart({
-      nftCodeHash: Buffer.from(ContractUtil.tokenCodeHash, "hex"),
+      nftCodeHash: Buffer.from(codehash, "hex"),
       nftID,
     });
 
@@ -2712,7 +2712,7 @@ export class SensibleNFT {
       NFT_UNLOCK_CONTRACT_TYPE.OUT_6
     );
     unlockContract.setFormatedDataPart({
-      nftCodeHash: Buffer.from(ContractUtil.tokenCodeHash, "hex"),
+      nftCodeHash: Buffer.from(codehash, "hex"),
       nftID,
     });
 
@@ -3842,7 +3842,10 @@ export class SensibleNFT {
    * @returns
    */
   public static isSupportedToken(codehash: string): boolean {
-    return codehash == ContractUtil.tokenCodeHash;
+    return [
+      "0d0fc08db6e27dc0263b594d6b203f55fb5282e2",
+      "22519e29424dc4b94b9273b6500ebadad7b9ad02",
+    ].includes(codehash);
   }
 
   /**
@@ -3861,7 +3864,7 @@ export class SensibleNFT {
     ) {
       return false;
     }
-    if (codehash != ContractUtil.tokenCodeHash) {
+    if (!SensibleNFT.isSupportedToken(codehash)) {
       return false;
     }
     return true;
