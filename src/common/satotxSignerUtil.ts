@@ -232,24 +232,13 @@ export async function selectSigners(
       `The length of signerArray should be ${signerNum}`
     );
   }
-  let retPromises = [];
-  const SIGNER_TIMEOUT = 99999;
+  let retPromises: Promise<{ url: string; idx: number }>[] = [];
   for (let i = 0; i < _signerConfigs.length; i++) {
     let signerConfig = _signerConfigs[i];
     let subArray = signerConfig.satotxApiPrefix.split(",");
     let ret = new Promise(
       (
-        resolve: ({
-          url,
-          pubKey,
-          duration,
-          idx,
-        }: {
-          url: string;
-          pubKey: string;
-          duration: number;
-          idx: number;
-        }) => void,
+        resolve: ({ url, idx }: { url: string; idx: number }) => void,
         reject
       ) => {
         let hasResolve = false;
@@ -257,28 +246,19 @@ export async function selectSigners(
         for (let j = 0; j < subArray.length; j++) {
           let url = subArray[j];
           let signer = new SatotxSigner(url);
-          let d1 = Date.now();
           signer
             .getInfo()
-            .then(({ pubKey }) => {
-              let duration = Date.now() - d1;
+            .then(() => {
               if (!hasResolve) {
                 hasResolve = true;
-                resolve({ url, pubKey, duration, idx: i });
+                resolve({ url, idx: i });
               }
             })
             .catch((e) => {
               failedCnt++;
               if (failedCnt == subArray.length) {
-                resolve({
-                  url,
-                  pubKey: null,
-                  duration: SIGNER_TIMEOUT,
-                  idx: i,
-                });
-                // reject(`failed to get info by ${url}`);
+                reject(e);
               }
-              //ignore
             });
         }
       }
@@ -286,24 +266,41 @@ export async function selectSigners(
     retPromises.push(ret);
   }
 
-  let results = [];
-  for (let i = 0; i < _signerConfigs.length; i++) {
-    let signerConfig = _signerConfigs[i];
-    let ret = await retPromises[i];
-    signerConfig.satotxApiPrefix = ret.url;
-    results.push(ret);
-  }
-  let signerSelecteds: number[] = results
-    .filter((v) => v.duration < SIGNER_TIMEOUT)
-    .sort((a, b) => a.duration - b.duration)
-    .slice(0, signerVerifyNum)
-    .map((v) => v.idx);
-  if (signerSelecteds.length < signerVerifyNum) {
-    throw new CodeError(
-      ErrCode.EC_INNER_ERROR,
-      `Less than ${signerVerifyNum} successful signer requests`
-    );
-  }
+  let getSelected = new Promise(
+    (resolve: (selected: number[]) => void, reject) => {
+      let signerSelecteds = [];
+      let hasResolve = false;
+      let successCnt = 0;
+      let failedCnt = 0;
+      for (let j = 0; j < retPromises.length; j++) {
+        retPromises[j]
+          .then(({ idx, url }) => {
+            successCnt++;
+            _signerConfigs[idx].satotxApiPrefix = url;
+            if (signerSelecteds.length < signerVerifyNum) {
+              signerSelecteds.push(idx);
+            }
+            if (!hasResolve && successCnt == signerVerifyNum) {
+              hasResolve = true;
+              resolve(signerSelecteds);
+            }
+          })
+          .catch((e) => {
+            failedCnt++;
+            if (failedCnt + successCnt == retPromises.length) {
+              reject(
+                new CodeError(
+                  ErrCode.EC_INNER_ERROR,
+                  `Less than ${signerVerifyNum} successful signer requests`
+                )
+              );
+            }
+          });
+      }
+    }
+  );
+  let signerSelecteds: number[] = await getSelected;
+  signerSelecteds.sort((a, b) => a - b);
   return {
     signers: _signerConfigs,
     signerSelecteds,
