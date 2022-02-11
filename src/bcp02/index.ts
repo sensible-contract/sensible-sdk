@@ -1373,6 +1373,7 @@ export class SensibleFT {
     middleChangeAddress,
     middlePrivateKey,
 
+    minUtxoSet=true,
     isMerge,
     opreturnData,
     noBroadcast = false,
@@ -1391,6 +1392,7 @@ export class SensibleFT {
     middleChangeAddress?: string | bsv.Address;
     middlePrivateKey?: string | bsv.PrivateKey;
 
+    minUtxoSet?: boolean;
     isMerge?: boolean;
     opreturnData?: any;
     noBroadcast?: boolean;
@@ -1453,6 +1455,7 @@ export class SensibleFT {
       isMerge,
       middleChangeAddress,
       middlePrivateKey,
+      minUtxoSet
     });
     let routeCheckTxHex = transferCheckTxComposer.getRawHex();
     let txHex = txComposer.getRawHex();
@@ -1500,6 +1503,7 @@ export class SensibleFT {
     isMerge,
     opreturnData,
     middleChangeAddress,
+    minUtxoSet=true
   }: {
     codehash: string;
     genesis: string;
@@ -1513,6 +1517,7 @@ export class SensibleFT {
     isMerge?: boolean;
     opreturnData?: any;
     middleChangeAddress?: string | bsv.Address;
+    minUtxoSet?: boolean;
   }): Promise<{
     routeCheckTx: bsv.Transaction;
     routeCheckSigHashList: SigHashInfo[];
@@ -1565,7 +1570,7 @@ export class SensibleFT {
       middleChangeAddress,
       opreturnData,
       isMerge,
-      unsigned: true,
+      minUtxoSet
     });
 
     let routeCheckTx = transferCheckTxComposer.getTx();
@@ -1647,6 +1652,7 @@ export class SensibleFT {
     ftUtxos,
     ftChangeAddress,
     isMerge,
+    minUtxoSet
   }: {
     codehash: string;
     genesis: string;
@@ -1654,6 +1660,7 @@ export class SensibleFT {
     ftUtxos: FtUtxo[];
     ftChangeAddress: bsv.Address;
     isMerge?: boolean;
+    minUtxoSet: boolean;
   }) {
     let mergeUtxos: FtUtxo[] = [];
     let mergeTokenAmountSum: BN = BN.Zero;
@@ -1687,11 +1694,7 @@ export class SensibleFT {
       let ftUtxo = ftUtxos[i];
       _ftUtxos.push(ftUtxo);
       inputTokenAmountSum = ftUtxo.tokenAmount.add(inputTokenAmountSum);
-      if (i >= 9 && inputTokenAmountSum.gte(outputTokenAmountSum)) {
-        //Try to use 10To10 it to merge scattered utxo
-        break;
-      }
-      if (inputTokenAmountSum.gte(outputTokenAmountSum)) {
+      if (minUtxoSet && inputTokenAmountSum.gte(outputTokenAmountSum)) {
         break;
       }
     }
@@ -1764,7 +1767,7 @@ export class SensibleFT {
 
     isMerge,
     opreturnData,
-    unsigned,
+    minUtxoSet,
   }: {
     codehash: string;
     genesis: string;
@@ -1784,7 +1787,7 @@ export class SensibleFT {
 
     isMerge?: boolean;
     opreturnData?: any;
-    unsigned?: boolean;
+    minUtxoSet: boolean;
   }) {
     if (utxos.length > 3) {
       throw new CodeError(
@@ -1809,6 +1812,7 @@ export class SensibleFT {
       ftUtxos,
       ftChangeAddress,
       isMerge,
+      minUtxoSet
     });
 
     let estimateSatoshis = this._calTransferEstimateFee({
@@ -2422,6 +2426,7 @@ export class SensibleFT {
     isMerge,
     opreturnData,
     utxoMaxCount = 3,
+    minUtxoSet=true
   }: {
     codehash: string;
     genesis: string;
@@ -2435,6 +2440,7 @@ export class SensibleFT {
     isMerge?: boolean;
     opreturnData?: any;
     utxoMaxCount?: number;
+    minUtxoSet?: boolean;
   }) {
     let p2pkhInputNum = utxoMaxCount;
     if (p2pkhInputNum > 3) {
@@ -2488,6 +2494,7 @@ export class SensibleFT {
       ftUtxos: ftUtxoInfo.ftUtxos,
       ftChangeAddress,
       isMerge,
+      minUtxoSet
     });
 
     let estimateSatoshis = this._calTransferEstimateFee({
@@ -2513,6 +2520,7 @@ export class SensibleFT {
     ftChangeAddress,
     opreturnData,
     utxoMaxCount = 3,
+    minUtxoSet=true
   }: {
     codehash: string;
     genesis: string;
@@ -2522,6 +2530,7 @@ export class SensibleFT {
     ftChangeAddress?: string | bsv.Address;
     opreturnData?: any;
     utxoMaxCount?: number;
+    minUtxoSet?: boolean;
   }) {
     return await this.getTransferEstimateFee({
       codehash,
@@ -2534,6 +2543,7 @@ export class SensibleFT {
       receivers: [],
       isMerge: true,
       utxoMaxCount,
+      minUtxoSet
     });
   }
   /**
