@@ -1,3 +1,4 @@
+import { Net } from ".";
 import * as Utils from "./utils";
 type HttpConfig = {
   timeout?: number;
@@ -17,7 +18,7 @@ export class ServerNet {
     }
     config = config || {};
     let headers = config.headers || {};
-    let timeout = config.timeout || 180000;
+    let timeout = config.timeout || Net.timeout;
     let reqData = {
       uri: url,
       method: "GET",
@@ -73,7 +74,7 @@ export class ServerNet {
     let postData: any;
     config = config || {};
     let headers = config.headers || {};
-    let timeout = config.timeout || 180000;
+    let timeout = config.timeout || Net.timeout;
     headers["content-type"] = headers["content-type"] || "application/json";
     if (headers["content-type"] == "application/x-www-form-urlencoded") {
       let arr = [];

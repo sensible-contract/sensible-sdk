@@ -11,6 +11,9 @@ function toLowerHeader(headers) {
 }
 
 export class Net {
+  //default timeout
+  static timeout = 3 * 60 * 1000;
+
   static httpGet(url: string, params: any, config?: any) {
     if (config && config.headers) {
       config.headers = toLowerHeader(config.headers);
