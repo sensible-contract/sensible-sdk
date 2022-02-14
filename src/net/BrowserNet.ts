@@ -15,27 +15,22 @@ export class BrowserNet {
   static _xmlRequest(reqConfig: ReqConfig, callback: Function) {
     const { uri, method, timeout, body } = reqConfig;
     let hasCallbacked = false;
-    var xhr = new XMLHttpRequest(); //创建XMLHttpRequest对象
-    xhr.open(method, uri, true); //设置和服务器交互的参数
+    var xhr = new XMLHttpRequest();
+    xhr.open(method, uri, true);
     for (var id in reqConfig.headers) {
       xhr.setRequestHeader(id, reqConfig.headers[id]);
     }
-    xhr.onreadystatechange = function () {
-      //注册回调的方法，发送成功后执行
+    xhr.onload = function () {
       if (hasCallbacked) return;
-      var response = xhr.responseText;
-      if (xhr.readyState == 4 && xhr.status >= 200 && xhr.status <= 207) {
-        hasCallbacked = true;
-        callback(null, response);
+      hasCallbacked = true;
+      if (xhr.status >= 200 && xhr.status <= 207) {
+        callback(null, xhr.responseText);
       } else {
-        if (xhr.status >= 200 && xhr.status <= 207) {
-        } else {
-          hasCallbacked = true;
-          callback("EC_REQ_FAILED");
-        }
+        callback("EC_REQ_FAILED");
       }
     };
-    xhr.ontimeout = function (argument) {
+
+    xhr.ontimeout = function () {
       if (hasCallbacked) return;
       hasCallbacked = true;
       callback("EC_REQ_TIMEOUT");
