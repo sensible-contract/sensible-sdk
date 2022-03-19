@@ -939,26 +939,26 @@ export class SensibleNFT {
     let scriptBuffer =
       firstGenesisTx.outputs[genesisOutputIndex].script.toBuffer();
 
-    // let originGenesis = nftProto.getQueryGenesis(scriptBuffer);
-    // let genesisUtxos = await this.sensibleApi.getNonFungibleTokenUnspents(
-    //   codehash,
-    //   originGenesis,
-    //   this.zeroAddress.toString()
-    // );
-    // unspent = genesisUtxos.find(
-    //   (v) => v.txId == genesisTxId && v.outputIndex == genesisOutputIndex
-    // );
-
-    let spent = await this.sensibleApi.getOutpointSpent(
-      genesisTxId,
-      genesisOutputIndex
+    let originGenesis = nftProto.getQueryGenesis(scriptBuffer);
+    let genesisUtxos = await this.sensibleApi.getNonFungibleTokenUnspents(
+      codehash,
+      originGenesis,
+      this.zeroAddress.toString()
     );
-    if (!spent) {
-      return {
-        txId: genesisTxId,
-        outputIndex: genesisOutputIndex,
-      };
-    }
+    unspent = genesisUtxos.find(
+      (v) => v.txId == genesisTxId && v.outputIndex == genesisOutputIndex
+    );
+
+    // let spent = await this.sensibleApi.getOutpointSpent(
+    //   genesisTxId,
+    //   genesisOutputIndex
+    // );
+    // if (!spent) {
+    //   return {
+    //     txId: genesisTxId,
+    //     outputIndex: genesisOutputIndex,
+    //   };
+    // }
 
     if (!unspent) {
       let _dataPartObj = nftProto.parseDataPart(scriptBuffer);

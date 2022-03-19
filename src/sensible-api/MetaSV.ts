@@ -259,52 +259,47 @@ export class MetaSV implements SensibleApiBase {
     cursor: number = 0,
     size: number = 20
   ): Promise<NonFungibleTokenUnspent[]> {
-    let url = `https://api.sensiblequery.com/nft/utxo/${codehash}/${genesis}/${address}?cursor=${cursor}&size=${size}`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw new CodeError(
-        ErrCode.EC_SENSIBLE_API_ERROR,
-        `request api failed. [url]:${url} [msg]:${msg}`
-      );
-    }
+    let path = `/sensible/nft/address/${address}/utxo`;
+    let url = this.serverBase + path;
+    let _res: any = await Net.httpGet(
+      url,
+      { codeHash: codehash, genesis },
+      { headers: this._getHeaders(path) }
+    );
 
-    if (!data) return [];
-    let ret: NonFungibleTokenUnspent[] = data.map((v: SensibleQueryUtxo) => ({
+    let ret: NonFungibleTokenUnspent[] = _res.map((v) => ({
       txId: v.txid,
-      outputIndex: v.vout,
+      outputIndex: v.txIndex,
       tokenAddress: address,
       tokenIndex: v.tokenIndex,
-      metaTxId: v.metaTxId,
+      metaTxId: v.metaTxid,
       metaOutputIndex: v.metaOutputIndex,
     }));
     return ret;
   }
 
   /**
-   * 查询某人持有的某FT的UTXO
+   * 查询某人持有的某NFT的UTXO
    */
   public async getNonFungibleTokenUnspentDetail(
     codehash: string,
     genesis: string,
     tokenIndex: string
   ) {
-    let url = `https://api.sensiblequery.com/nft/utxo-detail/${codehash}/${genesis}/${tokenIndex}`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw new CodeError(
-        ErrCode.EC_SENSIBLE_API_ERROR,
-        `request api failed. [url]:${url} [msg]:${msg}`
-      );
-    }
-    if (!data) return null;
-    let ret = [data].map((v) => ({
+    let path = `/sensible/nft/genesis/${codehash}/${genesis}/utxo`;
+    let url = this.serverBase + path;
+    let _res: any = await Net.httpGet(
+      url,
+      { tokenIndex },
+      { headers: this._getHeaders(path) }
+    );
+
+    let ret = _res.map((v) => ({
       txId: v.txid,
-      outputIndex: v.vout,
+      outputIndex: v.txIndex,
       tokenAddress: v.address,
       tokenIndex: v.tokenIndex,
-      metaTxId: v.metaTxId,
+      metaTxId: v.metaTxid,
       metaOutputIndex: v.metaOutputIndex,
     }))[0];
     return ret;
@@ -365,24 +360,22 @@ export class MetaSV implements SensibleApiBase {
     genesis: string,
     tokenIndex: string
   ) {
-    let url = `https://api.sensiblequery.com/nft/sell/utxo-detail/${codehash}/${genesis}/${tokenIndex}`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw new CodeError(
-        ErrCode.EC_SENSIBLE_API_ERROR,
-        `request api failed. [url]:${url} [msg]:${msg}`
-      );
-    }
-    if (!data) return null;
-    let ret = data
+    let path = `/sensible/nft/sell/genesis/${codehash}/${genesis}/utxo`;
+    let url = this.serverBase + path;
+    let _res: any = await Net.httpGet(
+      url,
+      { tokenIndex },
+      { headers: this._getHeaders(path) }
+    );
+
+    let ret = _res
       .filter((v) => v.isReady == true)
       .map((v) => ({
         codehash,
         genesis,
         tokenIndex,
         txId: v.txid,
-        outputIndex: v.vout,
+        outputIndex: v.txIndex,
         sellerAddress: v.address,
         satoshisPrice: v.price,
       }))[0];
@@ -395,25 +388,25 @@ export class MetaSV implements SensibleApiBase {
     cursor: number = 0,
     size: number = 20
   ) {
-    let url = `https://api.sensiblequery.com/nft/sell/utxo/${codehash}/${genesis}?cursor=${cursor}&size=${size}`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw new CodeError(
-        ErrCode.EC_SENSIBLE_API_ERROR,
-        `request api failed. [url]:${url} [msg]:${msg}`
-      );
-    }
-    if (!data) return null;
-    let ret = data.map((v) => ({
-      codehash,
-      genesis,
-      tokenIndex: v.tokenIndex,
-      txId: v.txid,
-      outputIndex: v.vout,
-      sellerAddress: v.address,
-      satoshisPrice: v.price,
-    }));
+    let path = `/sensible/nft/sell/genesis/${codehash}/${genesis}/utxo`;
+    let url = this.serverBase + path;
+    let _res: any = await Net.httpGet(
+      url,
+      {},
+      { headers: this._getHeaders(path) }
+    );
+
+    let ret = _res
+      .filter((v) => v.isReady == true)
+      .map((v) => ({
+        codehash,
+        genesis,
+        tokenIndex: v.tokenIndex,
+        txId: v.txid,
+        outputIndex: v.txIndex,
+        sellerAddress: v.address,
+        satoshisPrice: v.price,
+      }))[0];
     return ret;
   }
 
@@ -422,25 +415,24 @@ export class MetaSV implements SensibleApiBase {
     cursor: number = 0,
     size: number = 20
   ) {
-    let url = `https://api.sensiblequery.com/nft/sell/utxo-by-address/${address}?cursor=${cursor}&size=${size}`;
-    let _res = await Net.httpGet(url, {});
-    const { code, data, msg } = _res as ResData;
-    if (code != 0) {
-      throw new CodeError(
-        ErrCode.EC_SENSIBLE_API_ERROR,
-        `request api failed. [url]:${url} [msg]:${msg}`
-      );
-    }
-    if (!data) return null;
-    let ret = data.map((v) => ({
-      codehash: v.codehash,
-      genesis: v.genesis,
-      tokenIndex: v.tokenIndex,
-      txId: v.txid,
-      outputIndex: v.vout,
-      sellerAddress: v.address,
-      satoshisPrice: v.price,
-    }));
+    let path = `/sensible/nft/sell/address/${address}/utxo`;
+    let url = this.serverBase + path;
+    let _res: any = await Net.httpGet(
+      url,
+      {},
+      { headers: this._getHeaders(path) }
+    );
+    let ret = _res
+      // .filter((v) => v.isReady == true)
+      .map((v) => ({
+        codehash: v.codeHash,
+        genesis: v.genesis,
+        tokenIndex: v.tokenIndex,
+        txId: v.txid,
+        outputIndex: v.txIndex,
+        sellerAddress: v.address,
+        satoshisPrice: v.price,
+      }));
     return ret;
   }
 
