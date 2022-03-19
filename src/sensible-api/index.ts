@@ -120,9 +120,7 @@ export interface SensibleApiBase {
     address: string
   ): Promise<NonFungibleTokenSummary[]>;
 
-  getBalance(
-    address: string
-  ): Promise<{
+  getBalance(address: string): Promise<{
     balance: number;
     pendingBalance: number;
   }>;
@@ -152,14 +150,18 @@ export interface SensibleApiBase {
 export class SensibleApi implements SensibleApiBase {
   private apiTarget: API_TARGET;
   private apiHandler: SensibleApiBase;
-  constructor(apiNet: API_NET, apiTarget: API_TARGET = API_TARGET.SENSIBLE) {
+  constructor(
+    apiNet: API_NET,
+    apiTarget: API_TARGET = API_TARGET.SENSIBLE,
+    serverBase?: string
+  ) {
     switch (apiTarget) {
       case API_TARGET.METASV: {
-        this.apiHandler = new MetaSV(apiNet);
+        this.apiHandler = new MetaSV(apiNet, serverBase);
         break;
       }
       default: {
-        this.apiHandler = new Sensible(apiTarget, apiNet);
+        this.apiHandler = new Sensible(apiTarget, apiNet, serverBase);
         break;
       }
     }

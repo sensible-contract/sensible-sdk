@@ -37,7 +37,7 @@ type SensibleQueryUtxo = {
 };
 export class Sensible implements SensibleApiBase {
   serverBase: string;
-  constructor(apiTarget: API_TARGET, apiNet: API_NET) {
+  constructor(apiTarget: API_TARGET, apiNet: API_NET, serverBase?: string) {
     if (apiTarget == API_TARGET.SENSIBLE) {
       if (apiNet == API_NET.MAIN) {
         this.serverBase = "https://api.sensiblequery.com";
@@ -53,6 +53,9 @@ export class Sensible implements SensibleApiBase {
           "show only support mainnet"
         );
       }
+    }
+    if (serverBase) {
+      this.serverBase = serverBase;
     }
   }
 

@@ -287,6 +287,7 @@ export class SensibleNFT {
     purse,
     debug = false,
     apiTarget = API_TARGET.SENSIBLE,
+    apiUrl,
     mockData,
     dustLimitFactor = 300,
     dustAmount,
@@ -298,6 +299,7 @@ export class SensibleNFT {
     purse?: string;
     debug?: boolean;
     apiTarget?: API_TARGET;
+    apiUrl?: string;
     mockData?: MockData;
     dustLimitFactor?: number;
     dustAmount?: number;
@@ -317,7 +319,7 @@ export class SensibleNFT {
     if (mockData) {
       this.sensibleApi = mockData.sensibleApi;
     } else {
-      this.sensibleApi = new SensibleApi(network, apiTarget);
+      this.sensibleApi = new SensibleApi(network, apiTarget, apiUrl);
     }
 
     this.debug = debug;

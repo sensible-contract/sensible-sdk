@@ -27,7 +27,8 @@ export class Wallet {
     privwif: string,
     network: API_NET = API_NET.MAIN,
     feeb: number,
-    apiTarget: API_TARGET = API_TARGET.SENSIBLE
+    apiTarget: API_TARGET = API_TARGET.SENSIBLE,
+    apiUrl?: string
   ) {
     if (privwif) {
       this.privateKey = new bsv.PrivateKey(privwif, network);
@@ -35,7 +36,7 @@ export class Wallet {
       this.privateKey = bsv.PrivateKey.fromRandom(network);
     }
     this.address = this.privateKey.toAddress(network);
-    this.blockChainApi = new SensibleApi(network, apiTarget);
+    this.blockChainApi = new SensibleApi(network, apiTarget, apiUrl);
     this.feeb = feeb;
     this.network = network;
   }

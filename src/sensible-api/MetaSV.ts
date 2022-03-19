@@ -41,7 +41,7 @@ export class MetaSV implements SensibleApiBase {
   authorization: string;
   privateKey: any;
   publicKey: any;
-  constructor(apiNet: API_NET) {
+  constructor(apiNet: API_NET, serverBase?: string) {
     if (apiNet == API_NET.MAIN) {
       this.serverBase = "https://apiv2.metasv.com";
     } else {
@@ -49,6 +49,9 @@ export class MetaSV implements SensibleApiBase {
         ErrCode.EC_SENSIBLE_API_ERROR,
         "metasv only support mainnet"
       );
+    }
+    if (serverBase) {
+      this.serverBase = serverBase;
     }
   }
 
