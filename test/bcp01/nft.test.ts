@@ -40,8 +40,9 @@ for (let i = 0; i < 4; i++) {
 }
 function signSigHashList(sigHashList: Utils.SigHashInfo[]) {
   let sigList = sigHashList.map(({ sighash, sighashType, address }) => {
-    let privateKey = wallets.find((v) => v.address.toString() == address)
-      .privateKey;
+    let privateKey = wallets.find(
+      (v) => v.address.toString() == address
+    ).privateKey;
     var sig = bsv.crypto.ECDSA.sign(
       Buffer.from(sighash, "hex"),
       privateKey,
@@ -619,7 +620,7 @@ describe("BCP01-NonFungibleToken Test", () => {
     });
   });
 
-  describe("sell2 test ", () => {
+  describe.only("sell2 test ", () => {
     let nft: SensibleNFT;
     let codehash: string;
     let genesis: string;
@@ -731,6 +732,30 @@ describe("BCP01-NonFungibleToken Test", () => {
       });
       expectFeeb(tx, feeb);
       expectNftOwner(nft, codehash, genesis, Alice.address, "0");
+    });
+
+    it.skip("put off nft #0 should be ok", async () => {
+      cleanBsvUtxos();
+      let utxoMaxCount = 3;
+      let estimateFee = await nft.getBuyEstimateFee({
+        codehash,
+        genesis,
+        tokenIndex: "0",
+        buyerWif: Alice.privateKey.toWIF(),
+        utxoMaxCount,
+        opreturnData,
+      });
+      let utxos = await genDummyFeeUtxos(estimateFee, utxoMaxCount);
+      let { unlockCheckTx, tx } = await nft.cancelSell({
+        codehash,
+        genesis,
+        tokenIndex: "0",
+        sellerWif: CoffeeShop.privateKey.toWIF(),
+        utxos,
+        opreturnData,
+      });
+      expectFeeb(tx, feeb);
+      expectNftOwner(nft, codehash, genesis, CoffeeShop.address, "0");
     });
   });
 });

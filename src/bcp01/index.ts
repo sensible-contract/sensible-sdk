@@ -1915,6 +1915,7 @@ export class SensibleNFT {
       utxos: utxoInfo.utxos,
       utxoPrivateKeys: utxoInfo.utxoPrivateKeys,
       changeAddress,
+      sellerPublicKey,
     });
 
     let txHex = txComposer.getRawHex();
@@ -1939,6 +1940,7 @@ export class SensibleNFT {
     utxos,
     utxoPrivateKeys,
     changeAddress,
+    sellerPublicKey,
   }: {
     genesis: string;
     codehash: string;
@@ -1949,6 +1951,7 @@ export class SensibleNFT {
     utxos: Utxo[];
     utxoPrivateKeys: bsv.PrivateKey[];
     changeAddress: bsv.Address;
+    sellerPublicKey: bsv.PublicKey;
   }): Promise<{ txComposer: TxComposer; sellAddress: bsv.Address }> {
     if (utxos.length > 3) {
       throw new CodeError(
@@ -1978,7 +1981,7 @@ export class SensibleNFT {
     }
 
     let nftSellContract = NftSellFactory.createContract(
-      new Ripemd160(toHex(nftUtxo.nftAddress.hashBuffer)),
+      new Ripemd160(toHex(sellerPublicKey.toAddress().hashBuffer)),
       satoshisPrice,
       new Bytes(codehash),
       new Bytes(toHex(nftProto.getNftID(nftUtxo.lockingScript.toBuffer())))
@@ -1987,7 +1990,7 @@ export class SensibleNFT {
       codehash,
       genesis,
       tokenIndex: BN.fromString(tokenIndex, 10),
-      sellerAddress: toHex(nftUtxo.nftAddress.hashBuffer),
+      sellerAddress: toHex(sellerPublicKey.toAddress().hashBuffer),
       satoshisPrice: BN.fromNumber(satoshisPrice),
       nftID: toHex(nftProto.getNftID(nftUtxo.lockingScript.toBuffer())),
     });
