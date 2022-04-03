@@ -140,7 +140,7 @@ export class Wallet {
     return txComposer;
   }
 
-  public async sendOpReturn(opreturnData: any, options?: BroadcastOptions) {
+  public async sendOpReturn(opreturnData: any, options?: BroadcastOptions,receivers?: RECEIVER[]) {
     const txComposer = new TxComposer();
     let utxos = await this.blockChainApi.getUnspents(this.address.toString());
     utxos.forEach((v) => {
@@ -149,6 +149,12 @@ export class Wallet {
         txId: v.txId,
         outputIndex: v.outputIndex,
         satoshis: v.satoshis,
+      });
+    });
+    receivers.forEach((v) => {
+      txComposer.appendP2PKHOutput({
+        address: new bsv.Address(v.address, this.network),
+        satoshis: v.amount,
       });
     });
     txComposer.appendOpReturnOutput(opreturnData);
