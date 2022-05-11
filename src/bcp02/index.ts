@@ -1863,9 +1863,10 @@ export class SensibleFT {
       ),
     });
 
-    let changeOutputIndex =
-      transferCheckTxComposer.appendChangeOutput(middleChangeAddress);
-
+    let changeOutputIndex = transferCheckTxComposer.appendChangeOutput(
+      middleChangeAddress,
+      this.feeb
+    );
     let unsignSigPlaceHolderSize = 0;
     if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
       transferCheck_p2pkhInputIndexs.forEach((inputIndex) => {

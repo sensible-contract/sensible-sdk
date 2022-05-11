@@ -2278,8 +2278,10 @@ export class SensibleNFT {
       ),
     });
 
-    let changeOutputIndex =
-      unlockCheckTxComposer.appendChangeOutput(middleChangeAddress);
+    let changeOutputIndex = unlockCheckTxComposer.appendChangeOutput(
+      middleChangeAddress,
+      this.feeb
+    );
 
     if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
       unlockCheck_p2pkhInputIndexs.forEach((inputIndex) => {
@@ -2742,8 +2744,10 @@ export class SensibleNFT {
       ),
     });
 
-    let changeOutputIndex =
-      unlockCheckTxComposer.appendChangeOutput(middleChangeAddress);
+    let changeOutputIndex = unlockCheckTxComposer.appendChangeOutput(
+      middleChangeAddress,
+      this.feeb
+    );
 
     if (utxoPrivateKeys && utxoPrivateKeys.length > 0) {
       unlockCheck_p2pkhInputIndexs.forEach((inputIndex) => {

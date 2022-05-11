@@ -101,7 +101,7 @@ export class SizeTransaction {
         fee += this.dustCalculator.getDustThreshold(output.size);
       }
     });
-
+    if (fee < 0) return 0;
     return Math.ceil(fee);
   }
 }
