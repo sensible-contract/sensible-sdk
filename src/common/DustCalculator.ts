@@ -1,4 +1,3 @@
-import * as Utils from "./utils";
 export class DustCalculator {
   dustLimitFactor: number;
   dustAmount: number = null;
@@ -8,12 +7,13 @@ export class DustCalculator {
   }
 
   getDustThreshold(s: number) {
-    if (!Utils.isNull(this.dustAmount)) {
-      return this.dustAmount;
-    } else {
-      return Math.ceil(
-        (Math.ceil((250 * (s + 9 + 148)) / 1000) * this.dustLimitFactor) / 100
-      );
-    }
+    return 1;
+    // if (!Utils.isNull(this.dustAmount)) {
+    //   return this.dustAmount;
+    // } else {
+    //   return Math.ceil(
+    //     (Math.ceil((250 * (s + 9 + 148)) / 1000) * this.dustLimitFactor) / 100
+    //   );
+    // }
   }
 }

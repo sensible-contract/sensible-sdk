@@ -3,7 +3,8 @@ import * as bsv from "../bsv";
 import * as TokenUtil from "./tokenUtil";
 
 export function getDustThreshold(lockingScriptSize: number) {
-  return 3 * Math.ceil((250 * (lockingScriptSize + 9 + 148)) / 1000);
+  return 1;
+  // return 3 * Math.ceil((250 * (lockingScriptSize + 9 + 148)) / 1000);
 }
 
 export function isNull(val: any) {

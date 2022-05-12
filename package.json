@@ -1,6 +1,6 @@
 {
   "name": "sensible-sdk",
-  "version": "7.3.9-beta.1",
+  "version": "7.4.0-beta.4",
   "description": "Sensible-SDK",
   "main": "dist/index.js",
   "browser": "dist/sensible.browser.min.js",

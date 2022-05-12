@@ -297,7 +297,7 @@ export class SensibleFT {
   constructor({
     signers = defaultSignerConfigs,
     signerSelecteds,
-    feeb = 0.5,
+    feeb = 0.05,
     network = API_NET.MAIN,
     purse,
     debug = false,

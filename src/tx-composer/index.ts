@@ -4,7 +4,7 @@ import { getPreimage, signTx, toHex } from "../scryptlib";
 const Signature = bsv.crypto.Signature;
 export const sighashType = Signature.SIGHASH_ALL | Signature.SIGHASH_FORKID;
 const P2PKH_UNLOCK_SIZE = 1 + 1 + 71 + 1 + 33;
-const P2PKH_DUST_AMOUNT = 135;
+const P2PKH_DUST_AMOUNT = 1;
 export class TxComposer {
   tx: bsv.Transaction;
   sigHashList: SigHashInfo[] = [];
@@ -140,7 +140,7 @@ export class TxComposer {
       this.changeOutputIndex = 0;
     }
   }
-  appendChangeOutput(changeAddress: bsv.Address, feeb = 0.5, extraSize = 0) {
+  appendChangeOutput(changeAddress: bsv.Address, feeb = 0.05, extraSize = 0) {
     //Calculate the fee and determine whether to change
     //If there is change, it will be output in the last item
     const unlockSize =

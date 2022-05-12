@@ -9,7 +9,7 @@ async function sleep(time) {
 async function main() {
   const network = "mainnet";
   const feeWif = "L4xJ6bLRZ3QXEXZbSbYqQ3nWrMcNdnMPYykyRKjngvEvE3TzmyVp";
-  const feeb = 0.5;
+  const feeb = 0.05;
   const CoffeeShop = {
     wif: "L1Ljq1wKir7oJsTzHRq437JdDkmY9v8exFwm2jzytq7EdzunS71Q",
     address:

@@ -139,7 +139,7 @@ describe("BCP01-NonFungibleToken Test", () => {
     let genesis: string;
     let sensibleId: string;
     before(async () => {
-      const feeb = 0.5;
+      const feeb = 0.05;
       const network = API_NET.MAIN;
       nft = new SensibleNFT({
         signers: [],
@@ -221,7 +221,7 @@ describe("BCP01-NonFungibleToken Test", () => {
     let genesis: string;
     let sensibleId: string;
     before(async () => {
-      const feeb = 0.5;
+      const feeb = 0.05;
       const network = API_NET.MAIN;
       nft = new SensibleNFT({
         signers: [],
@@ -287,7 +287,7 @@ describe("BCP01-NonFungibleToken Test", () => {
     let genesis: string;
     let sensibleId: string;
     before(async () => {
-      const feeb = 0.5;
+      const feeb = 0.05;
       const network = API_NET.MAIN;
       nft = new SensibleNFT({
         signers: [],
@@ -378,7 +378,7 @@ describe("BCP01-NonFungibleToken Test", () => {
     let genesis: string;
     let sensibleId: string;
     before(async () => {
-      const feeb = 0.5;
+      const feeb = 0.05;
       const network = API_NET.MAIN;
       nft = new SensibleNFT({
         signers: [],
@@ -444,7 +444,7 @@ describe("BCP01-NonFungibleToken Test", () => {
     let sensibleId: string;
     let g_sellTx: bsv.Transaction;
     let network: API_NET = API_NET.MAIN;
-    let feeb: number = 0.5;
+    let feeb: number = 0.05;
     let opreturnData = "dummy_opreturn_data";
     before(async () => {
       nft = new SensibleNFT({
@@ -627,7 +627,7 @@ describe("BCP01-NonFungibleToken Test", () => {
     let sensibleId: string;
     let g_sellTx: bsv.Transaction;
     let network: API_NET = API_NET.MAIN;
-    let feeb: number = 0.5;
+    let feeb: number = 0.05;
     let opreturnData = "dummy_opreturn_data";
     before(async () => {
       nft = new SensibleNFT({

@@ -8,7 +8,7 @@ import { SatotxSigner, SignerConfig } from "../common/SatotxSigner";
 import {
   getRabinData,
   getRabinDatas,
-  selectSigners,
+  selectSigners
 } from "../common/satotxSignerUtil";
 import { SizeTransaction } from "../common/SizeTransaction";
 import * as TokenUtil from "../common/tokenUtil";
@@ -18,14 +18,14 @@ import {
   PLACE_HOLDER_PUBKEY,
   PLACE_HOLDER_SIG,
   SigHashInfo,
-  SigInfo,
+  SigInfo
 } from "../common/utils";
 import {
   API_NET,
   API_TARGET,
   NonFungibleTokenUnspent,
   SensibleApi,
-  SensibleApiBase,
+  SensibleApiBase
 } from "../sensible-api";
 import { TxComposer } from "../tx-composer";
 import { NftFactory } from "./contract-factory/nft";
@@ -33,7 +33,7 @@ import { NftGenesisFactory } from "./contract-factory/nftGenesis";
 import { NftSellFactory, NFT_SELL_OP } from "./contract-factory/nftSell";
 import {
   NftUnlockContractCheckFactory,
-  NFT_UNLOCK_CONTRACT_TYPE,
+  NFT_UNLOCK_CONTRACT_TYPE
 } from "./contract-factory/nftUnlockContractCheck";
 import * as nftProto from "./contract-proto/nft.proto";
 import { SIGNER_VERIFY_NUM } from "./contract-proto/nft.proto";
@@ -282,7 +282,7 @@ export class SensibleNFT {
   constructor({
     signers = defaultSignerConfigs,
     signerSelecteds,
-    feeb = 0.5,
+    feeb = 0.05,
     network = API_NET.MAIN,
     purse,
     debug = false,

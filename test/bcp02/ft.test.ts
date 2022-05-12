@@ -48,8 +48,9 @@ let [FeePayer, CoffeeShop, Alice, Bob] = wallets;
 
 function signSigHashList(sigHashList: Utils.SigHashInfo[]) {
   let sigList = sigHashList.map(({ sighash, sighashType, address }) => {
-    let privateKey = wallets.find((v) => v.address.toString() == address)
-      .privateKey;
+    let privateKey = wallets.find(
+      (v) => v.address.toString() == address
+    ).privateKey;
     var sig = bsv.crypto.ECDSA.sign(
       Buffer.from(sighash, "hex"),
       privateKey,
@@ -176,7 +177,7 @@ describe("BCP02-FungibleToken Test", () => {
     let genesis: string;
     let sensibleId: string;
     before(async () => {
-      const feeb = 0.5;
+      const feeb = 0.05;
       const network = API_NET.MAIN;
       ft = new SensibleFT({
         signerSelecteds,
@@ -253,7 +254,7 @@ describe("BCP02-FungibleToken Test", () => {
     let feeb: number;
     const opreturnData = "";
     before(async () => {
-      feeb = 0.5;
+      feeb = 0.05;
       const network = API_NET.MAIN;
       ft = new SensibleFT({
         signerSelecteds,
@@ -329,22 +330,19 @@ describe("BCP02-FungibleToken Test", () => {
         utxoMaxCount: 3,
       });
       let utxos = await genDummyFeeUtxosWithoutWif(estimateFee);
-      let {
-        routeCheckTx,
-        routeCheckSigHashList,
-        unsignTxRaw,
-      } = await ft.unsignPreTransfer({
-        codehash,
-        genesis,
-        senderPublicKey: CoffeeShop.publicKey,
-        receivers: [
-          { address: Alice.address.toString(), amount: "100" },
-          { address: Alice.address.toString(), amount: "100" },
-          { address: Alice.address.toString(), amount: "100" },
-          { address: Alice.address.toString(), amount: "100" },
-        ],
-        utxos,
-      });
+      let { routeCheckTx, routeCheckSigHashList, unsignTxRaw } =
+        await ft.unsignPreTransfer({
+          codehash,
+          genesis,
+          senderPublicKey: CoffeeShop.publicKey,
+          receivers: [
+            { address: Alice.address.toString(), amount: "100" },
+            { address: Alice.address.toString(), amount: "100" },
+            { address: Alice.address.toString(), amount: "100" },
+            { address: Alice.address.toString(), amount: "100" },
+          ],
+          utxos,
+        });
 
       ft.sign(
         routeCheckTx,
@@ -374,16 +372,13 @@ describe("BCP02-FungibleToken Test", () => {
         opreturnData,
       });
       let utxos = await genDummyFeeUtxosWithoutWif(estimateFee);
-      let {
-        routeCheckTx,
-        routeCheckSigHashList,
-        unsignTxRaw,
-      } = await ft.unsignPreMerge({
-        codehash,
-        genesis,
-        ownerPublicKey: CoffeeShop.publicKey,
-        utxos,
-      });
+      let { routeCheckTx, routeCheckSigHashList, unsignTxRaw } =
+        await ft.unsignPreMerge({
+          codehash,
+          genesis,
+          ownerPublicKey: CoffeeShop.publicKey,
+          utxos,
+        });
       ft.sign(
         routeCheckTx,
         routeCheckSigHashList,
@@ -406,7 +401,7 @@ describe("BCP02-FungibleToken Test", () => {
     let feeb: number;
     const opreturnData = Buffer.alloc(5000, "CoffeeCoin").toString();
     before(async () => {
-      feeb = 0.5;
+      feeb = 0.05;
       const network = API_NET.MAIN;
       ft = new SensibleFT({
         signerSelecteds,
@@ -575,7 +570,7 @@ describe("BCP02-FungibleToken Test", () => {
     let genesis: string;
     let sensibleId: string;
     before(async () => {
-      const feeb = 0.5;
+      const feeb = 0.05;
       const network = API_NET.MAIN;
       ft = new SensibleFT({
         signerSelecteds,
