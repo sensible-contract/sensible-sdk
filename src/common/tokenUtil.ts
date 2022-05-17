@@ -69,8 +69,8 @@ export let getLockingScriptFromPreimage = function (buf: Buffer) {
   buf = buf.slice(1, buf.length);
   let lockingScriptBuf;
   if (n < 0xfd) {
-    let len = buf.slice(0, 1).readInt8(0);
-    lockingScriptBuf = buf.slice(1, len + 1);
+    let len = n;
+    lockingScriptBuf = buf.slice(0, len);
   } else if (n < 0x10000) {
     let len = buf.slice(0, 2).readInt16LE(0);
     lockingScriptBuf = buf.slice(2, len + 2);
