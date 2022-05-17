@@ -71,15 +71,15 @@ export let getLockingScriptFromPreimage = function (buf: Buffer) {
   if (n < 0xfd) {
     let len = n;
     lockingScriptBuf = buf.slice(0, len);
-  } else if (n < 0x10000) {
+  } else if (n == 0xfd) {
     let len = buf.slice(0, 2).readInt16LE(0);
     lockingScriptBuf = buf.slice(2, len + 2);
-  } else if (n < 0x100000000) {
-    let len = buf.slice(0, 3).readInt32LE(0);
-    lockingScriptBuf = buf.slice(3, len + 3);
-  } else if (n < 0x10000000000000000) {
+  } else if (n == 0xfe) {
     let len = buf.slice(0, 4).readInt32LE(0);
     lockingScriptBuf = buf.slice(4, len + 4);
+  } else if (n == 0xff) {
+    let len = Number(buf.slice(0, 8).readBigUInt64LE(0));
+    lockingScriptBuf = buf.slice(8, len + 8);
   }
   return lockingScriptBuf;
 };
