@@ -1631,6 +1631,15 @@ export class SensibleNFT {
       sellerPrivateKey as bsv.PrivateKey,
       sellerPublicKey as bsv.PublicKey
     );
+    if (
+      nftInfo.nftUtxo.nftAddress.toString() !=
+      sellerPublicKey.toAddress(this.network).toString()
+    ) {
+      throw new CodeError(
+        ErrCode.EC_INVALID_ARGUMENT,
+        "nft seller should be nft owner!"
+      );
+    }
 
     let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
@@ -1898,6 +1907,15 @@ export class SensibleNFT {
       sellerPrivateKey as bsv.PrivateKey,
       sellerPublicKey as bsv.PublicKey
     );
+    if (
+      nftInfo.nftUtxo.nftAddress.toString() !=
+      sellerPublicKey.toAddress(this.network).toString()
+    ) {
+      throw new CodeError(
+        ErrCode.EC_INVALID_ARGUMENT,
+        "nft seller should be nft owner!"
+      );
+    }
 
     let utxoInfo = await this._pretreatUtxos(utxos);
     if (changeAddress) {
