@@ -30,7 +30,7 @@
   "license": "MIT",
   "dependencies": {
     "bsv": "1.5.6",
-    "minimist": "1.2.5",
+    "minimist": "1.2.6",
     "request": "^2.88.2",
     "scryptlib": "^0.4.6"
   },
