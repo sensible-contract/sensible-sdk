@@ -1,6 +1,6 @@
 {
   "name": "sensible-sdk",
-  "version": "7.4.0",
+  "version": "7.5.0",
   "description": "Sensible-SDK",
   "main": "dist/index.js",
   "browser": "dist/sensible.browser.min.js",
@@ -37,7 +37,7 @@
   "devDependencies": {
     "@types/chai": "^4.2.20",
     "@types/mocha": "^8.2.2",
-    "@types/node": "^17.0.0",
+    "@types/node": "^17.0.45",
     "browserify": "^17.0.0",
     "buffer": "^6.0.3",
     "chai": "^4.3.4",

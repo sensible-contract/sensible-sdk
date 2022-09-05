@@ -37,12 +37,13 @@ type SensibleQueryUtxo = {
 };
 export class Sensible implements SensibleApiBase {
   serverBase: string;
+  authorization: string;
   constructor(apiTarget: API_TARGET, apiNet: API_NET, serverBase?: string) {
     if (apiTarget == API_TARGET.SENSIBLE) {
       if (apiNet == API_NET.MAIN) {
-        this.serverBase = "https://api.sensiblequery.com";
+        this.serverBase = "https://api-v2.sensiblequery.com";
       } else {
-        this.serverBase = "https://api.sensiblequery.com/test";
+        this.serverBase = "https://api-v2.sensiblequery.com/test";
       }
     } else if (apiTarget == API_TARGET.SHOW) {
       if (apiNet == API_NET.MAIN) {
@@ -59,7 +60,30 @@ export class Sensible implements SensibleApiBase {
     }
   }
 
-  public authorize(options: AuthorizationOption) {}
+  public authorize(options: AuthorizationOption) {
+    const { authorization } = options;
+
+    if (authorization) {
+      if (authorization.indexOf("Bearer") != 0) {
+        this.authorization = `Bearer ${authorization}`;
+      } else {
+        this.authorization = authorization;
+      }
+    } else {
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        "only support authorization"
+      );
+    }
+  }
+
+  private _getHeaders() {
+    let headers = {};
+    if (this.authorization) {
+      headers = { authorization: this.authorization };
+    }
+    return headers;
+  }
   /**
    * @param {string} address
    */
@@ -72,7 +96,13 @@ export class Sensible implements SensibleApiBase {
     }[]
   > {
     let url = `${this.serverBase}/address/${address}/utxo?size=100`;
-    let _res = await Net.httpGet(url, {});
+    let _res = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(),
+      }
+    );
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw new CodeError(
@@ -92,32 +122,25 @@ export class Sensible implements SensibleApiBase {
   /**
    * @param {string} hex
    */
-  public async broadcast(
-    txHex: string,
-    apiTarget: string = "sensible"
-  ): Promise<string> {
-    if (apiTarget == "metasv") {
-      let _res: any = await Net.httpPost(
-        "https://apiv2.metasv.com/tx/broadcast",
-        {
-          hex: txHex,
-        }
-      );
-      return _res.txid;
-    } else {
-      let url = `${this.serverBase}/pushtx`;
-      let _res = await Net.httpPost(url, {
+  public async broadcast(txHex: string): Promise<string> {
+    let url = `${this.serverBase}/pushtx`;
+    let _res = await Net.httpPost(
+      url,
+      {
         txHex,
-      });
-      const { code, data, msg } = _res as ResData;
-      if (code != 0) {
-        throw new CodeError(
-          ErrCode.EC_SENSIBLE_API_ERROR,
-          `request api failed. [url]:${url} [msg]:${msg}`
-        );
+      },
+      {
+        headers: this._getHeaders(),
       }
-      return data;
+    );
+    const { code, data, msg } = _res as ResData;
+    if (code != 0) {
+      throw new CodeError(
+        ErrCode.EC_SENSIBLE_API_ERROR,
+        `request api failed. [url]:${url} [msg]:${msg}`
+      );
     }
+    return data;
   }
 
   /**
@@ -125,7 +148,13 @@ export class Sensible implements SensibleApiBase {
    */
   public async getRawTxData(txid: string): Promise<string> {
     let url = `${this.serverBase}/rawtx/${txid}`;
-    let _res = await Net.httpGet(url, {});
+    let _res = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(),
+      }
+    );
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw new CodeError(
@@ -149,7 +178,13 @@ export class Sensible implements SensibleApiBase {
     size: number = 20
   ): Promise<FungibleTokenUnspent[]> {
     let url = `${this.serverBase}/ft/utxo/${codehash}/${genesis}/${address}?size=${size}`;
-    let _res = await Net.httpGet(url, {});
+    let _res = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(),
+      }
+    );
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw new CodeError(
@@ -176,7 +211,13 @@ export class Sensible implements SensibleApiBase {
     address: string
   ): Promise<FungibleTokenBalance> {
     let url = `${this.serverBase}/ft/balance/${codehash}/${genesis}/${address}`;
-    let _res = await Net.httpGet(url, {});
+    let _res = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(),
+      }
+    );
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw new CodeError(
@@ -206,7 +247,13 @@ export class Sensible implements SensibleApiBase {
     size: number = 100
   ): Promise<NonFungibleTokenUnspent[]> {
     let url = `${this.serverBase}/nft/utxo/${codehash}/${genesis}/${address}?cursor=${cursor}&size=${size}`;
-    let _res = await Net.httpGet(url, {});
+    let _res = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(),
+      }
+    );
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw new CodeError(
@@ -236,7 +283,13 @@ export class Sensible implements SensibleApiBase {
     tokenIndex: string
   ) {
     let url = `${this.serverBase}/nft/utxo-detail/${codehash}/${genesis}/${tokenIndex}`;
-    let _res = await Net.httpGet(url, {});
+    let _res = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(),
+      }
+    );
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw new CodeError(
@@ -263,7 +316,13 @@ export class Sensible implements SensibleApiBase {
     address: string
   ): Promise<FungibleTokenSummary[]> {
     let url = `${this.serverBase}/ft/summary/${address}`;
-    let _res = await Net.httpGet(url, {});
+    let _res = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(),
+      }
+    );
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw new CodeError(
@@ -295,7 +354,13 @@ export class Sensible implements SensibleApiBase {
     address: string
   ): Promise<NonFungibleTokenSummary[]> {
     let url = `${this.serverBase}/nft/summary/${address}`;
-    let _res = await Net.httpGet(url, {});
+    let _res = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(),
+      }
+    );
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw new CodeError(
@@ -325,7 +390,13 @@ export class Sensible implements SensibleApiBase {
 
   public async getBalance(address: string) {
     let url = `${this.serverBase}/address/${address}/balance`;
-    let _res = await Net.httpGet(url, {});
+    let _res = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(),
+      }
+    );
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw new CodeError(
@@ -345,7 +416,13 @@ export class Sensible implements SensibleApiBase {
     tokenIndex: string
   ) {
     let url = `${this.serverBase}/nft/sell/utxo-detail/${codehash}/${genesis}/${tokenIndex}?isReadyOnly=true`;
-    let _res = await Net.httpGet(url, {});
+    let _res = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(),
+      }
+    );
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw new CodeError(
@@ -375,7 +452,13 @@ export class Sensible implements SensibleApiBase {
     size: number = 20
   ) {
     let url = `${this.serverBase}/nft/sell/utxo/${codehash}/${genesis}?cursor=${cursor}&size=${size}`;
-    let _res = await Net.httpGet(url, {});
+    let _res = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(),
+      }
+    );
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw new CodeError(
@@ -402,7 +485,13 @@ export class Sensible implements SensibleApiBase {
     size: number = 20
   ) {
     let url = `${this.serverBase}/nft/sell/utxo-by-address/${address}?cursor=${cursor}&size=${size}`;
-    let _res = await Net.httpGet(url, {});
+    let _res = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(),
+      }
+    );
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       throw new CodeError(
@@ -425,7 +514,13 @@ export class Sensible implements SensibleApiBase {
 
   public async getOutpointSpent(txId: string, index: number) {
     let url = `${this.serverBase}/tx/${txId}/out/${index}/spent`;
-    let _res = await Net.httpGet(url, {});
+    let _res = await Net.httpGet(
+      url,
+      {},
+      {
+        headers: this._getHeaders(),
+      }
+    );
     const { code, data, msg } = _res as ResData;
     if (code != 0) {
       return null;

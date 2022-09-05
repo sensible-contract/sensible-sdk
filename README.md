@@ -24,8 +24,15 @@ const ft = new SensibleFT({
   feeb: 0.5,
   signers,
   signerSelecteds,
+  //apiUrl: "Your sensible url"
+});
+ft.sensibleApi.authorize({
+  authorization:
+    "Your Api Key",
 });
 ```
+Since 2022-11-01, the request of Sensible Query needs to be authenticated
+If you don't want to use Sensible Query API, you can use your own service, which can be specified through apiurl.
 
 ### Genesis
 
